@@ -59,10 +59,10 @@ type ExpressionData struct {
 	Index  ExpressionDataIndex
 }
 
-type MutationsReq struct {
-	Assembly string        `json:"assembly"`
-	Location *dna.Location `json:"location"`
-	Samples  []string      `json:"samples"`
+type Gene struct {
+	Id         int    `json:"id"`
+	GeneId     string `json:"geneId"`
+	GeneSymbol string `json:"geneSymbol"`
 }
 
 type Dataset struct {
@@ -105,59 +105,29 @@ type RNASeqGex struct {
 	VST     float32 `json:"vst"`
 }
 
-func (mutation *Mutation) Clone() *Mutation {
-	var ret Mutation = Mutation{Chr: mutation.Chr,
-		Start:  mutation.Start,
-		End:    mutation.End,
-		Ref:    mutation.Ref,
-		Tum:    mutation.Tum,
-		Alt:    mutation.Alt,
-		Depth:  mutation.Depth,
-		Type:   mutation.Type,
-		Vaf:    mutation.Vaf,
-		Sample: mutation.Sample,
-	}
-
-	return &ret
+type MicroarrayGex struct {
+	Dataset int     `json:"dataset"`
+	Sample  int     `json:"sample"`
+	Gene    int     `json:"gene"`
+	RMA     float32 `json:"vst"`
 }
 
-type DatasetResults struct {
-	Dataset string `json:"dataset"`
+type RNASeqSampleResult struct {
+	Sample *Sample `json:"sample"`
 
-	Mutations []*Mutation `json:"mutations"`
+	Gex *RNASeqGex `json:"gex"`
 }
 
-type PileupResults struct {
-	Location *dna.Location `json:"location"`
-	Datasets []string      `json:"datasets"`
-	//Samples   uint                  `json:"samples"`
-	Pileup [][]*Mutation `json:"pileup"`
+type RNASeqDatasetResult struct {
+	Dataset *Dataset `json:"dataset"`
+
+	Samples []*RNASeqSampleResult `json:"samples"`
 }
 
-type SearchResults struct {
-	Location *dna.Location `json:"location"`
-	//Info           []*Info           `json:"info"`
-	DatasetResults []*DatasetResults `json:"results"`
+type RNASeqGeneResults struct {
+	Gene     *Gene                  `json:"gene"`
+	Datasets []*RNASeqDatasetResult `json:"datasets"`
 }
-
-// func MutationDBKey(assembly string, name string) string {
-// 	return fmt.Sprintf("%s:%s", assembly, name)
-// }
-
-// func NewMutationDBMetaData(assembly string, name string) *MutationDBMetadata {
-
-// 	return &MutationDBMetadata{
-// 		Id:          MutationDBKey(assembly, name),
-// 		Assembly:    assembly,
-// 		Name:        name,
-// 		Description: "",
-// 	}
-// }
-
-// type Dataset struct {
-// 	Info    *Info     `json:"info"`
-// 	Samples []*Sample `json:"samples"`
-// }
 
 func NewDataset(file string) (*Dataset, error) {
 	//file := path.Join(dir, "mutations.db")
