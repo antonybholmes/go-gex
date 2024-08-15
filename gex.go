@@ -3,18 +3,30 @@ package gex
 import (
 	"database/sql"
 	"fmt"
-	"os"
 	"path/filepath"
-	"sort"
-	"strings"
 
-	"github.com/antonybholmes/go-dna"
 	"github.com/rs/zerolog/log"
 )
 
 const GENES_SQL = "SELECT genes.id, genes.gene_id, genes.gene_symbol FROM genes ORDER BY genes.gene_symbol"
 
-const DATASETS_SQL = "SELECT datasets.id, datasets.name, datasets.institution FROM datasets ORDER BY datasets.name"
+const GENE_SQL = `SELECT 
+	genes.id, 
+	genes.gene_id, 
+	genes.gene_symbol 
+	FROM genes
+	WHERE genes.gene_id LIKE ?1 OR genes.gene_symbol LIKE ?1 
+	LIMIT 1`
+
+const GEX_TYPES_SQL = "SELECT gex_types.id, gex_types.name FROM gex_types ORDER BY gex_types.name"
+
+const DATASETS_SQL = `SELECT 
+	datasets.id, 
+	datasets.name, 
+	datasets.institution 
+	FROM datasets 
+	WHERE datasets.gex_type_id = ?1
+	ORDER BY datasets.name`
 
 // const DATASETS_SQL = `SELECT
 // 	name
@@ -22,79 +34,51 @@ const DATASETS_SQL = "SELECT datasets.id, datasets.name, datasets.institution FR
 // 	ORDER BY datasets.name`
 
 const SAMPLES_SQL = `SELECT
-	uuid,
-	name, 
-	coo, 
-	lymphgen, 
-	paired_normal_dna, 
-	institution, 
-	sample_type
-	FROM samples 
+	samples.id,
+	samples.name, 
+	samples.coo, 
+	samples.lymphgen
+	FROM samples
+	WHERE samples.dataset_id = ?1
 	ORDER BY samples.name`
 
-const FIND_MUTATIONS_SQL = `SELECT 
-	chr, 
-	start, 
-	end, 
-	ref, 
-	tum, 
-	t_alt_count, 
-	t_depth, 
-	variant_type,
-	vaf,
-	sample_uuid
-	FROM mutations 
-	WHERE chr = ?1 AND start >= ?2 AND end <= ?3 
-	ORDER BY chr, start, end, variant_type`
+const RNA_SQL = `SELECT 
+	rna_seq.sample_id,
+	rna_seq.counts,
+	rna_seq.tpm,
+	rna_seq.vst
+	FROM rna_seq 
+	WHERE rna_seq.gene_id = ?1 AND rna_seq.dataset_id = ?2`
 
-type ExpressionDataIndex struct {
-	ProbeIds    []string
-	EntrezIds   []string
-	GeneSymbols []string
-}
-
-type ExpressionData struct {
-	Exp    [][]float64
-	Header []string
-	Index  ExpressionDataIndex
-}
-
-type Gene struct {
+type GexGene struct {
 	Id         int    `json:"id"`
 	GeneId     string `json:"geneId"`
 	GeneSymbol string `json:"geneSymbol"`
 }
 
-type Dataset struct {
-	Id int `json:"id"`
+type GexType struct {
+	Id   int    `json:"id"`
+	Name string `json:"name"`
+}
 
-	Name        string    `json:"name"`
-	Assembly    string    `json:"assembly"`
-	Description string    `json:"description"`
-	Samples     []*Sample `json:"samples"`
+type Sample struct {
+	Id       int    `json:"id"`
+	Name     string `json:"name"`
+	COO      string `json:"coo"`
+	Lymphgen string `json:"lymphgen"`
+	//Dataset  int    `json:"dataset"`
+}
+
+type Dataset struct {
+	Id          int    `json:"id"`
+	Name        string `json:"name"`
+	Institution string `json:"institution"`
+	//GexType     *GexType  `json:"gexType"`
+	Samples []*Sample `json:"samples"`
 
 	//db                *sql.DB
 	//findMutationsStmt *sql.Stmt
 }
-
-type Sample struct {
-	Id      string `json:"id"`
-	Name    string `json:"name"`
-	Dataset int    `json:"dataset"`
-}
-
-// type MutationDBInfo struct {
-// 	//Metadata *MutationDBMetadata `json:"metadata"`
-// 	//Datasets []*MutationDBDataSet `json:"datasets"`
-// 	Id          string `json:"id"`
-// 	Uuid        string `json:"uuid"`
-// 	PublicId    string `json:"publicId"`
-// 	Name        string `json:"name"`
-// 	Assembly    string `json:"assembly"`
-// 	Description string `json:"description"`
-
-// 	Samples []*MutationDBSample `json:"samples"`
-// }
 
 type RNASeqGex struct {
 	Dataset int     `json:"dataset"`
@@ -112,428 +96,261 @@ type MicroarrayGex struct {
 	RMA     float32 `json:"vst"`
 }
 
-type RNASeqSampleResult struct {
-	Sample *Sample `json:"sample"`
-
-	Gex *RNASeqGex `json:"gex"`
+type RNASeqSampleResults struct {
+	//Dataset int     `json:"dataset"`
+	Sample int `json:"sample"`
+	//Gene    int     `json:"gene"`
+	Counts int     `json:"counts"`
+	TPM    float32 `json:"tpm"`
+	VST    float32 `json:"vst"`
 }
 
-type RNASeqDatasetResult struct {
-	Dataset *Dataset `json:"dataset"`
+type RNASeqDatasetResults struct {
+	Dataset int `json:"dataset"`
 
-	Samples []*RNASeqSampleResult `json:"samples"`
+	Samples []*RNASeqSampleResults `json:"samples"`
 }
 
 type RNASeqGeneResults struct {
-	Gene     *Gene                  `json:"gene"`
-	Datasets []*RNASeqDatasetResult `json:"datasets"`
-}
-
-func NewDataset(file string) (*Dataset, error) {
-	//file := path.Join(dir, "mutations.db")
-	db, err := sql.Open("sqlite3", file)
-
-	if err != nil {
-		log.Fatal().Msgf("%s", err)
-	}
-
-	defer db.Close()
-
-	dataset := &Dataset{
-		File:    file,
-		Samples: make([]*Sample, 0, 100),
-	}
-
-	err = db.QueryRow(GENES_SQL).Scan(&dataset.Uuid,
-		&dataset.PublicId,
-		&dataset.Name,
-		&dataset.Description,
-		&dataset.Assembly)
-
-	if err != nil {
-		log.Fatal().Msgf("info %s", err)
-	}
-
-	//mutationDB.Id = MutationDBKey(mutationDB.Assembly, mutationDB.PublicId)
-
-	// datasetRows, err := db.Query(DATASETS_SQL)
-
-	// if err != nil {
-	// 	log.Fatal().Msgf("%s", err)
-	// }
-
-	// defer datasetRows.Close()
-
-	// datasets := []*MutationDBDataSet{}
-
-	// for datasetRows.Next() {
-	// 	var dataset MutationDBDataSet
-
-	// 	err := datasetRows.Scan(
-	// 		&dataset.Name)
-
-	// 	if err != nil {
-	// 		log.Fatal().Msgf("%s", err)
-	// 	}
-
-	// 	datasets = append(datasets, &dataset)
-	// }
-
-	sampleRows, err := db.Query(SAMPLES_SQL)
-
-	if err != nil {
-		log.Fatal().Msgf("%s", err)
-	}
-
-	defer sampleRows.Close()
-
-	for sampleRows.Next() {
-		var sample Sample
-
-		err := sampleRows.Scan(
-			&sample.Uuid,
-			&sample.Name,
-			&sample.COO,
-			&sample.Lymphgen,
-			&sample.PairedNormalDna,
-			&sample.Institution,
-			&sample.SampleType)
-
-		sample.Dataset = dataset.Uuid
-
-		if err != nil {
-			log.Fatal().Msgf("%s", err)
-		}
-
-		dataset.Samples = append(dataset.Samples, &sample)
-	}
-
-	// info := &MutationDBInfo{
-	// 	Metadata: metadata,
-	// 	//Datasets: datasets,
-	// 	Samples: samples,
-	// }
-
-	return dataset, nil
-}
-
-// func (mutationsdb *MutationsDB) AllMutationSets() (*[]MutationSet, error) {
-
-// 	rows, err := mutationsdb.AllMutationSetsStmt.Query()
-
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	mutationSets := []MutationSet{}
-
-// 	defer rows.Close()
-
-// 	for rows.Next() {
-// 		var mutationSet MutationSet
-// 		err := rows.Scan(&mutationSet.Uuid, &mutationSet.Name)
-
-// 		if err != nil {
-// 			fmt.Println(err)
-// 		}
-
-// 		mutationSets = append(mutationSets, mutationSet)
-// 	}
-
-// 	return &mutationSets, nil
-// }
-
-func (dataset *Dataset) Search(location *dna.Location) (*DatasetResults, error) {
-
-	db, err := sql.Open("sqlite3", dataset.File) //not clear on what is needed for the user and password
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer db.Close()
-
-	rows, err := db.Query(FIND_MUTATIONS_SQL, location.Chr, location.Start, location.End)
-
-	if err != nil {
-		return nil, err
-	}
-
-	mutations, err := rowsToMutations(rows)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &DatasetResults{Dataset: dataset.Uuid, Mutations: mutations}, nil
-}
-
-func GetPileup(search *SearchResults) (*PileupResults, error) {
-	// first lets fix deletions and insertions
-	for _, datasetResults := range search.DatasetResults {
-		for _, mutation := range datasetResults.Mutations {
-			// change for sorting purposes so that ins always comes last
-			switch mutation.Type {
-			case "INS":
-				mutation.Type = "2:INS"
-				// modify the output so that is begins with a caret to indicate
-				// an insertion
-				mutation.Tum = fmt.Sprintf("^%s", mutation.Tum)
-			case "DEL":
-				mutation.Type = "3:DEL"
-			default:
-				mutation.Type = "1:SNP"
-			}
-		}
-	}
-
-	// put together by position, type, tum
-
-	pileupMap := make(map[uint]map[string]map[string][]*Mutation)
-
-	for _, datasetResults := range search.DatasetResults {
-		for _, mutation := range datasetResults.Mutations {
-
-			mutation.Dataset = datasetResults.Dataset
-
-			switch mutation.Type {
-			case "3:DEL":
-				for i := range mutation.End - mutation.Start + 1 {
-					addToPileupMap(&pileupMap, mutation.Start+i, mutation)
-				}
-			case "2:INS":
-				addToPileupMap(&pileupMap, mutation.Start, mutation)
-			default:
-				// deal with concatenated snps
-				//tum := []rune(mutation.Tum)
-				for i, c := range mutation.Tum {
-					// clone and change tumor
-					mut2 := mutation.Clone()
-					mut2.Tum = string(c)
-					addToPileupMap(&pileupMap, mut2.Start+uint(i), mut2)
-				}
-			}
-		}
-	}
-
-	location := search.Location
-
-	// init pileup
-	pileup := make([][]*Mutation, location.Len())
-
-	for i := range location.Len() {
-		pileup[i] = []*Mutation{}
-	}
-
-	// get sorted start positions
-	starts := make([]uint, 0, len(pileupMap))
-
-	for start := range pileupMap {
-		starts = append(starts, start)
-	}
-
-	sort.Slice(starts, func(i, j int) bool { return starts[i] < starts[j] })
-
-	// assemble pileups on each start location
-	for _, start := range starts {
-		// sort variant types
-		variantTypes := make([]string, 0, len(pileupMap[start]))
-
-		for variantType := range pileupMap[start] {
-			variantTypes = append(variantTypes, variantType)
-		}
-
-		sort.Strings(variantTypes)
-
-		for _, variantType := range variantTypes {
-			// sort variant change
-			tumors := make([]string, 0, len(pileupMap[start][variantType]))
-
-			for tumor := range pileupMap[start][variantType] {
-				tumors = append(tumors, tumor)
-			}
-
-			sort.Strings(tumors)
-
-			for _, tumor := range tumors {
-				mutations := pileupMap[start][variantType][tumor]
-
-				for _, mutation := range mutations {
-					offset := start - location.Start
-
-					pileup[offset] = append(pileup[offset], mutation)
-				}
-
-			}
-
-		}
-	}
-
-	// extract the datasets on which dataframe we are using
-	datasets := make([]string, 0, len(search.DatasetResults))
-
-	for _, results := range search.DatasetResults {
-		datasets = append(datasets, results.Dataset)
-	}
-
-	log.Debug().Msgf("what the %d", len(datasets))
-
-	return &PileupResults{Location: location, Datasets: datasets, Pileup: pileup}, nil
-}
-
-func addToPileupMap(pileupMap *map[uint]map[string]map[string][]*Mutation, start uint, mutation *Mutation) {
-
-	_, ok := (*pileupMap)[start]
-
-	if !ok {
-		(*pileupMap)[start] = make(map[string]map[string][]*Mutation)
-	}
-
-	_, ok = (*pileupMap)[start][mutation.Type]
-
-	if !ok {
-		(*pileupMap)[start][mutation.Type] = make(map[string][]*Mutation)
-	}
-
-	_, ok = (*pileupMap)[start][mutation.Type][mutation.Tum]
-
-	if !ok {
-		(*pileupMap)[start][mutation.Type][mutation.Tum] = make([]*Mutation, 0, 100)
-	}
-
-	(*pileupMap)[start][mutation.Type][mutation.Tum] = append((*pileupMap)[start][mutation.Type][mutation.Tum], mutation)
-}
-
-func rowsToMutations(rows *sql.Rows) ([]*Mutation, error) {
-
-	mutations := make([]*Mutation, 0, 100)
-
-	defer rows.Close()
-
-	for rows.Next() {
-		var mutation Mutation
-
-		err := rows.Scan(
-			&mutation.Chr,
-			&mutation.Start,
-			&mutation.End,
-			&mutation.Ref,
-			&mutation.Tum,
-			&mutation.Alt,
-			&mutation.Depth,
-			&mutation.Type,
-			&mutation.Vaf,
-			&mutation.Sample)
-
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		mutations = append(mutations, &mutation)
-	}
-
-	return mutations, nil
+	Gene     *GexGene                `json:"gene"`
+	Datasets []*RNASeqDatasetResults `json:"datasets"`
 }
 
 type DatasetCache struct {
-	dir      string
-	cacheMap map[string]*Dataset
+	dir string
 }
 
-func NewMutationDBCache(dir string) *DatasetCache {
+func NewGexDBCache(dir string) *DatasetCache {
 
-	cacheMap := make(map[string]*Dataset)
+	path := filepath.Join(dir, "gex.db")
 
-	log.Debug().Msgf("---- mutations ----")
-
-	dbFiles, err := os.ReadDir(dir)
+	db, err := sql.Open("sqlite3", path)
 
 	if err != nil {
 		log.Fatal().Msgf("%s", err)
-
 	}
 
-	// init the cache
-	//cacheMap[assemblyFile.Name()] = make(map[string]*MutationDB)
+	defer db.Close()
 
-	for _, dbFile := range dbFiles {
-		if !strings.HasSuffix(dbFile.Name(), ".db") {
-			continue
-		}
-
-		log.Debug().Msgf("Loading mutations from %s...", dbFile.Name())
-
-		//metadata := NewMutationDBMetaData(assemblyFile.Name(), dbFile.Name())
-
-		path := filepath.Join(dir, dbFile.Name())
-
-		dataset, err := NewDataset(path)
-
-		if err != nil {
-			log.Fatal().Msgf("%s", err)
-		}
-
-		log.Debug().Msgf("Caching %s", dataset.PublicId)
-
-		cacheMap[dataset.Uuid] = dataset
-	}
-
-	log.Debug().Msgf("---- end ----")
-
-	return &DatasetCache{dir, cacheMap}
+	return &DatasetCache{path}
 }
 
 func (cache *DatasetCache) Dir() string {
 	return cache.dir
 }
 
-func (cache *DatasetCache) List() []*Dataset {
+func (cache *DatasetCache) GetGenes(genes []string) ([]*GexGene, error) {
+	db, err := sql.Open("sqlite3", cache.dir)
 
-	ret := make([]*Dataset, 0, len(cache.cacheMap))
-
-	ids := make([]string, 0, len(cache.cacheMap))
-
-	for id := range cache.cacheMap {
-		ids = append(ids, id)
+	if err != nil {
+		log.Debug().Msgf("err 1 %s", err)
+		return nil, err
 	}
 
-	sort.Strings(ids)
+	defer db.Close()
 
-	for _, id := range ids {
-		ret = append(ret, cache.cacheMap[id])
+	ret := make([]*GexGene, 0, len(genes))
+
+	for _, gene := range genes {
+		var gexGene GexGene
+
+		err := db.QueryRow(GENE_SQL, fmt.Sprintf("%%%s%%", gene)).Scan(&gexGene.Id, &gexGene.GeneId, &gexGene.GeneSymbol)
+
+		if err == nil {
+			ret = append(ret, &gexGene)
+		}
 	}
 
-	return ret
+	return ret, nil
 }
 
-func (cache *DatasetCache) GetDataset(uuid string) (*Dataset, error) {
-	dataset, ok := cache.cacheMap[uuid]
+func (cache *DatasetCache) GexTypes() ([]*GexType, error) {
+	db, err := sql.Open("sqlite3", cache.dir)
 
-	if !ok {
-		return nil, fmt.Errorf("dataset not found")
+	if err != nil {
+		log.Debug().Msgf("err 1 %s", err)
+		return nil, err
 	}
 
-	return dataset, nil
-}
+	defer db.Close()
 
-func (cache *DatasetCache) Search(location *dna.Location, uuids []string) (*SearchResults, error) {
-	results := SearchResults{Location: location, DatasetResults: make([]*DatasetResults, 0, len(uuids))}
+	gexTypes := make([]*GexType, 0, 10)
 
-	for _, uuid := range uuids {
-		dataset, err := cache.GetDataset(uuid)
+	rows, err := db.Query(GEX_TYPES_SQL)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var gexType GexType
+
+		err := rows.Scan(
+			&gexType.Id,
+			&gexType.Name)
 
 		if err != nil {
+			log.Debug().Msgf("err 1 %s", err)
 			return nil, err
 		}
 
-		datasetResults, err := dataset.Search(location)
+		gexTypes = append(gexTypes, &gexType)
+	}
+
+	return gexTypes, nil
+}
+
+func (cache *DatasetCache) Datasets(gexType int) ([]*Dataset, error) {
+
+	db, err := sql.Open("sqlite3", cache.dir)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer db.Close()
+
+	log.Debug().Msgf("gex %d", gexType)
+
+	datasets := make([]*Dataset, 0, 10)
+
+	datasetRows, err := db.Query(DATASETS_SQL, gexType)
+
+	if err != nil {
+		log.Debug().Msgf("err 1 %s", err)
+		return nil, err
+	}
+
+	defer datasetRows.Close()
+
+	for datasetRows.Next() {
+		var dataset Dataset
+
+		err := datasetRows.Scan(
+			&dataset.Id,
+			&dataset.Name,
+			&dataset.Institution)
 
 		if err != nil {
+			log.Debug().Msgf("err 2 %s", err)
 			return nil, err
 		}
 
-		results.DatasetResults = append(results.DatasetResults, datasetResults)
+		//dataset.GexType = gexType
+		dataset.Samples = make([]*Sample, 0, 100)
+
+		sampleRows, err := db.Query(SAMPLES_SQL, dataset.Id)
+
+		if err != nil {
+			log.Debug().Msgf("err 3 %s %d", err, dataset.Id)
+			return nil, err
+		}
+
+		defer sampleRows.Close()
+
+		for sampleRows.Next() {
+			var sample Sample
+
+			err := sampleRows.Scan(
+				&sample.Id,
+				&sample.Name,
+				&sample.COO,
+				&sample.Lymphgen)
+
+			if err != nil {
+				log.Debug().Msgf("err 5 %s", err)
+				return nil, err
+			}
+
+			dataset.Samples = append(dataset.Samples, &sample)
+		}
+
+		datasets = append(datasets, &dataset)
 	}
 
-	return &results, nil
+	return datasets, nil
 }
+
+func (cache *DatasetCache) RNASeqValues(genes []*GexGene, datasets []int) ([]*RNASeqGeneResults, error) {
+
+	db, err := sql.Open("sqlite3", cache.dir)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer db.Close()
+
+	ret := make([]*RNASeqGeneResults, 0, len(genes))
+
+	for _, gene := range genes {
+		var geneResults RNASeqGeneResults
+
+		geneResults.Gene = gene
+
+		geneResults.Datasets = make([]*RNASeqDatasetResults, 0, len(datasets))
+
+		for _, dataset := range datasets {
+			var datasetResults RNASeqDatasetResults
+
+			datasetResults.Dataset = dataset
+			datasetResults.Samples = make([]*RNASeqSampleResults, 0, 100)
+
+			sampleRows, err := db.Query(RNA_SQL, gene.Id, dataset)
+
+			if err != nil {
+				log.Debug().Msgf("err 3 %s", err)
+				return nil, err
+			}
+
+			defer sampleRows.Close()
+
+			for sampleRows.Next() {
+				var sample RNASeqSampleResults
+
+				err := sampleRows.Scan(
+					&sample.Sample,
+					&sample.Counts,
+					&sample.TPM,
+					&sample.TPM)
+
+				if err != nil {
+					log.Debug().Msgf("err 5 %s", err)
+					return nil, err
+				}
+
+				datasetResults.Samples = append(datasetResults.Samples, &sample)
+			}
+
+			geneResults.Datasets = append(geneResults.Datasets, &datasetResults)
+		}
+
+		ret = append(ret, &geneResults)
+	}
+
+	return ret, nil
+}
+
+// func (cache *DatasetCache) Search(location *dna.Location, uuids []string) (*SearchResults, error) {
+// 	results := SearchResults{Location: location, DatasetResults: make([]*DatasetResults, 0, len(uuids))}
+
+// 	for _, uuid := range uuids {
+// 		dataset, err := cache.GetDataset(uuid)
+
+// 		if err != nil {
+// 			return nil, err
+// 		}
+
+// 		datasetResults, err := dataset.Search(location)
+
+// 		if err != nil {
+// 			return nil, err
+// 		}
+
+// 		results.DatasetResults = append(results.DatasetResults, datasetResults)
+// 	}
+
+// 	return &results, nil
+// }
