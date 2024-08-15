@@ -8,7 +8,15 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const GENES_SQL = "SELECT genes.id, genes.gene_id, genes.gene_symbol FROM genes ORDER BY genes.gene_symbol"
+// approx size of dataset
+const DATASET_SIZE = 500
+
+const GENES_SQL = `SELECT 
+	genes.id, 
+	genes.gene_id, 
+	genes.gene_symbol 
+	FROM genes 
+	ORDER BY genes.gene_symbol`
 
 const GENE_SQL = `SELECT 
 	genes.id, 
@@ -18,7 +26,11 @@ const GENE_SQL = `SELECT
 	WHERE genes.gene_id LIKE ?1 OR genes.gene_symbol LIKE ?1 
 	LIMIT 1`
 
-const GEX_TYPES_SQL = "SELECT gex_types.id, gex_types.name FROM gex_types ORDER BY gex_types.name"
+const GEX_TYPES_SQL = `SELECT 
+	gex_types.id, 
+	gex_types.name 
+	FROM gex_types 
+	ORDER BY gex_types.name`
 
 const DATASETS_SQL = `SELECT 
 	datasets.id, 
@@ -143,7 +155,6 @@ func (cache *DatasetCache) GetGenes(genes []string) ([]*GexGene, error) {
 	db, err := sql.Open("sqlite3", cache.dir)
 
 	if err != nil {
-		log.Debug().Msgf("err 1 %s", err)
 		return nil, err
 	}
 
@@ -192,7 +203,6 @@ func (cache *DatasetCache) GexTypes() ([]*GexType, error) {
 			&gexType.Name)
 
 		if err != nil {
-			log.Debug().Msgf("err 1 %s", err)
 			return nil, err
 		}
 
@@ -211,8 +221,6 @@ func (cache *DatasetCache) Datasets(gexType int) ([]*Dataset, error) {
 	}
 
 	defer db.Close()
-
-	log.Debug().Msgf("gex %d", gexType)
 
 	datasets := make([]*Dataset, 0, 10)
 
@@ -238,8 +246,9 @@ func (cache *DatasetCache) Datasets(gexType int) ([]*Dataset, error) {
 			return nil, err
 		}
 
-		//dataset.GexType = gexType
-		dataset.Samples = make([]*Sample, 0, 100)
+		// the largest dataset is around 500 samples
+		// so use that as an estimate
+		dataset.Samples = make([]*Sample, 0, DATASET_SIZE)
 
 		sampleRows, err := db.Query(SAMPLES_SQL, dataset.Id)
 
@@ -296,7 +305,7 @@ func (cache *DatasetCache) RNASeqValues(genes []*GexGene, datasets []int) ([]*RN
 			var datasetResults RNASeqDatasetResults
 
 			datasetResults.Dataset = dataset
-			datasetResults.Samples = make([]*RNASeqSampleResults, 0, 100)
+			datasetResults.Samples = make([]*RNASeqSampleResults, 0, DATASET_SIZE)
 
 			sampleRows, err := db.Query(RNA_SQL, gene.Id, dataset)
 
