@@ -110,7 +110,7 @@ type MicroarrayGex struct {
 
 type RNASeqSampleResults struct {
 	//Dataset int     `json:"dataset"`
-	Sample int `json:"sample"`
+	Id int `json:"id"`
 	//Gene    int     `json:"gene"`
 	Counts int     `json:"counts"`
 	TPM    float32 `json:"tpm"`
@@ -118,7 +118,7 @@ type RNASeqSampleResults struct {
 }
 
 type RNASeqDatasetResults struct {
-	Dataset int `json:"dataset"`
+	Id int `json:"id"`
 
 	Samples []*RNASeqSampleResults `json:"samples"`
 }
@@ -304,7 +304,7 @@ func (cache *DatasetCache) RNASeqValues(genes []*GexGene, datasets []int) ([]*RN
 		for _, dataset := range datasets {
 			var datasetResults RNASeqDatasetResults
 
-			datasetResults.Dataset = dataset
+			datasetResults.Id = dataset
 			datasetResults.Samples = make([]*RNASeqSampleResults, 0, DATASET_SIZE)
 
 			sampleRows, err := db.Query(RNA_SQL, gene.Id, dataset)
@@ -320,7 +320,7 @@ func (cache *DatasetCache) RNASeqValues(genes []*GexGene, datasets []int) ([]*RN
 				var sample RNASeqSampleResults
 
 				err := sampleRows.Scan(
-					&sample.Sample,
+					&sample.Id,
 					&sample.Counts,
 					&sample.TPM,
 					&sample.TPM)
