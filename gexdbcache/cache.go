@@ -25,20 +25,28 @@ func Dir() string {
 	return instance.Dir()
 }
 
-func GexTypes() ([]*gex.GexType, error) {
-	return instance.GexTypes()
+func Platforms() ([]*gex.Platform, error) {
+	return instance.Plaforms()
 }
 
-func Datasets(gexType int) ([]*gex.Dataset, error) {
-	return instance.Datasets(gexType)
+func GexValueTypes(platform *gex.Platform) ([]*gex.GexValueType, error) {
+	return instance.GexValueTypes(platform)
+}
+
+func Datasets(platform *gex.Platform) ([]*gex.Dataset, error) {
+	return instance.Datasets(platform)
 }
 
 func GetGenes(genes []string) ([]*gex.GexGene, error) {
 	return instance.GetGenes(genes)
 }
 
-func RNASeqValues(genes []*gex.GexGene, datasets []int) ([]*gex.RNASeqGeneResults, error) {
-	return instance.RNASeqValues(genes, datasets)
+func RNASeqValues(genes []*gex.GexGene, platform *gex.Platform, gexValueType *gex.GexValueType, datasets []int) ([]*gex.ResultGene, error) {
+	return instance.RNASeqValues(genes, platform, gexValueType, datasets)
+}
+
+func MicroarrayValues(genes []*gex.GexGene, platform *gex.Platform, gexValueType *gex.GexValueType, datasets []int) ([]*gex.ResultGene, error) {
+	return instance.MicroarrayValues(genes, platform, gexValueType, datasets)
 }
 
 // func GetDataset(uuid string) (*gex.Dataset, error) {
