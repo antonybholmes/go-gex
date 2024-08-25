@@ -85,8 +85,8 @@ const (
 )
 
 type ValueType struct {
-	Id   int    `json:"id"`
 	Name string `json:"name"`
+	Id   int    `json:"id"`
 }
 
 type GexValueType = ValueType
@@ -99,30 +99,25 @@ type GexValueType = ValueType
 //)
 
 type GexGene struct {
-	Id         int    `json:"id"`
 	GeneId     string `json:"geneId"`
 	GeneSymbol string `json:"geneSymbol"`
+	Id         int    `json:"id"`
 }
 
 type Platform = ValueType
 
 type Sample struct {
-	Id       int    `json:"id"`
 	Name     string `json:"name"`
 	COO      string `json:"coo"`
 	Lymphgen string `json:"lymphgen"`
-	//Dataset  int    `json:"dataset"`
+	Id       int    `json:"id"`
 }
 
 type Dataset struct {
-	Id          int    `json:"id"`
-	Name        string `json:"name"`
-	Institution string `json:"institution"`
-	//GexType     *GexType  `json:"gexType"`
-	Samples []*Sample `json:"samples"`
-
-	//db                *sql.DB
-	//findMutationsStmt *sql.Stmt
+	Name        string    `json:"name"`
+	Institution string    `json:"institution"`
+	Samples     []*Sample `json:"samples"`
+	Id          int       `json:"id"`
 }
 
 // type RNASeqGex struct {
@@ -152,9 +147,8 @@ type ResultSample struct {
 }
 
 type ResultDataset struct {
-	Id int `json:"id"`
-
 	Samples []*ResultSample `json:"samples"`
+	Id      int             `json:"id"`
 }
 
 type ResultGene struct {
