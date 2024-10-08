@@ -12,8 +12,8 @@ CREATE TABLE platforms (
 	id INTEGER PRIMARY KEY ASC,
 	name TEXT NOT NULL UNIQUE);
 
-INSERT INTO platforms (name) VALUES ("RNA-seq");
-INSERT INTO platforms (name) VALUES ("Microarray");
+INSERT INTO platforms (name) VALUES ('RNA-seq');
+INSERT INTO platforms (name) VALUES ('Microarray');
 
 CREATE TABLE gex_value_types (
 	id INTEGER PRIMARY KEY ASC,
@@ -21,24 +21,26 @@ CREATE TABLE gex_value_types (
 	name TEXT NOT NULL UNIQUE,
 	FOREIGN KEY(platform_id) REFERENCES platforms(id));
 
-INSERT INTO gex_value_types (platform_id, name) VALUES (1, "Counts");
-INSERT INTO gex_value_types (platform_id, name) VALUES (1, "TPM");
-INSERT INTO gex_value_types (platform_id, name) VALUES (1, "VST");
-INSERT INTO gex_value_types (platform_id, name) VALUES (2, "RMA");
+INSERT INTO gex_value_types (platform_id, name) VALUES (1, 'Counts');
+INSERT INTO gex_value_types (platform_id, name) VALUES (1, 'TPM');
+INSERT INTO gex_value_types (platform_id, name) VALUES (1, 'VST');
+INSERT INTO gex_value_types (platform_id, name) VALUES (2, 'RMA');
 
 CREATE TABLE datasets (
 	id INTEGER PRIMARY KEY ASC,
 	platform_id INTEGER NOT NULL,
 	name TEXT NOT NULL UNIQUE,
 	institution TEXT NOT NULL,
+	notes TEXT NOT NULL DEFAULT '',
 	FOREIGN KEY(platform_id) REFERENCES platforms(id));
 	
 CREATE TABLE samples (
 	id INTEGER PRIMARY KEY ASC,
 	dataset_id TEXT NOT NULL,
 	name TEXT NOT NULL UNIQUE,
-	coo TEXT NOT NULL DEFAULT "NA",
-	lymphgen TEXT NOT NULL DEFAULT "NA",
+	coo TEXT NOT NULL DEFAULT 'NA',
+	lymphgen TEXT NOT NULL DEFAULT 'NA',
+	notes TEXT NOT NULL DEFAULT '',
 	FOREIGN KEY(dataset_id) REFERENCES dataset(id));
 CREATE INDEX samples_dataset_id_name_idx ON samples (dataset_id, name);
  

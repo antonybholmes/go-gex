@@ -280,7 +280,7 @@ with open(f"../../data/modules/gex/gex.sql", "w") as f:
 
     for gene in genes:
         print(
-            f'INSERT INTO genes (gene_id, gene_symbol) VALUES ("{gene['id']}", "{gene['symbol']}");',
+            f"INSERT INTO genes (gene_id, gene_symbol) VALUES ('{gene["id"]}', '{gene["symbol"]}');",
             file=f,
         )
 
@@ -300,7 +300,7 @@ with open(f"../../data/modules/gex/gex.sql", "w") as f:
 
     for dataset in datasets:
         print(
-            f'INSERT INTO datasets (name, institution, platform_id) VALUES ("{dataset['name']}", "{dataset['institution']}", {dataset['platform_id']});',
+            f"INSERT INTO datasets (name, institution, platform_id) VALUES ('{dataset["name"]}', '{dataset["institution"]}', {dataset["platform_id"]});",
             file=f,
         )
 
@@ -310,7 +310,7 @@ with open(f"../../data/modules/gex/gex.sql", "w") as f:
 
     for sample in samples:
         print(
-            f'INSERT INTO samples (dataset_id, name, coo, lymphgen) VALUES ({sample['dsid']}, "{sample['name']}", "{sample['coo']}", "{sample['lymphgen']}");',
+            f"INSERT INTO samples (dataset_id, name, coo, lymphgen) VALUES ({sample["dsid"]}, '{sample["name"]}', '{sample["coo"]}', '{sample["lymphgen"]}');",
             file=f,
         )
 
