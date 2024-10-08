@@ -32,6 +32,12 @@ const PLATFORMS_SQL = `SELECT
 	FROM platforms 
 	ORDER BY platforms.id`
 
+const ALL_VALUE_TYPES_SQL = `SELECT 
+	gex_value_types.id,
+	gex_value_types.name
+	FROM gex_value_types 
+	ORDER BY gex_value_types.platform_id, gex_value_types.id`
+
 const VALUE_TYPES_SQL = `SELECT 
 	gex_value_types.id,
 	gex_value_types.name
@@ -104,7 +110,10 @@ type GexGene struct {
 	Id         int    `json:"id"`
 }
 
-type Platform = ValueType
+type Platform struct {
+	ValueType
+	GexValueType []*GexValueType `json:"gexValueType"`
+}
 
 type Sample struct {
 	Name     string `json:"name"`
@@ -215,7 +224,7 @@ func (cache *DatasetCache) Plaforms() ([]*Platform, error) {
 
 	defer db.Close()
 
-	gexTypes := make([]*Platform, 0, 10)
+	platforms := make([]*Platform, 0, 10)
 
 	rows, err := db.Query(PLATFORMS_SQL)
 
@@ -226,20 +235,28 @@ func (cache *DatasetCache) Plaforms() ([]*Platform, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var gexType Platform
+		var platform Platform
 
 		err := rows.Scan(
-			&gexType.Id,
-			&gexType.Name)
+			&platform.Id,
+			&platform.Name)
 
 		if err != nil {
 			return nil, err
 		}
 
-		gexTypes = append(gexTypes, &gexType)
+		valueTypes, err := cache.GexValueTypes(&platform)
+
+		if err != nil {
+			return nil, err
+		}
+
+		platform.GexValueType = valueTypes
+
+		platforms = append(platforms, &platform)
 	}
 
-	return gexTypes, nil
+	return platforms, nil
 }
 
 func (cache *DatasetCache) GexValueTypes(platform *Platform) ([]*GexValueType, error) {
