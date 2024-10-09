@@ -29,11 +29,11 @@ func Platforms() ([]*gex.Platform, error) {
 	return instance.Plaforms()
 }
 
-func GexValueTypes(platform *gex.Platform) ([]*gex.GexValueType, error) {
+func GexValueTypes(platform int) ([]*gex.GexValueType, error) {
 	return instance.GexValueTypes(platform)
 }
 
-func Datasets(platform *gex.Platform) ([]*gex.Dataset, error) {
+func Datasets(platform int) ([]*gex.Dataset, error) {
 	return instance.Datasets(platform)
 }
 
@@ -41,11 +41,11 @@ func GetGenes(genes []string) ([]*gex.GexGene, error) {
 	return instance.GetGenes(genes)
 }
 
-func RNASeqValues(genes []*gex.GexGene, platform *gex.Platform, gexValueType *gex.GexValueType, datasets []int) ([]*gex.ResultGene, error) {
+func RNASeqValues(genes []*gex.GexGene, platform *gex.ValueType, gexValueType *gex.GexValueType, datasets []int) (*gex.SearchResults, error) {
 	return instance.RNASeqValues(genes, platform, gexValueType, datasets)
 }
 
-func MicroarrayValues(genes []*gex.GexGene, platform *gex.Platform, gexValueType *gex.GexValueType, datasets []int) ([]*gex.ResultGene, error) {
+func MicroarrayValues(genes []*gex.GexGene, platform *gex.ValueType, gexValueType *gex.GexValueType, datasets []int) (*gex.SearchResults, error) {
 	return instance.MicroarrayValues(genes, platform, gexValueType, datasets)
 }
 
