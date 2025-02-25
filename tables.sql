@@ -14,8 +14,8 @@ CREATE TABLE platforms (
 	name TEXT NOT NULL UNIQUE);
 CREATE INDEX platforms_name_idx ON platforms (name);
 
-INSERT INTO platforms (name) VALUES ('2j2i4tv0jbw3','RNA-seq');
-INSERT INTO platforms (name) VALUES ('aj1qgz5ghfx6', 'Microarray');
+INSERT INTO platforms (public_id, name) VALUES ('2j2i4tv0jbw3','RNA-seq');
+INSERT INTO platforms (public_id, name) VALUES ('aj1qgz5ghfx6', 'Microarray');
 
 CREATE TABLE gex_value_types (
 	id INTEGER PRIMARY KEY ASC,

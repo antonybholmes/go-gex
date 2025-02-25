@@ -47,7 +47,8 @@ const VALUE_TYPES_SQL = `SELECT
 	ORDER BY gex_value_types.id`
 
 const DATASETS_SQL = `SELECT 
-	datasets.id, 
+	datasets.id,
+	datasets.public_id,
 	datasets.name, 
 	datasets.institution 
 	FROM datasets 
