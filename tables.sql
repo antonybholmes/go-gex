@@ -10,10 +10,12 @@ CREATE INDEX genes_gene_symbol_idx ON genes (gene_symbol);
 
 CREATE TABLE platforms (
 	id INTEGER PRIMARY KEY ASC,
+	public_id TEXT NOT NULL UNIQUE,
 	name TEXT NOT NULL UNIQUE);
+CREATE INDEX platforms_name_idx ON platforms (name);
 
-INSERT INTO platforms (name) VALUES ('RNA-seq');
-INSERT INTO platforms (name) VALUES ('Microarray');
+INSERT INTO platforms (name) VALUES ('2j2i4tv0jbw3','RNA-seq');
+INSERT INTO platforms (name) VALUES ('aj1qgz5ghfx6', 'Microarray');
 
 CREATE TABLE gex_value_types (
 	id INTEGER PRIMARY KEY ASC,
@@ -28,6 +30,7 @@ INSERT INTO gex_value_types (platform_id, name) VALUES (2, 'RMA');
 
 CREATE TABLE datasets (
 	id INTEGER PRIMARY KEY ASC,
+	public_id TEXT NOT NULL UNIQUE,
 	platform_id INTEGER NOT NULL,
 	name TEXT NOT NULL UNIQUE,
 	institution TEXT NOT NULL,
@@ -37,6 +40,7 @@ CREATE TABLE datasets (
 CREATE TABLE samples (
 	id INTEGER PRIMARY KEY ASC,
 	dataset_id TEXT NOT NULL,
+	public_id TEXT NOT NULL UNIQUE,
 	name TEXT NOT NULL UNIQUE,
 	coo TEXT NOT NULL DEFAULT 'NA',
 	lymphgen TEXT NOT NULL DEFAULT 'NA',

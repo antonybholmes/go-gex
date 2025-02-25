@@ -28,6 +28,7 @@ const GENE_SQL = `SELECT
 
 const PLATFORMS_SQL = `SELECT
 	platforms.id,
+	platforms.public_id,
 	platforms.name 
 	FROM platforms 
 	ORDER BY platforms.id`
@@ -60,6 +61,7 @@ const DATASETS_SQL = `SELECT
 
 const SAMPLES_SQL = `SELECT
 	samples.id,
+	samples.public_id,
 	samples.name, 
 	samples.coo, 
 	samples.lymphgen
@@ -119,10 +121,12 @@ type GexGene struct {
 
 type Platform struct {
 	ValueType
+	PublicId      string          `json:"publicId"`
 	GexValueTypes []*GexValueType `json:"gexValueTypes"`
 }
 
 type Sample struct {
+	PublicId string `json:"publicId"`
 	Name     string `json:"name"`
 	COO      string `json:"coo"`
 	Lymphgen string `json:"lymphgen"`
@@ -130,6 +134,7 @@ type Sample struct {
 }
 
 type Dataset struct {
+	PublicId    string    `json:"publicId"`
 	Name        string    `json:"name"`
 	Institution string    `json:"institution"`
 	Samples     []*Sample `json:"samples"`
@@ -256,6 +261,7 @@ func (cache *DatasetCache) Plaforms() ([]*Platform, error) {
 
 		err := rows.Scan(
 			&platform.Id,
+			&platform.PublicId,
 			&platform.Name)
 
 		if err != nil {
@@ -291,7 +297,6 @@ func (cache *DatasetCache) GexValueTypes(platform int) ([]*GexValueType, error) 
 	rows, err := db.Query(VALUE_TYPES_SQL, platform)
 
 	if err != nil {
-		log.Debug().Msgf("err 1 %s", err)
 		return nil, err
 	}
 
@@ -305,7 +310,6 @@ func (cache *DatasetCache) GexValueTypes(platform int) ([]*GexValueType, error) 
 			&valueType.Name)
 
 		if err != nil {
-			log.Debug().Msgf("err 2 %s", err)
 			return nil, err
 		}
 
@@ -330,7 +334,6 @@ func (cache *DatasetCache) Datasets(platform int) ([]*Dataset, error) {
 	datasetRows, err := db.Query(DATASETS_SQL, platform)
 
 	if err != nil {
-		log.Debug().Msgf("err 1 %s", err)
 		return nil, err
 	}
 
@@ -341,6 +344,7 @@ func (cache *DatasetCache) Datasets(platform int) ([]*Dataset, error) {
 
 		err := datasetRows.Scan(
 			&dataset.Id,
+			&dataset.PublicId,
 			&dataset.Name,
 			&dataset.Institution)
 
@@ -356,7 +360,6 @@ func (cache *DatasetCache) Datasets(platform int) ([]*Dataset, error) {
 		sampleRows, err := db.Query(SAMPLES_SQL, dataset.Id)
 
 		if err != nil {
-			log.Debug().Msgf("err 3 %s %d", err, dataset.Id)
 			return nil, err
 		}
 
@@ -367,12 +370,12 @@ func (cache *DatasetCache) Datasets(platform int) ([]*Dataset, error) {
 
 			err := sampleRows.Scan(
 				&sample.Id,
+				&sample.PublicId,
 				&sample.Name,
 				&sample.COO,
 				&sample.Lymphgen)
 
 			if err != nil {
-				log.Debug().Msgf("err 5 %s", err)
 				return nil, err
 			}
 
@@ -385,7 +388,10 @@ func (cache *DatasetCache) Datasets(platform int) ([]*Dataset, error) {
 	return datasets, nil
 }
 
-func (cache *DatasetCache) RNASeqValues(genes []*GexGene, platform *ValueType, gexValueType *GexValueType, datasets []int) (*SearchResults, error) {
+func (cache *DatasetCache) RNASeqValues(genes []*GexGene,
+	platform *ValueType,
+	gexValueType *GexValueType,
+	datasets []int) (*SearchResults, error) {
 
 	db, err := sql.Open("sqlite3", cache.dir)
 
@@ -419,7 +425,6 @@ func (cache *DatasetCache) RNASeqValues(genes []*GexGene, platform *ValueType, g
 			sampleRows, err := db.Query(RNA_SQL, gene.Id, dataset)
 
 			if err != nil {
-				log.Debug().Msgf("err 3 %s", err)
 				return nil, err
 			}
 
@@ -446,7 +451,6 @@ func (cache *DatasetCache) RNASeqValues(genes []*GexGene, platform *ValueType, g
 				//log.Debug().Msgf("hmm %s %f %f", gexValueType, sample.Value, tpm)
 
 				if err != nil {
-					log.Debug().Msgf("err 5 %s", err)
 					return nil, err
 				}
 
@@ -463,7 +467,10 @@ func (cache *DatasetCache) RNASeqValues(genes []*GexGene, platform *ValueType, g
 	return &ret, nil
 }
 
-func (cache *DatasetCache) MicroarrayValues(genes []*GexGene, platform *ValueType, gexValueType *GexValueType, datasets []int) (*SearchResults, error) {
+func (cache *DatasetCache) MicroarrayValues(genes []*GexGene,
+	platform *ValueType,
+	gexValueType *GexValueType,
+	datasets []int) (*SearchResults, error) {
 
 	db, err := sql.Open("sqlite3", cache.dir)
 
@@ -527,25 +534,3 @@ func (cache *DatasetCache) MicroarrayValues(genes []*GexGene, platform *ValueTyp
 
 	return &ret, nil
 }
-
-// func (cache *DatasetCache) Search(location *dna.Location, uuids []string) (*SearchResults, error) {
-// 	results := SearchResults{Location: location, DatasetResults: make([]*DatasetResults, 0, len(uuids))}
-
-// 	for _, uuid := range uuids {
-// 		dataset, err := cache.GetDataset(uuid)
-
-// 		if err != nil {
-// 			return nil, err
-// 		}
-
-// 		datasetResults, err := dataset.Search(location)
-
-// 		if err != nil {
-// 			return nil, err
-// 		}
-
-// 		results.DatasetResults = append(results.DatasetResults, datasetResults)
-// 	}
-
-// 	return &results, nil
-// }

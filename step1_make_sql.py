@@ -2,7 +2,7 @@ import collections
 import sys
 import pandas as pd
 import numpy as np
- 
+from nanoid import generate
 
 def load_data(
     type,
@@ -16,7 +16,8 @@ def load_data(
     filter="",
 ):
     print(dataset_name)
-    dsid = dataset_map.get(dataset_name, -1)
+    dataset_id =  dataset_map.get(dataset_name, -1)
+    public_id = generate("0123456789abcdefghijklmnopqrstuvwxyz", 12) #  dataset_map.get(dataset_name, -1)
 
     df = pd.read_csv(file, sep="\t", header=0, index_col=0, keep_default_na=False)
 
@@ -35,7 +36,7 @@ def load_data(
             # lets use slash as a delimiter in the name
             sample = sample.replace("|", "/")
 
-            if sample not in sample_map[dsid]:
+            if sample not in sample_map[dataset_id]:
                 coo = "NA"
                 lymphgen = "NA"
                 tokens = sample.split("/")
@@ -54,16 +55,16 @@ def load_data(
                 #     if "Unclass" in sample or "UNC" in sample:
                 #         coo = "Unclass"
 
-                print({"name": sample, "dsid": dsid, "coo": coo, "lymphgen": lymphgen})
+                print({"name": sample, "dsid": dataset_id, "coo": coo, "lymphgen": lymphgen})
 
                 samples.append(
-                    {"name": sample, "dsid": dsid, "coo": coo, "lymphgen": lymphgen}
+                    {"name": sample, "dsid": dataset_id, "coo": coo, "lymphgen": lymphgen}
                 )
-                sample_map[dsid][sample] = len(samples)
+                sample_map[dataset_id][sample] = len(samples)
 
-            sample_id = sample_map[dsid][sample]
+            sample_id = sample_map[dataset_id][sample]
 
-            exp_map[type][dsid][sample_id][gene_id].append(df.iloc[i, j])
+            exp_map[type][dataset_id][sample_id][gene_id].append(df.iloc[i, j])
 
 
 file = "/ifs/scratch/cancer/Lab_RDF/ngs/references/hugo/hugo_20240524.tsv"
@@ -275,7 +276,9 @@ load_data(
     gene_map,
 )
 
-with open(f"../../data/modules/gex/gex.sql", "w") as f:
+
+
+with open(f"../../data/modules/gex/genes.sql", "w") as f:
     print("BEGIN TRANSACTION;", file=f)
 
     for gene in genes:
@@ -286,36 +289,34 @@ with open(f"../../data/modules/gex/gex.sql", "w") as f:
 
     print("COMMIT;", file=f)
 
-    # print("BEGIN TRANSACTION;", file=f)
 
-    # for t in types:
-    #     print(
-    #         f'INSERT INTO gex_types (name) VALUES ("{t['name']}");',
-    #         file=f,
-    #     )
-
-    # print("COMMIT;", file=f)
-
+with open(f"../../data/modules/gex/datasets.sql", "w") as f:
     print("BEGIN TRANSACTION;", file=f)
 
     for dataset in datasets:
+        public_id = generate("0123456789abcdefghijklmnopqrstuvwxyz", 12)
         print(
-            f"INSERT INTO datasets (name, institution, platform_id) VALUES ('{dataset["name"]}', '{dataset["institution"]}', {dataset["platform_id"]});",
+            f"INSERT INTO datasets (public_id, name, institution, platform_id) VALUES ('{public_id}', '{dataset["name"]}', '{dataset["institution"]}', {dataset["platform_id"]});",
             file=f,
         )
 
     print("COMMIT;", file=f)
 
+
+with open(f"../../data/modules/gex/samples.sql", "w") as f:
     print("BEGIN TRANSACTION;", file=f)
 
     for sample in samples:
+        public_id = generate("0123456789abcdefghijklmnopqrstuvwxyz", 12)
         print(
-            f"INSERT INTO samples (dataset_id, name, coo, lymphgen) VALUES ({sample["dsid"]}, '{sample["name"]}', '{sample["coo"]}', '{sample["lymphgen"]}');",
+            f"INSERT INTO samples (dataset_id, public_id, name, coo, lymphgen) VALUES ({sample["dsid"]}, '{public_id}', '{sample["name"]}', '{sample["coo"]}', '{sample["lymphgen"]}');",
             file=f,
         )
 
     print("COMMIT;", file=f)
 
+
+with open(f"../../data/modules/gex/gex.sql", "w") as f:
     type = 2
     num_types = ["rma"]
 
