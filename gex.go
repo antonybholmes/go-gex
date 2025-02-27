@@ -350,7 +350,6 @@ func (cache *DatasetCache) Datasets(platform int) ([]*Dataset, error) {
 			&dataset.Institution)
 
 		if err != nil {
-			log.Debug().Msgf("err 2 %s", err)
 			return nil, err
 		}
 
@@ -402,7 +401,10 @@ func (cache *DatasetCache) RNASeqValues(genes []*GexGene,
 
 	defer db.Close()
 
-	ret := SearchResults{Platform: platform, GexValueType: gexValueType, Genes: make([]*ResultGene, 0, len(genes))}
+	ret := SearchResults{
+		Platform:     platform,
+		GexValueType: gexValueType,
+		Genes:        make([]*ResultGene, 0, len(genes))}
 
 	var id int
 	var counts int
@@ -482,7 +484,10 @@ func (cache *DatasetCache) MicroarrayValues(genes []*GexGene,
 	defer db.Close()
 
 	//ret := make([]*ResultGene, 0, len(genes))
-	ret := SearchResults{Platform: platform, GexValueType: gexValueType, Genes: make([]*ResultGene, 0, len(genes))}
+	ret := SearchResults{
+		Platform:     platform,
+		GexValueType: gexValueType,
+		Genes:        make([]*ResultGene, 0, len(genes))}
 
 	var id int
 
@@ -520,7 +525,7 @@ func (cache *DatasetCache) MicroarrayValues(genes []*GexGene,
 				//log.Debug().Msgf("hmm %s %f %f", gexValueType, sample.Value, tpm)
 
 				if err != nil {
-					log.Debug().Msgf("err 5 %s", err)
+
 					return nil, err
 				}
 
