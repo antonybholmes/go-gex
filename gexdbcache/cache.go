@@ -41,11 +41,11 @@ func GetGenes(genes []string) ([]*gex.GexGene, error) {
 	return instance.GetGenes(genes)
 }
 
-func RNASeqValues(genes []*gex.GexGene, platform *gex.ValueType, gexValueType *gex.GexValueType, datasets []int) (*gex.SearchResults, error) {
+func RNASeqValues(genes []*gex.GexGene, platform *gex.ValueType, gexValueType *gex.GexValueType, datasets []string) (*gex.SearchResults, error) {
 	return instance.RNASeqValues(genes, platform, gexValueType, datasets)
 }
 
-func MicroarrayValues(genes []*gex.GexGene, platform *gex.ValueType, gexValueType *gex.GexValueType, datasets []int) (*gex.SearchResults, error) {
+func MicroarrayValues(genes []*gex.GexGene, platform *gex.ValueType, gexValueType *gex.GexValueType, datasets []string) (*gex.SearchResults, error) {
 	return instance.MicroarrayValues(genes, platform, gexValueType, datasets)
 }
 

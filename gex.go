@@ -169,8 +169,8 @@ type ResultSample struct {
 }
 
 type ResultDataset struct {
-	Values []float32 `json:"values"`
-	Id     int       `json:"id"`
+	Values   []float32 `json:"values"`
+	PublicId string    `json:"publicId"`
 }
 
 type ResultGene struct {
@@ -391,7 +391,7 @@ func (cache *DatasetCache) Datasets(platform int) ([]*Dataset, error) {
 func (cache *DatasetCache) RNASeqValues(genes []*GexGene,
 	platform *ValueType,
 	gexValueType *GexValueType,
-	datasets []int) (*SearchResults, error) {
+	datasets []string) (*SearchResults, error) {
 
 	db, err := sql.Open("sqlite3", cache.dir)
 
@@ -421,7 +421,7 @@ func (cache *DatasetCache) RNASeqValues(genes []*GexGene,
 		for _, dataset := range datasets {
 			var datasetResults ResultDataset
 
-			datasetResults.Id = dataset
+			datasetResults.PublicId = dataset
 			//datasetResults.Samples = make([]*ResultSample, 0, DATASET_SIZE)
 			datasetResults.Values = make([]float32, 0, DATASET_SIZE)
 
@@ -473,7 +473,7 @@ func (cache *DatasetCache) RNASeqValues(genes []*GexGene,
 func (cache *DatasetCache) MicroarrayValues(genes []*GexGene,
 	platform *ValueType,
 	gexValueType *GexValueType,
-	datasets []int) (*SearchResults, error) {
+	datasets []string) (*SearchResults, error) {
 
 	db, err := sql.Open("sqlite3", cache.dir)
 
@@ -502,7 +502,7 @@ func (cache *DatasetCache) MicroarrayValues(genes []*GexGene,
 		for _, dataset := range datasets {
 			var datasetResults ResultDataset
 
-			datasetResults.Id = dataset
+			datasetResults.PublicId = dataset
 			//datasetResults.Samples = make([]*ResultSample, 0, DATASET_SIZE)
 			datasetResults.Values = make([]float32, 0, DATASET_SIZE)
 

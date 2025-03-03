@@ -14,7 +14,7 @@ CREATE TABLE platforms (
 	name TEXT NOT NULL UNIQUE);
 CREATE INDEX platforms_name_idx ON platforms (name);
 
-INSERT INTO platforms (public_id, name) VALUES ('2j2i4tv0jbw3','RNA-seq');
+INSERT INTO platforms (public_id, name) VALUES ('2j2i4tv0jbw3', 'RNA-seq');
 INSERT INTO platforms (public_id, name) VALUES ('aj1qgz5ghfx6', 'Microarray');
 
 CREATE TABLE gex_value_types (
@@ -66,7 +66,7 @@ CREATE TABLE rna_seq (
 	vst REAL NOT NULL DEFAUlT -1,
 	FOREIGN KEY(sample_id) REFERENCES samples(id),
 	FOREIGN KEY(gene_id) REFERENCES genes(id));
-CREATE INDEX rna_seq_gene_id_sample_id_idx ON rna_seq (sample_id, gene_id);
+CREATE INDEX rna_seq_gene_id_sample_id_idx ON rna_seq (gene_id, sample_id);
  
 CREATE TABLE microarray (
 	id INTEGER PRIMARY KEY ASC,
@@ -75,5 +75,7 @@ CREATE TABLE microarray (
 	rma REAL NOT NULL DEFAUlT -1,
 	FOREIGN KEY(sample_id) REFERENCES samples(id),
 	FOREIGN KEY(gene_id) REFERENCES genes(id));
-CREATE INDEX microarray_gene_id_sample_id_idx ON microarray (sample_id, gene_id);
+
+-- We are likely to select genes first rather than samples
+CREATE INDEX microarray_gene_id_sample_id_idx ON microarray (gene_id, sample_id);
  
