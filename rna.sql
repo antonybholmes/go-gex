@@ -1,0 +1,32 @@
+PRAGMA journal_mode = WAL;
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE dataset (
+	id INTEGER PRIMARY KEY ASC,
+	platform TEXT NOT NULL UNIQUE,
+	public_id TEXT NOT NULL UNIQUE,
+	name TEXT NOT NULL UNIQUE,
+	institution TEXT NOT NULL,
+	notes TEXT NOT NULL DEFAULT '');
+
+CREATE TABLE samples (
+	id INTEGER PRIMARY KEY ASC,
+	public_id TEXT NOT NULL UNIQUE,
+	name TEXT NOT NULL UNIQUE,
+	coo TEXT NOT NULL DEFAULT 'NA',
+	lymphgen TEXT NOT NULL DEFAULT 'NA',
+	notes TEXT NOT NULL DEFAULT '');
+
+ 
+CREATE TABLE rna_seq (
+	id INTEGER PRIMARY KEY ASC,
+	sample_id INTEGER NOT NULL,
+	gene_id INTEGER NOT NULL,
+	counts INTEGER NOT NULL DEFAULT -1,
+	tpm REAL NOT NULL DEFAUlT -1,
+	vst REAL NOT NULL DEFAUlT -1,
+	FOREIGN KEY(sample_id) REFERENCES samples(id),
+	FOREIGN KEY(gene_id) REFERENCES genes(id));
+
+
+

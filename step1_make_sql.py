@@ -8,8 +8,9 @@ from nanoid import generate
 file = "/ifs/scratch/cancer/Lab_RDF/ngs/references/hugo/hugo_20240524.tsv"
 df_hugo = pd.read_csv(file, sep="\t", header=0, keep_default_na=False)
 
+official_symbols = {}
 ensembl_map = {}
-
+gene_id_map = {}
 for i, gene_id in enumerate(df_hugo["Approved symbol"].values):
 
     genes = [gene_id] + list(
@@ -21,8 +22,11 @@ for i, gene_id in enumerate(df_hugo["Approved symbol"].values):
 
     ensembl = df_hugo["Ensembl gene ID"].values[i]
 
+    official_symbols[i + 1] = {"gene_id": gene_id, "ensembl": ensembl}
+
     for g in genes:
         ensembl_map[g] = ensembl
+        gene_id_map[g] = i + 1
 
 
 def get_file_id(name: str) -> str:
@@ -38,7 +42,6 @@ def load_data(
     samples,
     sample_map,
     exp_map,
-    gene_map,
     filter="",
 ):
     print(dataset_name)
@@ -49,11 +52,10 @@ def load_data(
         df = df.iloc[:, np.where(df.columns.str.contains(filter, regex=True))[0]]
 
     for i, gene in enumerate(df.index):
-        if gene not in gene_map:
-            genes.append({"symbol": gene, "id": ensembl_map.get(gene, "")})
-            gene_map[gene] = len(genes)
+        if gene not in gene_id_map:
+            continue
 
-        gene_id = gene_map[gene]
+        gene_id = gene_id_map[gene]
 
         for j in range(df.shape[1]):
             sample = df.columns.values[j].split(" ")[0]
@@ -84,7 +86,7 @@ def load_data(
                     "lymphgen": lymphgen,
                 }
 
-            sample_id = sample_map[sample]["sample_id"]
+            sample_id = sample_map[sample]["id"]
 
             exp_map[gex_type][dataset_id][sample_id][gene_id][data_type] = df.iloc[i, j]
 
@@ -141,7 +143,6 @@ load_data(
     samples,
     sample_map,
     exp_map,
-    gene_map,
     "N_|M_|CB_|DZ|LZ",
 )
 file = "/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/n_gc_m_lz_dz_tpm_restricted_gencode_grch38_20180724_simple.tsv"
@@ -154,7 +155,6 @@ load_data(
     samples,
     sample_map,
     exp_map,
-    gene_map,
     "N_|M_|CB_|DZ|LZ",
 )
 file = "/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/vst_n_gc_m_lz_dz_restricted_gencode_grch38_20180724.txt"
@@ -167,18 +167,19 @@ load_data(
     samples,
     sample_map,
     exp_map,
-    gene_map,
     "N_|M_|CB_|DZ|LZ",
 )
 
 
-num_types = ["counts", "tpm", "vst"]
+data_types = ["counts", "tpm", "vst"]
 
-with open(f"../../data/modules/gex/{file_id}.sql", "w") as f:
+print(f"../../data/modules/gex/{file_id}.sql")
+
+with open(f"../../data/modules/gex/RNA-seq/{file_id}.sql", "w") as f:
     print("BEGIN TRANSACTION;", file=f)
 
     print(
-        f"INSERT INTO dataset (public_id, name, institution, platform) VALUES ('{dataset["dataset_id"]}', '{dataset["name"]}', '{dataset["institution"]}', {dataset["platform"]});",
+        f"INSERT INTO dataset (public_id, name, institution, platform) VALUES ('{dataset["dataset_id"]}', '{dataset["name"]}', '{dataset["institution"]}', '{dataset["platform"]}');",
         file=f,
     )
 
@@ -205,14 +206,14 @@ with open(f"../../data/modules/gex/{file_id}.sql", "w") as f:
             for gene_id in sorted(exp_map[type][dataset_id][sample_id]):
                 values = ", ".join(
                     [
-                        str(exp_map[type][dataset_id][sample_id][gene_id][num_type])
-                        for num_type in num_types
+                        str(exp_map[type][dataset_id][sample_id][gene_id][data_type])
+                        for data_type in data_types
                     ]
                 )
 
                 print(
                     f'INSERT INTO rna_seq (sample_id, gene_id, {", ".join(
-                        num_types)}) VALUES ({dataset_id}, {sample_id}, {gene_id}, {values});',
+                        data_types)}) VALUES ({sample_id}, {gene_id}, {values});',
                     file=f,
                 )
 

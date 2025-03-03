@@ -1,10 +1,14 @@
-# for f in `ls *.sql | grep -v table`
-# do
-#     name=`echo ${f} | sed -r 's/.sql//'`
-#     rm ${name}.db
-#     cat tables.sql | sqlite3 ${name}.db
-#     cat ${f} | sqlite3 ${name}.db
-# done
+for f in `find data/modules/gex/RNA-seq | grep sql`
+do
+    name=`echo ${f} | sed -r 's/.sql//'`
+    rm ${name}.db
+    cat rna.sql | sqlite3 ${name}.db
+    cat ${f} | sqlite3 ${name}.db
+    cat rna_indexes.sql | sqlite3 ${name}.db
+done
+
+
+exit(0)
 
 rm ../../data/modules/gex/gex.db
 cat tables.sql | sqlite3 ../../data/modules/gex/gex.db
