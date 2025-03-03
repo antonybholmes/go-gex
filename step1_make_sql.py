@@ -4,6 +4,25 @@ import pandas as pd
 import numpy as np
 from nanoid import generate
 
+file = "/ifs/scratch/cancer/Lab_RDF/ngs/references/hugo/hugo_20240524.tsv"
+df_hugo = pd.read_csv(file, sep="\t", header=0, keep_default_na=False)
+
+ensembl_map = {}
+
+for i, gene_id in enumerate(df_hugo["Approved symbol"].values):
+
+    genes = [gene_id] + list(
+        filter(
+            lambda x: x != "",
+            [x.strip() for x in df_hugo["Previous symbols"].values[i].split(",")],
+        )
+    )
+
+    ensembl = df_hugo["Ensembl gene ID"].values[i]
+
+    for g in genes:
+        ensembl_map[g] = ensembl
+
 def load_data(
     type,
     file,
@@ -67,24 +86,7 @@ def load_data(
             exp_map[type][dataset_id][sample_id][gene_id].append(df.iloc[i, j])
 
 
-file = "/ifs/scratch/cancer/Lab_RDF/ngs/references/hugo/hugo_20240524.tsv"
-df_hugo = pd.read_csv(file, sep="\t", header=0, keep_default_na=False)
 
-ensembl_map = {}
-
-for i, gene_id in enumerate(df_hugo["Approved symbol"].values):
-
-    genes = [gene_id] + list(
-        filter(
-            lambda x: x != "",
-            [x.strip() for x in df_hugo["Previous symbols"].values[i].split(",")],
-        )
-    )
-
-    ensembl = df_hugo["Ensembl gene ID"].values[i]
-
-    for g in genes:
-        ensembl_map[g] = ensembl
 
 
 exp_map = collections.defaultdict(
