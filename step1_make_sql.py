@@ -11,9 +11,9 @@ df_hugo = pd.read_csv(file, sep="\t", header=0, keep_default_na=False)
 official_symbols = {}
 ensembl_map = {}
 gene_id_map = {}
-for i, gene_id in enumerate(df_hugo["Approved symbol"].values):
+for i, gene_symbol in enumerate(df_hugo["Approved symbol"].values):
 
-    genes = [gene_id] + list(
+    genes = [gene_symbol] + list(
         filter(
             lambda x: x != "",
             [x.strip() for x in df_hugo["Previous symbols"].values[i].split(",")],
@@ -22,11 +22,23 @@ for i, gene_id in enumerate(df_hugo["Approved symbol"].values):
 
     ensembl = df_hugo["Ensembl gene ID"].values[i]
 
-    official_symbols[i + 1] = {"gene_id": gene_id, "ensembl": ensembl}
+    official_symbols[i + 1] = {"gene_symbol": gene_symbol, "ensembl": ensembl}
 
     for g in genes:
         ensembl_map[g] = ensembl
         gene_id_map[g] = i + 1
+
+
+with open(f"../../data/modules/gex/genes.sql", "w") as f:
+    print("BEGIN TRANSACTION;", file=f)
+
+    for gene in genes:
+        print(
+            f"INSERT INTO genes (gene_id, gene_symbol) VALUES ('{gene["id"]}', '{gene["symbol"]}');",
+            file=f,
+        )
+
+    print("COMMIT;", file=f)
 
 
 def get_file_id(name: str) -> str:
@@ -203,17 +215,19 @@ with open(f"../../data/modules/gex/RNA-seq/{file_id}.sql", "w") as f:
 
     for dataset_id in sorted(exp_map[type]):
         for sample_id in sorted(exp_map[type][dataset_id]):
-            for gene_id in sorted(exp_map[type][dataset_id][sample_id]):
+            for gene_symbol in sorted(exp_map[type][dataset_id][sample_id]):
                 values = ", ".join(
                     [
-                        str(exp_map[type][dataset_id][sample_id][gene_id][data_type])
+                        str(
+                            exp_map[type][dataset_id][sample_id][gene_symbol][data_type]
+                        )
                         for data_type in data_types
                     ]
                 )
 
                 print(
                     f'INSERT INTO rna_seq (sample_id, gene_id, {", ".join(
-                        data_types)}) VALUES ({sample_id}, {gene_id}, {values});',
+                        data_types)}) VALUES ({sample_id}, {gene_symbol}, {values});',
                     file=f,
                 )
 
@@ -355,18 +369,6 @@ exit(0)
 #     exp_map,
 #     gene_map,
 # )
-
-
-with open(f"../../data/modules/gex/genes.sql", "w") as f:
-    print("BEGIN TRANSACTION;", file=f)
-
-    for gene in genes:
-        print(
-            f"INSERT INTO genes (gene_id, gene_symbol) VALUES ('{gene["id"]}', '{gene["symbol"]}');",
-            file=f,
-        )
-
-    print("COMMIT;", file=f)
 
 
 with open(f"../../data/modules/gex/datasets.sql", "w") as f:

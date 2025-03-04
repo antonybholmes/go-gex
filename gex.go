@@ -12,18 +12,18 @@ import (
 const DATASET_SIZE = 500
 
 const GENES_SQL = `SELECT 
-	genes.id, 
-	genes.gene_id, 
-	genes.gene_symbol 
+	genome.id, 
+	genome.gene_id, 
+	genome.gene_symbol 
 	FROM genes 
-	ORDER BY genes.gene_symbol`
+	ORDER BY genome.gene_symbol`
 
 const GENE_SQL = `SELECT 
-	genes.id, 
-	genes.gene_id, 
-	genes.gene_symbol 
+	genome.id, 
+	genome.gene_id, 
+	genome.gene_symbol 
 	FROM genes
-	WHERE genes.gene_id LIKE ?1 OR genes.gene_symbol LIKE ?1 
+	WHERE genome.gene_id LIKE ?1 OR genome.gene_symbol LIKE ?1 
 	LIMIT 1`
 
 const PLATFORMS_SQL = `SELECT
