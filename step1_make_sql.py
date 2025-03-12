@@ -5,44 +5,89 @@ import pandas as pd
 import numpy as np
 from nanoid import generate
 
+DATA_TYPES = ["counts", "tpm", "vst"]
+
+
 file = "/ifs/scratch/cancer/Lab_RDF/ngs/references/hugo/hugo_20240524.tsv"
 df_hugo = pd.read_csv(file, sep="\t", header=0, keep_default_na=False)
 
 official_symbols = {}
-ensembl_map = {}
-gene_id_map = {}
-for i, gene_symbol in enumerate(df_hugo["Approved symbol"].values):
 
-    genes = [gene_symbol] + list(
+gene_ids = []
+gene_id_map = {}
+gene_db_map = {}
+
+for i, gene_id in enumerate(df_hugo["Approved symbol"].values):
+
+    genes = [gene_id] + list(
         filter(
             lambda x: x != "",
             [x.strip() for x in df_hugo["Previous symbols"].values[i].split(",")],
         )
     )
 
+    hugo = df_hugo["HGNC ID"].values[i]
     ensembl = df_hugo["Ensembl gene ID"].values[i]
+    refseq = df_hugo["RefSeq IDs"].values[i].replace(" ", "")
+    ncbi = df_hugo["NCBI Gene ID"].values[i].replace(" ", "")
 
-    official_symbols[i + 1] = {"gene_symbol": gene_symbol, "ensembl": ensembl}
+    official_symbols[hugo] = {
+        "hugo": hugo,
+        "gene_symbol": gene_id,
+        "ensembl": ensembl,
+        "refseq": refseq,
+        "ncbi": ncbi,
+    }
 
-    for g in genes:
-        ensembl_map[g] = ensembl
-        gene_id_map[g] = i + 1
+    gene_id_map[hugo] = hugo
+    gene_id_map[gene_id] = hugo
+    gene_id_map[refseq] = hugo
+    gene_id_map[ncbi] = hugo
 
+    for g in [x.strip() for x in df_hugo["Previous symbols"].values[i].split(",")]:
+        gene_id_map[g] = hugo
 
-with open(f"../../data/modules/gex/genes.sql", "w") as f:
-    print("BEGIN TRANSACTION;", file=f)
+    for g in [x.strip() for x in df_hugo["Alias symbols"].values[i].split(",")]:
+        gene_id_map[g] = hugo
 
-    for gene in genes:
-        print(
-            f"INSERT INTO genes (gene_id, gene_symbol) VALUES ('{gene["id"]}', '{gene["symbol"]}');",
-            file=f,
-        )
+    index = i + 1
+    gene_db_map[hugo] = index
+    gene_db_map[gene_id] = index
+    gene_db_map[refseq] = index
+    gene_db_map[ncbi] = index
 
-    print("COMMIT;", file=f)
+    for g in [x.strip() for x in df_hugo["Previous symbols"].values[i].split(",")]:
+        gene_db_map[g] = index
+
+    for g in [x.strip() for x in df_hugo["Alias symbols"].values[i].split(",")]:
+        gene_db_map[g] = index
+
+    gene_ids.append(hugo)
 
 
 def get_file_id(name: str) -> str:
     return re.sub(r"[\/ ]+", "_", name.lower())
+
+
+def load_sample_data(df: pd.DataFrame, id_cols, sample_id_map, sample_data_map):
+    id_names = df.columns.values[0:id_cols]
+    names = df.columns.values[id_cols:]
+
+    for i, row in df.iterrows():
+        values = row.astype(str)
+
+        ids = values[0:id_cols]
+        sample_id = ids[0]
+
+        for name, value in zip(id_names, ids):
+            print(sample_id, ids)
+            sample_id_map[sample_id] = ",".join(ids)
+
+        values = values.astype(str)
+        values = values[id_cols:]
+
+        for name, value in zip(names, values):
+            sample_data_map[sample_id][name] = value
 
 
 def load_data(
@@ -63,6 +108,8 @@ def load_data(
     if filter != "":
         df = df.iloc[:, np.where(df.columns.str.contains(filter, regex=True))[0]]
 
+    print(file, df.shape)
+
     for i, gene in enumerate(df.index):
         if gene not in gene_id_map:
             continue
@@ -70,19 +117,9 @@ def load_data(
         gene_id = gene_id_map[gene]
 
         for j in range(df.shape[1]):
-            sample = df.columns.values[j].split(" ")[0]
-            # lets use slash as a delimiter in the name
-            sample = sample.replace("|", "/")
+            sample = df.columns.values[j].split("|")[0].split("/")[-1]
 
-            coo = "NA"
-            lymphgen = "NA"
-            tokens = sample.split("/")
-
-            if len(tokens) > 1:
-                coo = tokens[1]
-
-            if len(tokens) > 2:
-                lymphgen = tokens[2]
+            # print(sample)
 
             if sample not in sample_map:
                 samples.append(sample)
@@ -94,8 +131,6 @@ def load_data(
                     "name": sample,
                     "sample_id": sample_id,
                     "dataset_id": dataset_id,
-                    "coo": coo,
-                    "lymphgen": lymphgen,
                 }
 
             sample_id = sample_map[sample]["id"]
@@ -131,10 +166,25 @@ platformMap["Microarray"] = len(platforms)
 # rna-seq
 #
 
+df_samples = pd.read_csv(
+    "/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/other_labs/BC_morin/dlbcl_ega_EGAD00001003783/324/grch37/analysis/bcca_morin_survival_data_2023_wright_update.txt",
+    sep="\t",
+    header=0,
+)
+
+sample_id_map = collections.defaultdict(lambda: collections.defaultdict(str))
+sample_data_map = collections.defaultdict(lambda: collections.defaultdict(str))
+
+load_sample_data(df_samples, 3, sample_id_map, sample_data_map)
+
+print(sample_id_map)
+print(sample_data_map)
+
+
 samples = []
 sample_map = {}
 
-dataset_name = "RDF N/GC/M/DZ/LZ"
+dataset_name = "BCCA Morin DLBCL 230"
 file_id = get_file_id(dataset_name)
 dataset_id = generate("0123456789abcdefghijklmnopqrstuvwxyz", 12)
 dataset = {
@@ -145,7 +195,7 @@ dataset = {
 }
 
 
-file = "/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/n_gc_m_lz_dz_counts_restricted_gencode_grch38_20180724_simple.tsv"
+file = "/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/other_labs/BC_morin/dlbcl_ega_EGAD00001003783/324/grch37/analysis/counts_dup_grch37_20190507_renamed_230.tsv"
 load_data(
     "RNA-seq",
     "counts",
@@ -155,21 +205,19 @@ load_data(
     samples,
     sample_map,
     exp_map,
-    "N_|M_|CB_|DZ|LZ",
 )
-file = "/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/n_gc_m_lz_dz_tpm_restricted_gencode_grch38_20180724_simple.tsv"
+file = "/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/other_labs/BC_morin/dlbcl_ega_EGAD00001003783/324/grch37/analysis/tpm_dup_grch37_20190508_renamed_230.tsv"
 load_data(
     "RNA-seq",
-    "tpm_log2",
+    "tpm",
     file,
     dataset_name,
     dataset_id,
     samples,
     sample_map,
     exp_map,
-    "N_|M_|CB_|DZ|LZ",
 )
-file = "/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/vst_n_gc_m_lz_dz_restricted_gencode_grch38_20180724.txt"
+file = "/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/other_labs/BC_morin/dlbcl_ega_EGAD00001003783/324/grch37/analysis/vst_counts_grch37_20190507_renamed_230.tsv"
 load_data(
     "RNA-seq",
     "vst",
@@ -179,15 +227,24 @@ load_data(
     samples,
     sample_map,
     exp_map,
-    "N_|M_|CB_|DZ|LZ",
 )
 
 
-data_types = ["counts", "tpm", "vst"]
-
-print(f"../../data/modules/gex/{file_id}.sql")
-
 with open(f"../../data/modules/gex/RNA-seq/{file_id}.sql", "w") as f:
+    print("BEGIN TRANSACTION;", file=f)
+
+    for i, id in enumerate(gene_ids):
+        gene = official_symbols[id]
+        print(gene)
+
+        print(
+            f"INSERT INTO genes (id, hugo_id, ensembl_id, refseq_id, ncbi_id, gene_symbol) VALUES ({i + 1}, '{gene["hugo"]}', '{gene["ensembl"]}', '{gene["refseq"]}', '{gene["ncbi"]}', '{gene["gene_symbol"]}');",
+            file=f,
+        )
+
+    print("COMMIT;", file=f)
+
+with open(f"../../data/modules/gex/RNA-seq/{file_id}.sql", "a") as f:
     print("BEGIN TRANSACTION;", file=f)
 
     print(
@@ -199,12 +256,25 @@ with open(f"../../data/modules/gex/RNA-seq/{file_id}.sql", "w") as f:
 
     print("BEGIN TRANSACTION;", file=f)
 
-    for sample in samples:
+    for i, sample in enumerate(samples):
         sample_info = sample_map[sample]
         print(
-            f"INSERT INTO samples (public_id, name, coo, lymphgen) VALUES ('{sample_info["sample_id"]}', '{sample_info["name"]}', '{sample_info["coo"]}', '{sample_info["lymphgen"]}');",
+            f"INSERT INTO samples (id, public_id, name, alt_names) VALUES ({i + 1}, '{sample_info["sample_id"]}', '{sample_info["name"]}', '{sample_id_map.get(sample, "")}');",
             file=f,
         )
+
+    print("COMMIT;", file=f)
+
+    print("BEGIN TRANSACTION;", file=f)
+
+    for si, sample in enumerate(samples):
+        for name in sample_data_map[sample]:
+            value = sample_data_map[sample][name]
+
+            print(
+                f"INSERT INTO sample_data (sample_id, name, value) VALUES ({si + 1}, '{name}', '{value}');",
+                file=f,
+            )
 
     print("COMMIT;", file=f)
 
@@ -215,26 +285,23 @@ with open(f"../../data/modules/gex/RNA-seq/{file_id}.sql", "w") as f:
 
     for dataset_id in sorted(exp_map[type]):
         for sample_id in sorted(exp_map[type][dataset_id]):
-            for gene_symbol in sorted(exp_map[type][dataset_id][sample_id]):
+            for gene_id in sorted(exp_map[type][dataset_id][sample_id]):
                 values = ", ".join(
                     [
-                        str(
-                            exp_map[type][dataset_id][sample_id][gene_symbol][data_type]
-                        )
-                        for data_type in data_types
+                        str(exp_map[type][dataset_id][sample_id][gene_id][data_type])
+                        for data_type in DATA_TYPES
                     ]
                 )
 
+                gene_index = gene_db_map[gene_id]
+
                 print(
-                    f'INSERT INTO rna_seq (sample_id, gene_id, {", ".join(
-                        data_types)}) VALUES ({sample_id}, {gene_symbol}, {values});',
+                    f'INSERT INTO expression (gene_id, sample_id, {", ".join(
+                        DATA_TYPES)}) VALUES ({gene_index}, {sample_id}, {values});',
                     file=f,
                 )
 
     print("COMMIT;", file=f)
-
-
-exit(0)
 
 
 # dataset_name = "RDF GC"
@@ -371,71 +438,71 @@ exit(0)
 # )
 
 
-with open(f"../../data/modules/gex/datasets.sql", "w") as f:
-    print("BEGIN TRANSACTION;", file=f)
-
-    for dataset in datasets:
-
-        print(
-            f"INSERT INTO datasets (public_id, name, institution, platform) VALUES ('{dataset["dataset_id"]}', '{dataset["name"]}', '{dataset["institution"]}', {dataset["platform"]});",
-            file=f,
-        )
-
-    print("COMMIT;", file=f)
-
-
-with open(f"../../data/modules/gex/samples.sql", "w") as f:
-    print("BEGIN TRANSACTION;", file=f)
-
-    for sample in samples:
-        public_id = generate("0123456789abcdefghijklmnopqrstuvwxyz", 12)
-        print(
-            f"INSERT INTO samples (dataset_id, public_id, name, coo, lymphgen) VALUES ({sample["dsid"]}, '{public_id}', '{sample["name"]}', '{sample["coo"]}', '{sample["lymphgen"]}');",
-            file=f,
-        )
-
-    print("COMMIT;", file=f)
-
-
-# with open(f"../../data/modules/gex/gex.sql", "w") as f:
-#     type = 2
-#     num_types = ["rma"]
-
+# with open(f"../../data/modules/gex/datasets.sql", "w") as f:
 #     print("BEGIN TRANSACTION;", file=f)
 
-#     for dsid in sorted(exp_map[type]):
+#     for dataset in datasets:
 
-#         for sample_id in sorted(exp_map[type][dsid]):
-#             for gene_id in sorted(exp_map[type][dsid][sample_id]):
-#                 values = ", ".join(
-#                     [str(x) for x in exp_map[type][dsid][sample_id][gene_id]]
-#                 )
-
-#                 print(
-#                     f'INSERT INTO microarray (dataset_id, sample_id, gene_id, {", ".join(
-#                         num_types)}) VALUES ({dsid}, {sample_id}, {gene_id}, {values});',
-#                     file=f,
-#                 )
+#         print(
+#             f"INSERT INTO datasets (public_id, name, institution, platform) VALUES ('{dataset["dataset_id"]}', '{dataset["name"]}', '{dataset["institution"]}', {dataset["platform"]});",
+#             file=f,
+#         )
 
 #     print("COMMIT;", file=f)
 
-#     type = 1
-#     num_types = ["counts", "tpm", "vst"]
 
+# with open(f"../../data/modules/gex/samples.sql", "w") as f:
 #     print("BEGIN TRANSACTION;", file=f)
 
-#     for dsid in sorted(exp_map[type]):
-
-#         for sample_id in sorted(exp_map[type][dsid]):
-#             for gene_id in sorted(exp_map[type][dsid][sample_id]):
-#                 values = ", ".join(
-#                     [str(x) for x in exp_map[type][dsid][sample_id][gene_id]]
-#                 )
-
-#                 print(
-#                     f'INSERT INTO rna_seq (dataset_id, sample_id, gene_id, {", ".join(
-#                         num_types)}) VALUES ({dsid}, {sample_id}, {gene_id}, {values});',
-#                     file=f,
-#                 )
+#     for sample in samples:
+#         public_id = generate("0123456789abcdefghijklmnopqrstuvwxyz", 12)
+#         print(
+#             f"INSERT INTO samples (dataset_id, public_id, name, coo, lymphgen) VALUES ({sample["dsid"]}, '{public_id}', '{sample["name"]}', '{sample["coo"]}', '{sample["lymphgen"]}');",
+#             file=f,
+#         )
 
 #     print("COMMIT;", file=f)
+
+
+# # with open(f"../../data/modules/gex/gex.sql", "w") as f:
+# #     type = 2
+# #     num_types = ["rma"]
+
+# #     print("BEGIN TRANSACTION;", file=f)
+
+# #     for dsid in sorted(exp_map[type]):
+
+# #         for sample_id in sorted(exp_map[type][dsid]):
+# #             for gene_id in sorted(exp_map[type][dsid][sample_id]):
+# #                 values = ", ".join(
+# #                     [str(x) for x in exp_map[type][dsid][sample_id][gene_id]]
+# #                 )
+
+# #                 print(
+# #                     f'INSERT INTO microarray (dataset_id, sample_id, gene_id, {", ".join(
+# #                         num_types)}) VALUES ({dsid}, {sample_id}, {gene_id}, {values});',
+# #                     file=f,
+# #                 )
+
+# #     print("COMMIT;", file=f)
+
+# #     type = 1
+# #     num_types = ["counts", "tpm", "vst"]
+
+# #     print("BEGIN TRANSACTION;", file=f)
+
+# #     for dsid in sorted(exp_map[type]):
+
+# #         for sample_id in sorted(exp_map[type][dsid]):
+# #             for gene_id in sorted(exp_map[type][dsid][sample_id]):
+# #                 values = ", ".join(
+# #                     [str(x) for x in exp_map[type][dsid][sample_id][gene_id]]
+# #                 )
+
+# #                 print(
+# #                     f'INSERT INTO rna_seq (dataset_id, sample_id, gene_id, {", ".join(
+# #                         num_types)}) VALUES ({dsid}, {sample_id}, {gene_id}, {values});',
+# #                     file=f,
+# #                 )
+
+# #     print("COMMIT;", file=f)

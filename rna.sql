@@ -1,6 +1,18 @@
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
 
+CREATE TABLE genes (
+	id INTEGER PRIMARY KEY ASC,
+	hugo_id TEXT NOT NULL,	
+	ensembl_id TEXT NOT NULL,
+	refseq_id TEXT NOT NULL,
+	ncbi_id TEXT NOT NULL,
+	gene_symbol TEXT NOT NULL);
+CREATE INDEX genes_hugo_id_idx ON genes (hugo_id);
+CREATE INDEX genes_ensembl_id_idx ON genes (ensembl_id);
+CREATE INDEX genes_refseq_id_idx ON genes (refseq_id);
+CREATE INDEX genes_gene_symbol_idx ON genes (gene_symbol);
+
 CREATE TABLE dataset (
 	id INTEGER PRIMARY KEY ASC,
 	platform TEXT NOT NULL UNIQUE,
@@ -13,20 +25,26 @@ CREATE TABLE samples (
 	id INTEGER PRIMARY KEY ASC,
 	public_id TEXT NOT NULL UNIQUE,
 	name TEXT NOT NULL UNIQUE,
-	coo TEXT NOT NULL DEFAULT 'NA',
-	lymphgen TEXT NOT NULL DEFAULT 'NA',
+	alt_names TEXT NOT NULL,
 	notes TEXT NOT NULL DEFAULT '');
-
  
-CREATE TABLE rna_seq (
+CREATE TABLE sample_data (
 	id INTEGER PRIMARY KEY ASC,
 	sample_id INTEGER NOT NULL,
+	name TEXT NOT NULL,
+	value TEXT NOT NULL DEFAULT '',
+	FOREIGN KEY(sample_id) REFERENCES samples(id));
+ 
+ 
+CREATE TABLE expression (
+	id INTEGER PRIMARY KEY ASC,
 	gene_id INTEGER NOT NULL,
+	sample_id INTEGER NOT NULL,
 	counts INTEGER NOT NULL DEFAULT -1,
 	tpm REAL NOT NULL DEFAUlT -1,
 	vst REAL NOT NULL DEFAUlT -1,
-	FOREIGN KEY(sample_id) REFERENCES samples(id),
-	FOREIGN KEY(gene_id) REFERENCES genes(id));
+	FOREIGN KEY(gene_id) REFERENCES genes(id),
+	FOREIGN KEY(sample_id) REFERENCES samples(id));
 
 
 
