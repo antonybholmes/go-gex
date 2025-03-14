@@ -33,14 +33,16 @@ const GENE_SQL = `SELECT
 	LIMIT 1`
 
 const RNA_SQL = `SELECT
+	expression.id,
 	expression.counts,
 	expression.tpm,
 	expression.vst
 	FROM expression 
 	WHERE expression.gene_id = ?1`
 
-const MICROARRAY_SQL = `SELECT 
-	exp.rma
+const MICROARRAY_SQL = `SELECT
+	expression.id,
+	expression.rma
 	FROM expression 
 	WHERE expression.gene_id = ?1`
 
@@ -163,7 +165,7 @@ func (cache *DatasetCache) RNASeqValues(gexType string,
 		//log.Debug().Msgf("hmm %s %f %f", gexType, sample.Value, tpm)
 
 		//datasetResults.Samples = append(datasetResults.Samples, &sample)
-		ret.Genes = append(ret.Genes, &ResultGene{Gene: gene, Exp: values})
+		ret.Genes = append(ret.Genes, &ResultGene{Gene: gene, Expression: values})
 
 	}
 
@@ -226,7 +228,7 @@ func (cache *DatasetCache) MicroarrayValues(
 		}
 
 		//datasetResults.Samples = append(datasetResults.Samples, &sample)
-		ret.Genes = append(ret.Genes, &ResultGene{Gene: gene, Exp: values})
+		ret.Genes = append(ret.Genes, &ResultGene{Gene: gene, Expression: values})
 
 	}
 

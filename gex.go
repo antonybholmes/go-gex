@@ -167,7 +167,7 @@ type ResultGene struct {
 	Gene *GexGene `json:"gene"`
 	//Platform     *ValueType       `json:"platform"`
 	//GexValue *GexValue    `json:"gexType"`
-	Exp []float32 `json:"values"`
+	Expression []float32 `json:"expression"`
 }
 
 type SearchResults struct {
