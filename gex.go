@@ -24,7 +24,7 @@ const SPECIES_SQL = `SELECT
 	ORDER BY datasets.species`
 
 const PLATFORMS_SQL = `SELECT
-	datasets.platform,
+	datasets.platform
 	FROM datasets
 	WHERE datasets.species = ?1 
 	ORDER BY datasets.platform`
@@ -50,7 +50,7 @@ const DATASETS_SQL = `SELECT
 	datasets.institution,
 	datasets.name,
 	datasets.path,
-	datasets.description,
+	datasets.description
 	FROM datasets 
 	WHERE datasets.species = ?1 AND datasets.platform = ?2
 	ORDER BY datasets.name`
@@ -63,7 +63,7 @@ const DATASET_SQL = `SELECT
 	datasets.institution,
 	datasets.name,
 	datasets.path,
-	datasets.description,
+	datasets.description
 	FROM datasets 
 	WHERE datasets.public_id = ?1`
 
@@ -107,9 +107,9 @@ type GexGene struct {
 }
 
 type Platform struct {
-	Idtype
-	PublicId  string      `json:"publicId"`
-	GexValues []*GexValue `json:"gexTypes"`
+	Name     string   `json:"name"`
+	PublicId string   `json:"publicId"`
+	GexTypes []string `json:"gexTypes"`
 }
 
 type Sample struct {
@@ -183,7 +183,8 @@ type SearchResults struct {
 }
 
 type DatasetsCache struct {
-	dir string
+	dir  string
+	path string
 }
 
 func NewDatasetsCache(dir string) *DatasetsCache {
@@ -198,7 +199,7 @@ func NewDatasetsCache(dir string) *DatasetsCache {
 
 	// defer db.Close()
 
-	return &DatasetsCache{path}
+	return &DatasetsCache{dir: dir, path: path}
 }
 
 func (cache *DatasetsCache) Dir() string {
@@ -230,7 +231,7 @@ func (cache *DatasetsCache) Dir() string {
 // }
 
 func (cache *DatasetsCache) Species() ([]string, error) {
-	db, err := sql.Open("sqlite3", cache.dir)
+	db, err := sql.Open("sqlite3", cache.path)
 
 	if err != nil {
 		return nil, err
@@ -265,10 +266,10 @@ func (cache *DatasetsCache) Species() ([]string, error) {
 }
 
 func (cache *DatasetsCache) Plaforms(species string) ([]string, error) {
-	db, err := sql.Open("sqlite3", cache.dir)
+	db, err := sql.Open("sqlite3", cache.path)
 
 	if err != nil {
-		log.Debug().Msgf("err 1 %s", err)
+
 		return nil, err
 	}
 
@@ -339,7 +340,7 @@ func (cache *DatasetsCache) Plaforms(species string) ([]string, error) {
 
 func (cache *DatasetsCache) Datasets(species string, platform string) ([]*Dataset, error) {
 
-	db, err := sql.Open("sqlite3", cache.dir)
+	db, err := sql.Open("sqlite3", cache.path)
 
 	if err != nil {
 		return nil, err
@@ -378,7 +379,9 @@ func (cache *DatasetsCache) Datasets(species string, platform string) ([]*Datase
 		// so use that as an estimate
 		dataset.Samples = make([]*Sample, 0, DATASET_SIZE)
 
-		db2, err := sql.Open("sqlite3", dataset.Path)
+		log.Debug().Msgf("db %s", filepath.Join(cache.dir, dataset.Path))
+
+		db2, err := sql.Open("sqlite3", filepath.Join(cache.dir, dataset.Path))
 
 		if err != nil {
 			return nil, err
@@ -444,7 +447,7 @@ func (cache *DatasetsCache) Datasets(species string, platform string) ([]*Datase
 }
 
 func (cache *DatasetsCache) dataset(datasetId string) (*Dataset, error) {
-	db, err := sql.Open("sqlite3", cache.dir)
+	db, err := sql.Open("sqlite3", cache.path)
 
 	if err != nil {
 		return nil, err
@@ -471,33 +474,55 @@ func (cache *DatasetsCache) dataset(datasetId string) (*Dataset, error) {
 	return &dataset, nil
 }
 
-func (cache *DatasetsCache) FindRNASeqValues(datasetId string,
+func (cache *DatasetsCache) FindRNASeqValues(datasetIds []string,
 	gexType string,
-	geneIds []string) (*SearchResults, error) {
+	geneIds []string) ([]*SearchResults, error) {
 
-	dataset, err := cache.dataset(datasetId)
+	ret := make([]*SearchResults, 0, len(datasetIds))
 
-	if err != nil {
-		return nil, err
+	for _, datasetId := range datasetIds {
+		dataset, err := cache.dataset(datasetId)
+
+		if err != nil {
+			return nil, err
+		}
+
+		datasetCache := NewDatasetCache(cache.dir, dataset)
+
+		res, err := datasetCache.FindRNASeqValues(gexType, geneIds)
+
+		if err != nil {
+			return nil, err
+		}
+
+		ret = append(ret, res)
 	}
 
-	datasetCache := NewDatasetCache(cache.dir, dataset)
-
-	return datasetCache.FindRNASeqValues(gexType, geneIds)
-
+	return ret, nil
 }
 
-func (cache *DatasetsCache) FindMicroarrayValues(datasetId string,
-	geneIds []string) (*SearchResults, error) {
+func (cache *DatasetsCache) FindMicroarrayValues(datasetIds []string,
+	geneIds []string) ([]*SearchResults, error) {
 
-	dataset, err := cache.dataset(datasetId)
+	ret := make([]*SearchResults, 0, len(datasetIds))
 
-	if err != nil {
-		return nil, err
+	for _, datasetId := range datasetIds {
+		dataset, err := cache.dataset(datasetId)
+
+		if err != nil {
+			return nil, err
+		}
+
+		datasetCache := NewDatasetCache(cache.dir, dataset)
+
+		res, err := datasetCache.FindMicroarrayValues(geneIds)
+
+		if err != nil {
+			return nil, err
+		}
+
+		ret = append(ret, res)
 	}
 
-	datasetCache := NewDatasetCache(cache.dir, dataset)
-
-	return datasetCache.FindMicroarrayValues(geneIds)
-
+	return ret, nil
 }

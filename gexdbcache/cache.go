@@ -8,6 +8,17 @@ import (
 
 var instance *gex.DatasetsCache
 var once sync.Once
+var platforms []gex.Platform
+
+func init() {
+	platforms = []gex.Platform{
+		{PublicId: "8wyay6lyvz9f", Name: "RNA-seq", GexTypes: []string{"Counts", "TPM", "VST"}},
+		{PublicId: "4fdknkjpa95h", Name: "Microarray", GexTypes: []string{"RMA"}}}
+}
+
+func Platforms() []gex.Platform {
+	return platforms
+}
 
 func InitCache(dir string) (*gex.DatasetsCache, error) {
 	once.Do(func() {
@@ -29,23 +40,23 @@ func Species() ([]string, error) {
 	return instance.Species()
 }
 
-func Platforms(species string) ([]string, error) {
-	return instance.Plaforms(species)
-}
+// func Platforms(species string) ([]string, error) {
+// 	return instance.Plaforms(species)
+// }
 
 func Datasets(species string, platform string) ([]*gex.Dataset, error) {
 	return instance.Datasets(species, platform)
 }
 
-func FindRNASeqValues(datasetId string,
+func FindRNASeqValues(datasetIds []string,
 	gexType string,
-	geneIds []string) (*gex.SearchResults, error) {
-	return instance.FindRNASeqValues(datasetId, gexType, geneIds)
+	geneIds []string) ([]*gex.SearchResults, error) {
+	return instance.FindRNASeqValues(datasetIds, gexType, geneIds)
 }
 
-func FindMicroarrayValues(datasetId string,
-	geneIds []string) (*gex.SearchResults, error) {
-	return instance.FindMicroarrayValues(datasetId, geneIds)
+func FindMicroarrayValues(datasetIds []string,
+	geneIds []string) ([]*gex.SearchResults, error) {
+	return instance.FindMicroarrayValues(datasetIds, geneIds)
 }
 
 // func GetDataset(uuid string) (*gex.Dataset, error) {

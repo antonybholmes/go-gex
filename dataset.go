@@ -5,13 +5,15 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
 
 const SAMPLES_SQL = `SELECT
 	samples.id,
 	samples.public_id,
 	samples.name, 
-	samples.alt_names, 
+	samples.alt_names 
 	FROM samples
 	ORDER BY samples.name`
 
@@ -23,24 +25,24 @@ const SAMPLE_DATA_SQL = `SELECT
 	ORDER by sample_data.name`
 
 const GENE_SQL = `SELECT 
-	genome.id, 
-	genome.gene_id, 
-	genome.gene_symbol 
+	genes.id, 
+	genes.hugo_id, 
+	genes.gene_symbol 
 	FROM genes
-	WHERE genome.gene_symbol LIKE ?1 OR genome.hugo_id = ?1 OR genome.ensembl_id LIKE ?1 OR genome.refseq_id LIKE ?1 
+	WHERE genes.gene_symbol LIKE ?1 OR genes.hugo_id = ?1 OR genes.ensembl_id LIKE ?1 OR genes.refseq_id LIKE ?1 
 	LIMIT 1`
 
 const RNA_SQL = `SELECT
-	rna_seq.counts,
-	rna_seq.tpm,
-	rna_seq.vst
-	FROM rna_seq 
-	WHERE rna_seq.gene_id = ?1`
+	expression.counts,
+	expression.tpm,
+	expression.vst
+	FROM expression 
+	WHERE expression.gene_id = ?1`
 
 const MICROARRAY_SQL = `SELECT 
-	microarray.rma
-	FROM microarray 
-	WHERE microarray.gene_id = ?1`
+	exp.rma
+	FROM expression 
+	WHERE expression.gene_id = ?1`
 
 const (
 	GEX_TYPE_COUNTS string = "Counts"
@@ -96,13 +98,17 @@ func (cache *DatasetCache) FindRNASeqValues(gexType string,
 		return nil, err
 	}
 
+	log.Debug().Msgf("aha %v", genes[0])
+
 	return cache.RNASeqValues(gexType, genes)
 }
 
 func (cache *DatasetCache) RNASeqValues(gexType string,
 	genes []*GexGene) (*SearchResults, error) {
 
-	db, err := sql.Open("sqlite3", cache.dataset.Path)
+	log.Debug().Msgf("cripes %v", filepath.Join(cache.dir, cache.dataset.Path))
+
+	db, err := sql.Open("sqlite3", filepath.Join(cache.dir, cache.dataset.Path))
 
 	if err != nil {
 		return nil, err
@@ -144,7 +150,7 @@ func (cache *DatasetCache) RNASeqValues(gexType string,
 
 		values := make([]float32, 0, DATASET_SIZE)
 
-		for _, stringValue := range strings.Split(gex, ",") {
+		for stringValue := range strings.SplitSeq(gex, ",") {
 			value, err := strconv.ParseFloat(stringValue, 32)
 
 			if err != nil {
@@ -180,7 +186,7 @@ func (cache *DatasetCache) MicroarrayValues(
 
 	genes []*GexGene) (*SearchResults, error) {
 
-	db, err := sql.Open("sqlite3", cache.dataset.Path)
+	db, err := sql.Open("sqlite3", filepath.Join(cache.dir, cache.dataset.Path))
 
 	if err != nil {
 		return nil, err
@@ -209,7 +215,7 @@ func (cache *DatasetCache) MicroarrayValues(
 
 		values := make([]float32, 0, DATASET_SIZE)
 
-		for _, stringValue := range strings.Split(rma, ",") {
+		for stringValue := range strings.SplitSeq(rma, ",") {
 			value, err := strconv.ParseFloat(stringValue, 32)
 
 			if err != nil {
