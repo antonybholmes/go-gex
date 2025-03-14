@@ -8,25 +8,22 @@ CREATE TABLE genes (
 	refseq_id TEXT NOT NULL,
 	ncbi_id TEXT NOT NULL,
 	gene_symbol TEXT NOT NULL);
-CREATE INDEX genes_hugo_id_idx ON genes (hugo_id);
-CREATE INDEX genes_ensembl_id_idx ON genes (ensembl_id);
-CREATE INDEX genes_refseq_id_idx ON genes (refseq_id);
-CREATE INDEX genes_gene_symbol_idx ON genes (gene_symbol);
 
 CREATE TABLE dataset (
 	id INTEGER PRIMARY KEY ASC,
-	platform TEXT NOT NULL UNIQUE,
 	public_id TEXT NOT NULL UNIQUE,
-	name TEXT NOT NULL UNIQUE,
+	species TEXT NOT NULL UNIQUE,
+	platform TEXT NOT NULL UNIQUE,
 	institution TEXT NOT NULL,
-	notes TEXT NOT NULL DEFAULT '');
+	name TEXT NOT NULL UNIQUE,
+	description TEXT NOT NULL DEFAULT '');
 
 CREATE TABLE samples (
 	id INTEGER PRIMARY KEY ASC,
 	public_id TEXT NOT NULL UNIQUE,
 	name TEXT NOT NULL UNIQUE,
 	alt_names TEXT NOT NULL,
-	notes TEXT NOT NULL DEFAULT '');
+	description TEXT NOT NULL DEFAULT '');
  
 CREATE TABLE sample_data (
 	id INTEGER PRIMARY KEY ASC,
@@ -39,12 +36,10 @@ CREATE TABLE sample_data (
 CREATE TABLE expression (
 	id INTEGER PRIMARY KEY ASC,
 	gene_id INTEGER NOT NULL,
-	sample_id INTEGER NOT NULL,
 	counts INTEGER NOT NULL DEFAULT -1,
 	tpm REAL NOT NULL DEFAUlT -1,
 	vst REAL NOT NULL DEFAUlT -1,
-	FOREIGN KEY(gene_id) REFERENCES genes(id),
-	FOREIGN KEY(sample_id) REFERENCES samples(id));
+	FOREIGN KEY(gene_id) REFERENCES genes(id));
 
 
 

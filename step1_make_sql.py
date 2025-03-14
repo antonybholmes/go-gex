@@ -135,15 +135,13 @@ def load_data(
 
             sample_id = sample_map[sample]["id"]
 
-            exp_map[gex_type][dataset_id][sample_id][gene_id][data_type] = df.iloc[i, j]
+        exp_map[dataset_id][gene_id][data_type] = ",".join(
+            [str(x) for x in df.iloc[i].values]
+        )
 
 
 exp_map = collections.defaultdict(
-    lambda: collections.defaultdict(
-        lambda: collections.defaultdict(
-            lambda: collections.defaultdict(lambda: collections.defaultdict(float))
-        )
-    )
+    lambda: collections.defaultdict(lambda: collections.defaultdict(str))
 )
 
 genes = []
@@ -192,6 +190,7 @@ dataset = {
     "name": dataset_name,
     "institution": "RDF",
     "platform": "RNA-seq",
+    "species": "Human",
 }
 
 
@@ -248,7 +247,7 @@ with open(f"../../data/modules/gex/RNA-seq/{file_id}.sql", "a") as f:
     print("BEGIN TRANSACTION;", file=f)
 
     print(
-        f"INSERT INTO dataset (public_id, name, institution, platform) VALUES ('{dataset["dataset_id"]}', '{dataset["name"]}', '{dataset["institution"]}', '{dataset["platform"]}');",
+        f"INSERT INTO dataset (public_id, name, species, institution, platform) VALUES ('{dataset["dataset_id"]}', '{dataset["name"]}', '{dataset["species"]}', '{dataset["institution"]}', '{dataset["platform"]}');",
         file=f,
     )
 
@@ -283,23 +282,22 @@ with open(f"../../data/modules/gex/RNA-seq/{file_id}.sql", "a") as f:
     # exp_map[gex_type][dataset_id][gene_id][sample_id][data_type]
     type = "RNA-seq"
 
-    for dataset_id in sorted(exp_map[type]):
-        for sample_id in sorted(exp_map[type][dataset_id]):
-            for gene_id in sorted(exp_map[type][dataset_id][sample_id]):
-                values = ", ".join(
-                    [
-                        str(exp_map[type][dataset_id][sample_id][gene_id][data_type])
-                        for data_type in DATA_TYPES
-                    ]
-                )
+    for dataset_id in sorted(exp_map):
+        for gene_id in sorted(exp_map[dataset_id]):
+            values = ",".join(
+                [
+                    f"'{str(exp_map[dataset_id][gene_id][data_type])}'"
+                    for data_type in DATA_TYPES
+                ]
+            )
 
-                gene_index = gene_db_map[gene_id]
+            gene_index = gene_db_map[gene_id]
 
-                print(
-                    f'INSERT INTO expression (gene_id, sample_id, {", ".join(
-                        DATA_TYPES)}) VALUES ({gene_index}, {sample_id}, {values});',
-                    file=f,
-                )
+            print(
+                f'INSERT INTO expression (gene_id, {", ".join(
+                    DATA_TYPES)}) VALUES ({gene_index}, {values});',
+                file=f,
+            )
 
     print("COMMIT;", file=f)
 

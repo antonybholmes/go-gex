@@ -6,18 +6,18 @@ import (
 	"github.com/antonybholmes/go-gex"
 )
 
-var instance *gex.DatasetCache
+var instance *gex.DatasetsCache
 var once sync.Once
 
-func InitCache(dir string) (*gex.DatasetCache, error) {
+func InitCache(dir string) (*gex.DatasetsCache, error) {
 	once.Do(func() {
-		instance = gex.NewGexDBCache(dir)
+		instance = gex.NewDatasetsCache(dir)
 	})
 
 	return instance, nil
 }
 
-func GetInstance() *gex.DatasetCache {
+func GetInstance() *gex.DatasetsCache {
 	return instance
 }
 
@@ -25,28 +25,27 @@ func Dir() string {
 	return instance.Dir()
 }
 
-func Platforms() ([]*gex.Platform, error) {
-	return instance.Plaforms()
+func Species() ([]string, error) {
+	return instance.Species()
 }
 
-func GexValueTypes(platform int) ([]*gex.GexValueType, error) {
-	return instance.GexValueTypes(platform)
+func Platforms(species string) ([]string, error) {
+	return instance.Plaforms(species)
 }
 
-func Datasets(platform int) ([]*gex.Dataset, error) {
-	return instance.Datasets(platform)
+func Datasets(species string, platform string) ([]*gex.Dataset, error) {
+	return instance.Datasets(species, platform)
 }
 
-func GetGenes(genes []string) ([]*gex.GexGene, error) {
-	return instance.GetGenes(genes)
+func FindRNASeqValues(datasetId string,
+	gexType string,
+	geneIds []string) (*gex.SearchResults, error) {
+	return instance.FindRNASeqValues(datasetId, gexType, geneIds)
 }
 
-func RNASeqValues(genes []*gex.GexGene, platform *gex.ValueType, gexValueType *gex.GexValueType, datasets []string) (*gex.SearchResults, error) {
-	return instance.RNASeqValues(genes, platform, gexValueType, datasets)
-}
-
-func MicroarrayValues(genes []*gex.GexGene, platform *gex.ValueType, gexValueType *gex.GexValueType, datasets []string) (*gex.SearchResults, error) {
-	return instance.MicroarrayValues(genes, platform, gexValueType, datasets)
+func FindMicroarrayValues(datasetId string,
+	geneIds []string) (*gex.SearchResults, error) {
+	return instance.FindMicroarrayValues(datasetId, geneIds)
 }
 
 // func GetDataset(uuid string) (*gex.Dataset, error) {

@@ -2,8 +2,8 @@ package gex
 
 import (
 	"database/sql"
-	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/rs/zerolog/log"
 )
@@ -18,94 +18,79 @@ const GENES_SQL = `SELECT
 	FROM genes 
 	ORDER BY genome.gene_symbol`
 
-const GENE_SQL = `SELECT 
-	genome.id, 
-	genome.gene_id, 
-	genome.gene_symbol 
-	FROM genes
-	WHERE genome.gene_id LIKE ?1 OR genome.gene_symbol LIKE ?1 
-	LIMIT 1`
+const SPECIES_SQL = `SELECT
+	datasets.species,
+	FROM datasets
+	ORDER BY datasets.species`
 
 const PLATFORMS_SQL = `SELECT
-	platforms.id,
-	platforms.public_id,
-	platforms.name 
-	FROM platforms 
-	ORDER BY platforms.id`
+	datasets.platform,
+	FROM datasets
+	WHERE datasets.species = ?1 
+	ORDER BY datasets.platform`
 
-const ALL_VALUE_TYPES_SQL = `SELECT 
-	gex_value_types.id,
-	gex_value_types.name
-	FROM gex_value_types 
-	ORDER BY gex_value_types.platform_id, gex_value_types.id`
+// const ALL_VALUE_TYPES_SQL = `SELECT
+// 	gex_value_types.id,
+// 	gex_value_types.name
+// 	FROM gex_value_types
+// 	ORDER BY gex_value_types.platform_id, gex_value_types.id`
 
-const VALUE_TYPES_SQL = `SELECT 
-	gex_value_types.id,
-	gex_value_types.name
-	FROM gex_value_types 
-	WHERE gex_value_types.platform_id = ?1
-	ORDER BY gex_value_types.id`
+// const VALUE_TYPES_SQL = `SELECT
+// 	gex_value_types.id,
+// 	gex_value_types.name
+// 	FROM gex_value_types
+// 	WHERE gex_value_types.platform_id = ?1
+// 	ORDER BY gex_value_types.id`
 
 const DATASETS_SQL = `SELECT 
 	datasets.id,
 	datasets.public_id,
-	datasets.name, 
-	datasets.institution 
+	datasets.species,
+	datasets.platform,
+	datasets.institution,
+	datasets.name,
+	datasets.path,
+	datasets.description,
 	FROM datasets 
-	WHERE datasets.platform_id = ?1
-	ORDER BY datasets.id`
+	WHERE datasets.species = ?1 AND datasets.platform = ?2
+	ORDER BY datasets.name`
+
+const DATASET_SQL = `SELECT 
+	datasets.id,
+	datasets.public_id,
+	datasets.species,
+	datasets.platform,
+	datasets.institution,
+	datasets.name,
+	datasets.path,
+	datasets.description,
+	FROM datasets 
+	WHERE datasets.public_id = ?1`
 
 // const DATASETS_SQL = `SELECT
 // 	name
 // 	FROM datasets
 // 	ORDER BY datasets.name`
 
-const SAMPLES_SQL = `SELECT
-	samples.id,
-	samples.public_id,
-	samples.name, 
-	samples.coo, 
-	samples.lymphgen
-	FROM samples
-	WHERE samples.dataset_id = ?1
-	ORDER BY samples.name`
-
-const RNA_SQL = `SELECT 
-	rna_seq.sample_id,
-	rna_seq.counts,
-	rna_seq.tpm,
-	rna_seq.vst
-	FROM rna_seq 
-	WHERE rna_seq.gene_id = ?1 AND rna_seq.dataset_id = ?2
-	ORDER BY rna_seq.sample_id`
-
-const MICROARRAY_SQL = `SELECT 
-	microarray.sample_id,
-	microarray.rma
-	FROM microarray 
-	WHERE microarray.gene_id = ?1 AND microarray.dataset_id = ?2
-	ORDER BY microarray.sample_id`
-
-// type GexValueType string
-
-const (
-	GEX_VALUE_TYPE_COUNTS string = "Counts"
-	GEX_VALUE_TYPE_TPM    string = "TPM"
-	GEX_VALUE_TYPE_VST    string = "VST"
-	GEX_VALUE_TYPE_RMA    string = "RMA"
-)
+// type GexValue string
 
 const (
 	RNA_SEQ_PLATFORM    string = "RNA-seq"
 	MICROARRAY_PLATFORM string = "Microarray"
 )
 
-type ValueType struct {
+type Idtype struct {
 	Name string `json:"name"`
 	Id   int    `json:"id"`
 }
 
-type GexValueType = ValueType
+type KeyValuetype struct {
+	Name string `json:"name"`
+	Id   int    `json:"id"`
+}
+
+type Species = Idtype
+type GexValue = Idtype
 
 // type GexType string
 
@@ -116,30 +101,35 @@ type GexValueType = ValueType
 
 type GexGene struct {
 	GeneId     string `json:"geneId"`
+	HugoId     string `json:"hugoId"`
 	GeneSymbol string `json:"geneSymbol"`
-	Id         int    `json:"id"`
+	Id         int    `json:"-"`
 }
 
 type Platform struct {
-	ValueType
-	PublicId      string          `json:"publicId"`
-	GexValueTypes []*GexValueType `json:"gexValueTypes"`
+	Idtype
+	PublicId  string      `json:"publicId"`
+	GexValues []*GexValue `json:"gexTypes"`
 }
 
 type Sample struct {
-	PublicId string `json:"publicId"`
-	Name     string `json:"name"`
-	COO      string `json:"coo"`
-	Lymphgen string `json:"lymphgen"`
-	Id       int    `json:"id"`
+	PublicId string            `json:"publicId"`
+	Name     string            `json:"name"`
+	AltNames []string          `json:"altNames"`
+	Id       int               `json:"-"`
+	Data     map[string]string `json:"data"`
 }
 
 type Dataset struct {
 	PublicId    string    `json:"publicId"`
 	Name        string    `json:"name"`
+	Species     string    `json:"species"`
+	Platform    string    `json:"platform"`
+	Path        string    `json:"-"`
 	Institution string    `json:"institution"`
 	Samples     []*Sample `json:"samples"`
 	Id          int       `json:"id"`
+	Description string    `json:"description"`
 }
 
 // type RNASeqGex struct {
@@ -176,8 +166,8 @@ type ResultDataset struct {
 type ResultGene struct {
 	Gene *GexGene `json:"gene"`
 	//Platform     *ValueType       `json:"platform"`
-	//GexValueType *GexValueType    `json:"gexValueType"`
-	Datasets []*ResultDataset `json:"datasets"`
+	//GexValue *GexValue    `json:"gexType"`
+	Exp []float32 `json:"values"`
 }
 
 type SearchResults struct {
@@ -185,16 +175,18 @@ type SearchResults struct {
 	// results so that the value types are not repeated in
 	// each search. The useful info in a search is just
 	// the platform name and id
-	Platform     *ValueType    `json:"platform"`
-	GexValueType *GexValueType `json:"gexValueType"`
-	Genes        []*ResultGene `json:"genes"`
+
+	//Dataset *Dataset      `json:"dataset"`
+	Dataset string        `json:"dataset"`
+	GexType string        `json:"gexType"`
+	Genes   []*ResultGene `json:"genes"`
 }
 
-type DatasetCache struct {
+type DatasetsCache struct {
 	dir string
 }
 
-func NewGexDBCache(dir string) *DatasetCache {
+func NewDatasetsCache(dir string) *DatasetsCache {
 
 	path := filepath.Join(dir, "gex.db")
 
@@ -206,14 +198,38 @@ func NewGexDBCache(dir string) *DatasetCache {
 
 	// defer db.Close()
 
-	return &DatasetCache{path}
+	return &DatasetsCache{path}
 }
 
-func (cache *DatasetCache) Dir() string {
+func (cache *DatasetsCache) Dir() string {
 	return cache.dir
 }
 
-func (cache *DatasetCache) GetGenes(genes []string) ([]*GexGene, error) {
+// func (cache *DatasetsCache) GetGenes(genes []string) ([]*GexGene, error) {
+// 	db, err := sql.Open("sqlite3", cache.dir)
+
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	defer db.Close()
+
+// 	ret := make([]*GexGene, 0, len(genes))
+
+// 	for _, gene := range genes {
+// 		var gexGene GexGene
+
+// 		err := db.QueryRow(GENE_SQL, fmt.Sprintf("%%%s%%", gene)).Scan(&gexGene.Id, &gexGene.GeneId, &gexGene.GeneSymbol)
+
+// 		if err == nil {
+// 			ret = append(ret, &gexGene)
+// 		}
+// 	}
+
+// 	return ret, nil
+// }
+
+func (cache *DatasetsCache) Species() ([]string, error) {
 	db, err := sql.Open("sqlite3", cache.dir)
 
 	if err != nil {
@@ -222,22 +238,33 @@ func (cache *DatasetCache) GetGenes(genes []string) ([]*GexGene, error) {
 
 	defer db.Close()
 
-	ret := make([]*GexGene, 0, len(genes))
+	species := make([]string, 0, 10)
 
-	for _, gene := range genes {
-		var gexGene GexGene
+	rows, err := db.Query(SPECIES_SQL)
 
-		err := db.QueryRow(GENE_SQL, fmt.Sprintf("%%%s%%", gene)).Scan(&gexGene.Id, &gexGene.GeneId, &gexGene.GeneSymbol)
-
-		if err == nil {
-			ret = append(ret, &gexGene)
-		}
+	if err != nil {
+		return nil, err
 	}
 
-	return ret, nil
+	defer rows.Close()
+
+	for rows.Next() {
+		var name string
+
+		err := rows.Scan(
+			&name)
+
+		if err != nil {
+			return nil, err
+		}
+
+		species = append(species, name)
+	}
+
+	return species, nil
 }
 
-func (cache *DatasetCache) Plaforms() ([]*Platform, error) {
+func (cache *DatasetsCache) Plaforms(species string) ([]string, error) {
 	db, err := sql.Open("sqlite3", cache.dir)
 
 	if err != nil {
@@ -247,9 +274,9 @@ func (cache *DatasetCache) Plaforms() ([]*Platform, error) {
 
 	defer db.Close()
 
-	platforms := make([]*Platform, 0, 10)
+	platforms := make([]string, 0, 10)
 
-	rows, err := db.Query(PLATFORMS_SQL)
+	rows, err := db.Query(PLATFORMS_SQL, species)
 
 	if err != nil {
 		return nil, err
@@ -258,69 +285,59 @@ func (cache *DatasetCache) Plaforms() ([]*Platform, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var platform Platform
+		var platform string
 
 		err := rows.Scan(
-			&platform.Id,
-			&platform.PublicId,
-			&platform.Name)
+			&platform)
 
 		if err != nil {
 			return nil, err
 		}
 
-		valueTypes, err := cache.GexValueTypes(platform.Id)
-
-		if err != nil {
-			return nil, err
-		}
-
-		platform.GexValueTypes = valueTypes
-
-		platforms = append(platforms, &platform)
+		platforms = append(platforms, platform)
 	}
 
 	return platforms, nil
 }
 
-func (cache *DatasetCache) GexValueTypes(platform int) ([]*GexValueType, error) {
+// func (cache *DatasetsCache) GexValues(platform int) ([]*GexValue, error) {
 
-	db, err := sql.Open("sqlite3", cache.dir)
+// 	db, err := sql.Open("sqlite3", cache.dir)
 
-	if err != nil {
-		return nil, err
-	}
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	defer db.Close()
+// 	defer db.Close()
 
-	valueTypes := make([]*GexValueType, 0, 10)
+// 	valueTypes := make([]*GexValue, 0, 10)
 
-	rows, err := db.Query(VALUE_TYPES_SQL, platform)
+// 	rows, err := db.Query(VALUE_TYPES_SQL, platform)
 
-	if err != nil {
-		return nil, err
-	}
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	defer rows.Close()
+// 	defer rows.Close()
 
-	for rows.Next() {
-		var valueType GexValueType
+// 	for rows.Next() {
+// 		var valueType GexValue
 
-		err := rows.Scan(
-			&valueType.Id,
-			&valueType.Name)
+// 		err := rows.Scan(
+// 			&valueType.Id,
+// 			&valueType.Name)
 
-		if err != nil {
-			return nil, err
-		}
+// 		if err != nil {
+// 			return nil, err
+// 		}
 
-		valueTypes = append(valueTypes, &valueType)
-	}
+// 		valueTypes = append(valueTypes, &valueType)
+// 	}
 
-	return valueTypes, nil
-}
+// 	return valueTypes, nil
+// }
 
-func (cache *DatasetCache) Datasets(platform int) ([]*Dataset, error) {
+func (cache *DatasetsCache) Datasets(species string, platform string) ([]*Dataset, error) {
 
 	db, err := sql.Open("sqlite3", cache.dir)
 
@@ -332,7 +349,7 @@ func (cache *DatasetCache) Datasets(platform int) ([]*Dataset, error) {
 
 	datasets := make([]*Dataset, 0, 10)
 
-	datasetRows, err := db.Query(DATASETS_SQL, platform)
+	datasetRows, err := db.Query(DATASETS_SQL, species, platform)
 
 	if err != nil {
 		return nil, err
@@ -346,8 +363,12 @@ func (cache *DatasetCache) Datasets(platform int) ([]*Dataset, error) {
 		err := datasetRows.Scan(
 			&dataset.Id,
 			&dataset.PublicId,
+			&dataset.Species,
+			&dataset.Platform,
+			&dataset.Institution,
 			&dataset.Name,
-			&dataset.Institution)
+			&dataset.Path,
+			&dataset.Description)
 
 		if err != nil {
 			return nil, err
@@ -357,26 +378,60 @@ func (cache *DatasetCache) Datasets(platform int) ([]*Dataset, error) {
 		// so use that as an estimate
 		dataset.Samples = make([]*Sample, 0, DATASET_SIZE)
 
-		sampleRows, err := db.Query(SAMPLES_SQL, dataset.Id)
+		db2, err := sql.Open("sqlite3", dataset.Path)
 
 		if err != nil {
 			return nil, err
 		}
 
-		defer sampleRows.Close()
+		defer db2.Close()
 
-		for sampleRows.Next() {
+		geneRows, err := db2.Query(SAMPLES_SQL, dataset.Id)
+
+		if err != nil {
+			return nil, err
+		}
+
+		defer geneRows.Close()
+
+		for geneRows.Next() {
 			var sample Sample
+			var altNames string
 
-			err := sampleRows.Scan(
+			err := geneRows.Scan(
 				&sample.Id,
 				&sample.PublicId,
 				&sample.Name,
-				&sample.COO,
-				&sample.Lymphgen)
+				&altNames)
 
 			if err != nil {
 				return nil, err
+			}
+
+			sample.AltNames = strings.Split(altNames, ",")
+
+			sample.Data = make(map[string]string)
+
+			dataRows, err := db2.Query(SAMPLE_DATA_SQL, sample.Id)
+
+			if err != nil {
+				return nil, err
+			}
+
+			defer dataRows.Close()
+
+			for dataRows.Next() {
+				var name string
+				var value string
+
+				err := dataRows.Scan(
+					&name, &value)
+
+				if err != nil {
+					return nil, err
+				}
+
+				sample.Data[name] = value
 			}
 
 			dataset.Samples = append(dataset.Samples, &sample)
@@ -388,11 +443,7 @@ func (cache *DatasetCache) Datasets(platform int) ([]*Dataset, error) {
 	return datasets, nil
 }
 
-func (cache *DatasetCache) RNASeqValues(genes []*GexGene,
-	platform *ValueType,
-	gexValueType *GexValueType,
-	datasets []string) (*SearchResults, error) {
-
+func (cache *DatasetsCache) dataset(datasetId string) (*Dataset, error) {
 	db, err := sql.Open("sqlite3", cache.dir)
 
 	if err != nil {
@@ -401,142 +452,52 @@ func (cache *DatasetCache) RNASeqValues(genes []*GexGene,
 
 	defer db.Close()
 
-	ret := SearchResults{
-		Platform:     platform,
-		GexValueType: gexValueType,
-		Genes:        make([]*ResultGene, 0, len(genes))}
+	var dataset Dataset
 
-	var id int
-	var counts int
-	var tpm float32
-	var vst float32
-	var value float32
+	err = db.QueryRow(DATASET_SQL, datasetId).Scan(
+		&dataset.Id,
+		&dataset.PublicId,
+		&dataset.Species,
+		&dataset.Platform,
+		&dataset.Institution,
+		&dataset.Name,
+		&dataset.Path,
+		&dataset.Description)
 
-	for _, gene := range genes {
-		geneResults := ResultGene{Gene: gene,
-			//Platform:     platform,
-			//GexValueType: gexValueType,
-			Datasets: make([]*ResultDataset, 0, len(datasets))}
-
-		for _, dataset := range datasets {
-			var datasetResults ResultDataset
-
-			datasetResults.PublicId = dataset
-			//datasetResults.Samples = make([]*ResultSample, 0, DATASET_SIZE)
-			datasetResults.Values = make([]float32, 0, DATASET_SIZE)
-
-			sampleRows, err := db.Query(RNA_SQL, gene.Id, dataset)
-
-			if err != nil {
-				return nil, err
-			}
-
-			defer sampleRows.Close()
-
-			for sampleRows.Next() {
-				//var sample ResultSample
-
-				err := sampleRows.Scan(
-					&id,
-					&counts,
-					&tpm,
-					&vst)
-
-				switch gexValueType.Name {
-				case GEX_VALUE_TYPE_TPM:
-					value = tpm
-				case GEX_VALUE_TYPE_VST:
-					value = vst
-				default:
-					value = float32(counts)
-				}
-
-				//log.Debug().Msgf("hmm %s %f %f", gexValueType, sample.Value, tpm)
-
-				if err != nil {
-					return nil, err
-				}
-
-				//datasetResults.Samples = append(datasetResults.Samples, &sample)
-				datasetResults.Values = append(datasetResults.Values, value)
-			}
-
-			geneResults.Datasets = append(geneResults.Datasets, &datasetResults)
-		}
-
-		ret.Genes = append(ret.Genes, &geneResults)
+	if err != nil {
+		return nil, err
 	}
 
-	return &ret, nil
+	return &dataset, nil
 }
 
-func (cache *DatasetCache) MicroarrayValues(genes []*GexGene,
-	platform *ValueType,
-	gexValueType *GexValueType,
-	datasets []string) (*SearchResults, error) {
+func (cache *DatasetsCache) FindRNASeqValues(datasetId string,
+	gexType string,
+	geneIds []string) (*SearchResults, error) {
 
-	db, err := sql.Open("sqlite3", cache.dir)
+	dataset, err := cache.dataset(datasetId)
 
 	if err != nil {
 		return nil, err
 	}
 
-	defer db.Close()
+	datasetCache := NewDatasetCache(cache.dir, dataset)
 
-	//ret := make([]*ResultGene, 0, len(genes))
-	ret := SearchResults{
-		Platform:     platform,
-		GexValueType: gexValueType,
-		Genes:        make([]*ResultGene, 0, len(genes))}
+	return datasetCache.FindRNASeqValues(gexType, geneIds)
 
-	var id int
+}
 
-	var value float32
+func (cache *DatasetsCache) FindMicroarrayValues(datasetId string,
+	geneIds []string) (*SearchResults, error) {
 
-	for _, gene := range genes {
-		geneResults := ResultGene{Gene: gene,
-			//Platform:     platform,
-			//GexValueType: gexValueType,
-			Datasets: make([]*ResultDataset, 0, len(datasets))}
+	dataset, err := cache.dataset(datasetId)
 
-		for _, dataset := range datasets {
-			var datasetResults ResultDataset
-
-			datasetResults.PublicId = dataset
-			//datasetResults.Samples = make([]*ResultSample, 0, DATASET_SIZE)
-			datasetResults.Values = make([]float32, 0, DATASET_SIZE)
-
-			sampleRows, err := db.Query(MICROARRAY_SQL, gene.Id, dataset)
-
-			if err != nil {
-				log.Debug().Msgf("err 3 %s", err)
-				return nil, err
-			}
-
-			defer sampleRows.Close()
-
-			for sampleRows.Next() {
-				//var sample ResultSample
-
-				err := sampleRows.Scan(
-					&id,
-					&value)
-
-				//log.Debug().Msgf("hmm %s %f %f", gexValueType, sample.Value, tpm)
-
-				if err != nil {
-
-					return nil, err
-				}
-
-				datasetResults.Values = append(datasetResults.Values, value)
-			}
-
-			geneResults.Datasets = append(geneResults.Datasets, &datasetResults)
-		}
-
-		ret.Genes = append(ret.Genes, &geneResults)
+	if err != nil {
+		return nil, err
 	}
 
-	return &ret, nil
+	datasetCache := NewDatasetCache(cache.dir, dataset)
+
+	return datasetCache.FindMicroarrayValues(geneIds)
+
 }
