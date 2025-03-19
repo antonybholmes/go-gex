@@ -100,8 +100,9 @@ type GexValue = Idtype
 //)
 
 type GexGene struct {
-	GeneId     string `json:"geneId"`
-	HugoId     string `json:"hugoId"`
+	Ensembl    string `json:"ensembl"`
+	Refseq     string `json:"refseq"`
+	Hugo       string `json:"hugo"`
 	GeneSymbol string `json:"geneSymbol"`
 	Id         int    `json:"-"`
 }

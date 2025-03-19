@@ -14,6 +14,7 @@ func init() {
 	platforms = []gex.Platform{
 		{PublicId: "8wyay6lyvz9f", Name: "RNA-seq", GexTypes: []string{"Counts", "TPM", "VST"}},
 		{PublicId: "4fdknkjpa95h", Name: "Microarray", GexTypes: []string{"RMA"}}}
+
 }
 
 func Platforms() []gex.Platform {

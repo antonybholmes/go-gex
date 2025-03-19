@@ -26,7 +26,9 @@ const SAMPLE_DATA_SQL = `SELECT
 
 const GENE_SQL = `SELECT 
 	genes.id, 
-	genes.hugo_id, 
+	genes.hugo_id,
+	genes.ensembl_id,
+	genes.refseq_id,
 	genes.gene_symbol 
 	FROM genes
 	WHERE genes.gene_symbol LIKE ?1 OR genes.hugo_id = ?1 OR genes.ensembl_id LIKE ?1 OR genes.refseq_id LIKE ?1 
@@ -78,7 +80,9 @@ func (cache *DatasetCache) FindGenes(genes []string) ([]*GexGene, error) {
 		var gene GexGene
 		err := db.QueryRow(GENE_SQL, g).Scan(
 			&gene.Id,
-			&gene.HugoId,
+			&gene.Hugo,
+			&gene.Ensembl,
+			&gene.Refseq,
 			&gene.GeneSymbol)
 
 		if err != nil {

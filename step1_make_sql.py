@@ -87,7 +87,8 @@ def load_sample_data(df: pd.DataFrame, id_cols, sample_id_map, sample_data_map):
         values = values[id_cols:]
 
         for name, value in zip(names, values):
-            sample_data_map[sample_id][name] = value
+            if value != "":
+                sample_data_map[sample_id][name] = value
 
 
 def load_data(
@@ -117,7 +118,7 @@ def load_data(
         gene_id = gene_id_map[gene]
 
         for j in range(df.shape[1]):
-            sample = df.columns.values[j].split("|")[0].split("/")[-1]
+            sample = df.columns.values[j].split("/")[0]
 
             # print(sample)
 
@@ -168,6 +169,7 @@ df_samples = pd.read_csv(
     "/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/other_labs/BC_morin/dlbcl_ega_EGAD00001003783/324/grch37/analysis/bcca_morin_survival_data_2023_wright_update.txt",
     sep="\t",
     header=0,
+    keep_default_na=False,
 )
 
 sample_id_map = collections.defaultdict(lambda: collections.defaultdict(str))
@@ -205,7 +207,7 @@ load_data(
     sample_map,
     exp_map,
 )
-file = "/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/other_labs/BC_morin/dlbcl_ega_EGAD00001003783/324/grch37/analysis/tpm_dup_grch37_20190508_renamed_230.tsv"
+file = "/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/other_labs/BC_morin/dlbcl_ega_EGAD00001003783/324/grch37/analysis/tpm_grch37_20190508_renamed_230.tsv"
 load_data(
     "RNA-seq",
     "tpm",
@@ -216,7 +218,7 @@ load_data(
     sample_map,
     exp_map,
 )
-file = "/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/other_labs/BC_morin/dlbcl_ega_EGAD00001003783/324/grch37/analysis/vst_counts_grch37_20190507_renamed_230.tsv"
+file = "/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/other_labs/BC_morin/dlbcl_ega_EGAD00001003783/324/grch37/analysis/vst_grch37_20190507_renamed_230.tsv"
 load_data(
     "RNA-seq",
     "vst",
