@@ -9,13 +9,15 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// keep them in the entered order so we can preserve
+// groupings such as N/GC/M which are not alphabetical
 const SAMPLES_SQL = `SELECT
 	samples.id,
 	samples.public_id,
 	samples.name, 
 	samples.alt_names 
 	FROM samples
-	ORDER BY samples.name`
+	ORDER BY samples.id`
 
 const SAMPLE_DATA_SQL = `SELECT
 	sample_data.name,

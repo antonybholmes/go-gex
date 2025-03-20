@@ -190,7 +190,7 @@ dataset_id = generate("0123456789abcdefghijklmnopqrstuvwxyz", 12)
 dataset = {
     "dataset_id": dataset_id,
     "name": dataset_name,
-    "institution": "RDF",
+    "institution": "BCCA",
     "platform": "RNA-seq",
     "species": "Human",
 }
