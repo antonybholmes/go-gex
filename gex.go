@@ -3,7 +3,6 @@ package gex
 import (
 	"database/sql"
 	"path/filepath"
-	"strings"
 
 	"github.com/rs/zerolog/log"
 )
@@ -400,23 +399,52 @@ func (cache *DatasetsCache) Datasets(species string, platform string) ([]*Datase
 
 		for geneRows.Next() {
 			var sample Sample
-			var altNames string
 
 			err := geneRows.Scan(
 				&sample.Id,
 				&sample.PublicId,
-				&sample.Name,
-				&altNames)
+				&sample.Name)
 
 			if err != nil {
 				return nil, err
 			}
 
-			sample.AltNames = strings.Split(altNames, ",")
+			//
+			// See if sample has alternative names
+			//
+
+			sample.AltNames = make([]string, 0, 10)
+
+			dataRows, err := db2.Query(SAMPLE_ALT_NAMES_SQL, sample.Id)
+
+			if err != nil {
+				return nil, err
+			}
+
+			defer dataRows.Close()
+
+			for dataRows.Next() {
+				var name string
+				var value string
+
+				err := dataRows.Scan(
+					&name, &value)
+
+				if err != nil {
+					return nil, err
+				}
+
+				sample.AltNames = append(sample.AltNames, value)
+
+			}
+
+			//
+			// Attach sample meta data
+			//
 
 			sample.Data = make(map[string]string)
 
-			dataRows, err := db2.Query(SAMPLE_DATA_SQL, sample.Id)
+			dataRows, err = db2.Query(SAMPLE_METADATA_SQL, sample.Id)
 
 			if err != nil {
 				return nil, err

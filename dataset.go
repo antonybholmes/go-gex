@@ -14,17 +14,23 @@ import (
 const SAMPLES_SQL = `SELECT
 	samples.id,
 	samples.public_id,
-	samples.name, 
-	samples.alt_names 
+	samples.name
 	FROM samples
 	ORDER BY samples.id`
 
-const SAMPLE_DATA_SQL = `SELECT
+const SAMPLE_ALT_NAMES_SQL = `SELECT
+	sample_alt_names.name,
+	sample_alt_names.value
+	FROM sample_alt_names
+	WHERE sample_alt_names.sample_id = ?1
+	ORDER by sample_alt_names.id`
+
+const SAMPLE_METADATA_SQL = `SELECT
 	sample_data.name,
 	sample_data.value
 	FROM sample_data
 	WHERE sample_data.sample_id = ?1
-	ORDER by sample_data.name`
+	ORDER by sample_data.id`
 
 const GENE_SQL = `SELECT 
 	genes.id, 
