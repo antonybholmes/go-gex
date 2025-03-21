@@ -5,6 +5,9 @@ import pandas as pd
 import numpy as np
 from nanoid import generate
 
+import argparse
+
+
 DATA_TYPES = ["counts", "tpm", "vst"]
 
 
@@ -69,26 +72,32 @@ def get_file_id(name: str) -> str:
     return re.sub(r"[\/ ]+", "_", name.lower())
 
 
-def load_sample_data(df: pd.DataFrame, id_cols, sample_id_map, sample_data_map):
-    id_names = df.columns.values[0:id_cols]
-    names = df.columns.values[id_cols:]
+def load_sample_data(df: pd.DataFrame, num_id_cols):
+    id_names = df.columns.values[0:num_id_cols]
+    sample_metadata_names = df.columns.values[num_id_cols:]
+
+    sample_id_map = collections.defaultdict(lambda: collections.defaultdict(str))
+    sample_data_map = collections.defaultdict(lambda: collections.defaultdict(str))
 
     for i, row in df.iterrows():
         values = row.astype(str)
 
-        ids = values[0:id_cols]
+        ids = values[0:num_id_cols]
         sample_id = ids[0]
         alt_id_names = id_names[1:]
         alt_ids = ids[1:]
 
-        sample_id_map[sample_id] = ",".join(alt_ids)
+        for name, alt_id in zip(alt_id_names, alt_ids):
+            sample_id_map[sample_id][name] = alt_id
 
         values = values.astype(str)
-        values = values[id_cols:]
+        values = values[num_id_cols:]
 
-        for name, value in zip(names, values):
+        for name, value in zip(sample_metadata_names, values):
             if value != "":
                 sample_data_map[sample_id][name] = value
+
+    return [alt_id_names, sample_id_map, sample_metadata_names, sample_data_map]
 
 
 def load_data(
@@ -161,86 +170,89 @@ platformMap["RNA-seq"] = len(platforms)
 platforms.append({"name": "Microarray"})
 platformMap["Microarray"] = len(platforms)
 
-#
-# rna-seq
-#
+
+# Create an argument parser
+parser = argparse.ArgumentParser(description="Make GEX sql file")
+
+# Add named arguments
+parser.add_argument("--name", type=str, help="Dataset name", required=True)
+parser.add_argument(
+    "--institution", type=str, help="Where data came from", required=True
+)
+parser.add_argument("--phenotypes", type=str, help="Phenotypes file", required=True)
+parser.add_argument("--counts", type=str, help="Counts file", required=True)
+parser.add_argument("--tpm", type=str, help="TPM file", required=True)
+parser.add_argument("--vst", type=str, help="VST file", required=True)
+parser.add_argument("--id_col_count", type=int, help="How many id columns", default=1)
+parser.add_argument(
+    "--platform", type=str, help="Sequencing platform, e.g. RNA-seq", default="RNA-seq"
+)
+parser.add_argument("--species", type=str, help="Species, e.g. Human", default="Human")
+
+# Parse the command line arguments
+args = parser.parse_args()
+
 
 df_samples = pd.read_csv(
-    "/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/phenotypes.tsv",
+    args.phenotypes,
     sep="\t",
     header=0,
     keep_default_na=False,
 )
 
-sample_id_map = collections.defaultdict(lambda: collections.defaultdict(str))
-sample_data_map = collections.defaultdict(lambda: collections.defaultdict(str))
 
-load_sample_data(df_samples, 1, sample_id_map, sample_data_map)
+alt_id_names, sample_id_map, sample_metadata_names, sample_data_map = load_sample_data(
+    df_samples, args.id_col_count
+)
 
 print(sample_id_map)
 print(sample_data_map)
 
 
-# determine sample order from counts table so that we preserve order as
-# necessary
 samples = []
 sample_map = {}
 
-dataset_name = "RDF N/GC/M/DZ/LZ"
+dataset_name = args.name
 file_id = get_file_id(dataset_name)
 dataset_id = generate("0123456789abcdefghijklmnopqrstuvwxyz", 12)
 dataset = {
     "dataset_id": dataset_id,
     "name": dataset_name,
-    "institution": "RDF",
-    "platform": "RNA-seq",
-    "species": "Human",
+    "institution": args.institution,
+    "platform": args.platform,
+    "species": args.species,
 }
 
-# dataset_name = "RDF M"
-# datasets.append({"name": dataset_name, "institution": "RDF", "platform_id": 1})
-# dataset_map[dataset_name] = len(datasets)
-# file = "/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/n_gc_m_lz_dz_counts_restricted_gencode_grch38_20180724_simple.tsv"
-# load_data(
-#     1, file, dataset_name, dataset_map, samples, sample_map, exp_map, gene_map, "M_"
-# )
-# file = "/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/n_gc_m_lz_dz_tpm_restricted_gencode_grch38_20180724_simple.tsv"
-# load_data(
-#     1, file, dataset_name, dataset_map, samples, sample_map, exp_map, gene_map, "M_"
-# )
-# file = "/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/vst_n_gc_m_lz_dz_restricted_gencode_grch38_20180724.txt"
-# load_data(
-#     1, file, dataset_name, dataset_map, samples, sample_map, exp_map, gene_map, "M_"
-# )
 
-
-file = "/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/n_gc_m_lz_dz_counts_restricted_gencode_grch38_20180724_simple.tsv"
+counts_file = args.counts
 load_data(
-    "RNA-seq",
+    args.platform,
     "counts",
-    file,
+    counts_file,
     dataset_name,
     dataset_id,
     samples,
     sample_map,
     exp_map,
 )
-file = "/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/n_gc_m_lz_dz_tpm_restricted_gencode_grch38_20180724_simple.tsv"
+
+tpm_file = args.tpm
 load_data(
-    "RNA-seq",
+    args.platform,
     "tpm",
-    file,
+    tpm_file,
     dataset_name,
     dataset_id,
     samples,
     sample_map,
     exp_map,
 )
-file = "/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/vst_n_gc_m_lz_dz_restricted_gencode_grch38_20180724.txt"
+
+vst_file = args.vst
 load_data(
-    "RNA-seq",
+    args.platform,
     "vst",
-    file,
+    vst_file,
     dataset_name,
     dataset_id,
     samples,
@@ -250,20 +262,6 @@ load_data(
 
 
 with open(f"../../data/modules/gex/RNA-seq/{file_id}.sql", "w") as f:
-    print("BEGIN TRANSACTION;", file=f)
-
-    for i, id in enumerate(gene_ids):
-        gene = official_symbols[id]
-        print(gene)
-
-        print(
-            f"INSERT INTO genes (id, hugo_id, ensembl_id, refseq_id, ncbi_id, gene_symbol) VALUES ({i + 1}, '{gene["hugo"]}', '{gene["ensembl"]}', '{gene["refseq"]}', '{gene["ncbi"]}', '{gene["gene_symbol"]}');",
-            file=f,
-        )
-
-    print("COMMIT;", file=f)
-
-with open(f"../../data/modules/gex/RNA-seq/{file_id}.sql", "a") as f:
     print("BEGIN TRANSACTION;", file=f)
 
     print(
@@ -278,7 +276,7 @@ with open(f"../../data/modules/gex/RNA-seq/{file_id}.sql", "a") as f:
     for i, sample in enumerate(samples):
         sample_info = sample_map[sample]
         print(
-            f"INSERT INTO samples (id, public_id, name, alt_names) VALUES ({i + 1}, '{sample_info["sample_id"]}', '{sample_info["name"]}', '{sample_id_map.get(sample, "")}');",
+            f"INSERT INTO samples (public_id, name) VALUES ('{sample_info["sample_id"]}', '{sample_info["name"]}');",
             file=f,
         )
 
@@ -286,12 +284,25 @@ with open(f"../../data/modules/gex/RNA-seq/{file_id}.sql", "a") as f:
 
     print("BEGIN TRANSACTION;", file=f)
 
+    for i, sample in enumerate(samples):
+        for name in alt_id_names:
+            value = sample_id_map[sample][name]
+
+            print(
+                f"INSERT INTO sample_alt_names (sample_id, name, value) VALUES ({i + 1}, '{name}', '{value}');",
+                file=f,
+            )
+
+    print("COMMIT;", file=f)
+
+    print("BEGIN TRANSACTION;", file=f)
+
     for si, sample in enumerate(samples):
-        for name in sample_data_map[sample]:
+        for name in sample_metadata_names:
             value = sample_data_map[sample][name]
 
             print(
-                f"INSERT INTO sample_data (sample_id, name, value) VALUES ({si + 1}, '{name}', '{value}');",
+                f"INSERT INTO sample_metadata (sample_id, name, value) VALUES ({si + 1}, '{name}', '{value}');",
                 file=f,
             )
 
@@ -318,5 +329,20 @@ with open(f"../../data/modules/gex/RNA-seq/{file_id}.sql", "a") as f:
                     DATA_TYPES)}) VALUES ({gene_index}, {values});',
                 file=f,
             )
+
+    print("COMMIT;", file=f)
+
+
+with open(f"../../data/modules/gex/RNA-seq/{file_id}.sql", "a") as f:
+    print("BEGIN TRANSACTION;", file=f)
+
+    for i, id in enumerate(gene_ids):
+        gene = official_symbols[id]
+        print(gene)
+
+        print(
+            f"INSERT INTO genes (id, hugo_id, ensembl_id, refseq_id, ncbi_id, gene_symbol) VALUES ({i + 1}, '{gene["hugo"]}', '{gene["ensembl"]}', '{gene["refseq"]}', '{gene["ncbi"]}', '{gene["gene_symbol"]}');",
+            file=f,
+        )
 
     print("COMMIT;", file=f)

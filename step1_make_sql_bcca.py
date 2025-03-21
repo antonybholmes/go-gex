@@ -69,26 +69,32 @@ def get_file_id(name: str) -> str:
     return re.sub(r"[\/ ]+", "_", name.lower())
 
 
-def load_sample_data(df: pd.DataFrame, id_cols, sample_id_map, sample_data_map):
-    id_names = df.columns.values[0:id_cols]
-    names = df.columns.values[id_cols:]
+def load_sample_data(df: pd.DataFrame, num_id_cols):
+    id_names = df.columns.values[0:num_id_cols]
+    sample_metadata_names = df.columns.values[num_id_cols:]
+
+    sample_id_map = collections.defaultdict(lambda: collections.defaultdict(str))
+    sample_data_map = collections.defaultdict(lambda: collections.defaultdict(str))
 
     for i, row in df.iterrows():
         values = row.astype(str)
 
-        ids = values[0:id_cols]
+        ids = values[0:num_id_cols]
         sample_id = ids[0]
+        alt_id_names = id_names[1:]
+        alt_ids = ids[1:]
 
-        for name, value in zip(id_names, ids):
-            print(sample_id, ids)
-            sample_id_map[sample_id] = ",".join(ids)
+        for name, alt_id in zip(alt_id_names, alt_ids):
+            sample_id_map[sample_id][name] = alt_id
 
         values = values.astype(str)
-        values = values[id_cols:]
+        values = values[num_id_cols:]
 
-        for name, value in zip(names, values):
+        for name, value in zip(sample_metadata_names, values):
             if value != "":
                 sample_data_map[sample_id][name] = value
+
+    return [alt_id_names, sample_id_map, sample_metadata_names, sample_data_map]
 
 
 def load_data(
@@ -166,16 +172,16 @@ platformMap["Microarray"] = len(platforms)
 #
 
 df_samples = pd.read_csv(
-    "/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/other_labs/BC_morin/dlbcl_ega_EGAD00001003783/324/grch37/analysis/bcca_morin_survival_data_2023_wright_update.txt",
+    "/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/other_labs/BC_morin/dlbcl_ega_EGAD00001003783/324/grch37/analysis/phenotypes_230_renamed.txt",
     sep="\t",
     header=0,
     keep_default_na=False,
 )
 
-sample_id_map = collections.defaultdict(lambda: collections.defaultdict(str))
-sample_data_map = collections.defaultdict(lambda: collections.defaultdict(str))
 
-load_sample_data(df_samples, 3, sample_id_map, sample_data_map)
+alt_id_names, sample_id_map, sample_metadata_names, sample_data_map = load_sample_data(
+    df_samples, 3
+)
 
 print(sample_id_map)
 print(sample_data_map)
@@ -234,20 +240,6 @@ load_data(
 with open(f"../../data/modules/gex/RNA-seq/{file_id}.sql", "w") as f:
     print("BEGIN TRANSACTION;", file=f)
 
-    for i, id in enumerate(gene_ids):
-        gene = official_symbols[id]
-        print(gene)
-
-        print(
-            f"INSERT INTO genes (id, hugo_id, ensembl_id, refseq_id, ncbi_id, gene_symbol) VALUES ({i + 1}, '{gene["hugo"]}', '{gene["ensembl"]}', '{gene["refseq"]}', '{gene["ncbi"]}', '{gene["gene_symbol"]}');",
-            file=f,
-        )
-
-    print("COMMIT;", file=f)
-
-with open(f"../../data/modules/gex/RNA-seq/{file_id}.sql", "a") as f:
-    print("BEGIN TRANSACTION;", file=f)
-
     print(
         f"INSERT INTO dataset (public_id, name, species, institution, platform) VALUES ('{dataset["dataset_id"]}', '{dataset["name"]}', '{dataset["species"]}', '{dataset["institution"]}', '{dataset["platform"]}');",
         file=f,
@@ -260,7 +252,7 @@ with open(f"../../data/modules/gex/RNA-seq/{file_id}.sql", "a") as f:
     for i, sample in enumerate(samples):
         sample_info = sample_map[sample]
         print(
-            f"INSERT INTO samples (id, public_id, name, alt_names) VALUES ({i + 1}, '{sample_info["sample_id"]}', '{sample_info["name"]}', '{sample_id_map.get(sample, "")}');",
+            f"INSERT INTO samples (public_id, name) VALUES ('{sample_info["sample_id"]}', '{sample_info["name"]}');",
             file=f,
         )
 
@@ -268,12 +260,25 @@ with open(f"../../data/modules/gex/RNA-seq/{file_id}.sql", "a") as f:
 
     print("BEGIN TRANSACTION;", file=f)
 
+    for i, sample in enumerate(samples):
+        for name in alt_id_names:
+            value = sample_id_map[sample][name]
+
+            print(
+                f"INSERT INTO sample_alt_names (sample_id, name, value) VALUES ({i + 1}, '{name}', '{value}');",
+                file=f,
+            )
+
+    print("COMMIT;", file=f)
+
+    print("BEGIN TRANSACTION;", file=f)
+
     for si, sample in enumerate(samples):
-        for name in sample_data_map[sample]:
+        for name in sample_metadata_names:
             value = sample_data_map[sample][name]
 
             print(
-                f"INSERT INTO sample_data (sample_id, name, value) VALUES ({si + 1}, '{name}', '{value}');",
+                f"INSERT INTO sample_metadata (sample_id, name, value) VALUES ({si + 1}, '{name}', '{value}');",
                 file=f,
             )
 
@@ -303,6 +308,20 @@ with open(f"../../data/modules/gex/RNA-seq/{file_id}.sql", "a") as f:
 
     print("COMMIT;", file=f)
 
+
+with open(f"../../data/modules/gex/RNA-seq/{file_id}.sql", "a") as f:
+    print("BEGIN TRANSACTION;", file=f)
+
+    for i, id in enumerate(gene_ids):
+        gene = official_symbols[id]
+        print(gene)
+
+        print(
+            f"INSERT INTO genes (id, hugo_id, ensembl_id, refseq_id, ncbi_id, gene_symbol) VALUES ({i + 1}, '{gene["hugo"]}', '{gene["ensembl"]}', '{gene["refseq"]}', '{gene["ncbi"]}', '{gene["gene_symbol"]}');",
+            file=f,
+        )
+
+    print("COMMIT;", file=f)
 
 # dataset_name = "RDF GC"
 # datasets.append({"name": dataset_name, "institution": "RDF", "platform_id": 1})

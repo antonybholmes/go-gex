@@ -22,10 +22,16 @@ CREATE TABLE samples (
 	id INTEGER PRIMARY KEY ASC,
 	public_id TEXT NOT NULL UNIQUE,
 	name TEXT NOT NULL UNIQUE,
-	alt_names TEXT NOT NULL,
 	description TEXT NOT NULL DEFAULT '');
- 
-CREATE TABLE sample_data (
+
+CREATE TABLE sample_alt_names (
+	id INTEGER PRIMARY KEY ASC,
+	sample_id INTEGER NOT NULL,
+	name TEXT NOT NULL,
+	value TEXT NOT NULL DEFAULT '',
+	FOREIGN KEY(sample_id) REFERENCES samples(id));
+
+CREATE TABLE sample_metadata (
 	id INTEGER PRIMARY KEY ASC,
 	sample_id INTEGER NOT NULL,
 	name TEXT NOT NULL,
