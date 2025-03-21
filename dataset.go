@@ -26,11 +26,11 @@ const SAMPLE_ALT_NAMES_SQL = `SELECT
 	ORDER by sample_alt_names.id`
 
 const SAMPLE_METADATA_SQL = `SELECT
-	sample_data.name,
-	sample_data.value
-	FROM sample_data
-	WHERE sample_data.sample_id = ?1
-	ORDER by sample_data.id`
+	sample_metadata.name,
+	sample_metadata.value
+	FROM sample_metadata
+	WHERE sample_metadata.sample_id = ?1
+	ORDER by sample_metadata.id`
 
 const GENE_SQL = `SELECT 
 	genes.id, 

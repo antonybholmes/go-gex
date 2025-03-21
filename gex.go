@@ -83,9 +83,9 @@ type Idtype struct {
 	Id   int    `json:"id"`
 }
 
-type KeyValuetype struct {
-	Name string `json:"name"`
-	Id   int    `json:"id"`
+type NameValuetype struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
 type Species = Idtype
@@ -113,11 +113,11 @@ type Platform struct {
 }
 
 type Sample struct {
-	PublicId string            `json:"publicId"`
-	Name     string            `json:"name"`
-	AltNames []string          `json:"altNames"`
-	Id       int               `json:"-"`
-	Data     map[string]string `json:"data"`
+	PublicId string          `json:"publicId"`
+	Name     string          `json:"name"`
+	AltNames []string        `json:"altNames"`
+	Id       int             `json:"-"`
+	Metadata []NameValuetype `json:"metadata"`
 }
 
 type Dataset struct {
@@ -339,6 +339,8 @@ func (cache *DatasetsCache) Plaforms(species string) ([]string, error) {
 // }
 
 func (cache *DatasetsCache) Datasets(species string, platform string) ([]*Dataset, error) {
+	var name string
+	var value string
 
 	db, err := sql.Open("sqlite3", cache.path)
 
@@ -424,25 +426,23 @@ func (cache *DatasetsCache) Datasets(species string, platform string) ([]*Datase
 			defer dataRows.Close()
 
 			for dataRows.Next() {
-				var name string
-				var value string
 
-				err := dataRows.Scan(
-					&name, &value)
+				err := dataRows.Scan(&name, &value)
 
 				if err != nil {
 					return nil, err
 				}
 
 				sample.AltNames = append(sample.AltNames, value)
-
 			}
 
 			//
 			// Attach sample meta data
 			//
 
-			sample.Data = make(map[string]string)
+			sample.Metadata = make([]NameValuetype, 0, 50)
+
+			//sample.Metadata =) make(map[string]string)
 
 			dataRows, err = db2.Query(SAMPLE_METADATA_SQL, sample.Id)
 
@@ -453,17 +453,13 @@ func (cache *DatasetsCache) Datasets(species string, platform string) ([]*Datase
 			defer dataRows.Close()
 
 			for dataRows.Next() {
-				var name string
-				var value string
-
-				err := dataRows.Scan(
-					&name, &value)
+				err := dataRows.Scan(&name, &value)
 
 				if err != nil {
 					return nil, err
 				}
 
-				sample.Data[name] = value
+				sample.Metadata = append(sample.Metadata, NameValuetype{Name: name, Value: value})
 			}
 
 			dataset.Samples = append(dataset.Samples, &sample)

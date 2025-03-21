@@ -127,7 +127,7 @@ def load_data(
         gene_id = gene_id_map[gene]
 
         for j in range(df.shape[1]):
-            sample = df.columns.values[j].split("/")[0]
+            sample = df.columns.values[j].split("/")[0].split("|")[0]
 
             # print(sample)
 
