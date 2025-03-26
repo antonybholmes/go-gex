@@ -22,7 +22,7 @@ const SPECIES_SQL = `SELECT
 	FROM datasets
 	ORDER BY datasets.species`
 
-const PLATFORMS_SQL = `SELECT
+const TECHNOLOGIES_SQL = `SELECT
 	datasets.platform
 	FROM datasets
 	WHERE datasets.species = ?1 
@@ -45,6 +45,7 @@ const DATASETS_SQL = `SELECT
 	datasets.id,
 	datasets.public_id,
 	datasets.species,
+	datasets.technology,
 	datasets.platform,
 	datasets.institution,
 	datasets.name,
@@ -58,6 +59,7 @@ const DATASET_SQL = `SELECT
 	datasets.id,
 	datasets.public_id,
 	datasets.species,
+	datasets.technology,
 	datasets.platform,
 	datasets.institution,
 	datasets.name,
@@ -74,8 +76,8 @@ const DATASET_SQL = `SELECT
 // type GexValue string
 
 const (
-	RNA_SEQ_PLATFORM    string = "RNA-seq"
-	MICROARRAY_PLATFORM string = "Microarray"
+	RNA_SEQ_TECHNOLOGY    string = "RNA-seq"
+	MICROARRAY_TECHNOLOGY string = "Microarray"
 )
 
 type Idtype struct {
@@ -106,7 +108,7 @@ type GexGene struct {
 	Id         int    `json:"-"`
 }
 
-type Platform struct {
+type Technology struct {
 	Name     string   `json:"name"`
 	PublicId string   `json:"publicId"`
 	GexTypes []string `json:"gexTypes"`
@@ -124,6 +126,7 @@ type Dataset struct {
 	PublicId    string    `json:"publicId"`
 	Name        string    `json:"name"`
 	Species     string    `json:"species"`
+	Technology  string    `json:"technology"`
 	Platform    string    `json:"platform"`
 	Path        string    `json:"-"`
 	Institution string    `json:"institution"`
@@ -163,8 +166,10 @@ type ResultDataset struct {
 	PublicId string    `json:"publicId"`
 }
 
-type ResultGene struct {
-	Gene *GexGene `json:"gene"`
+// Either a probe or gene
+type ResultFeature struct {
+	ProbeId string   `json:"probeId,omitempty"`
+	Gene    *GexGene `json:"gene"`
 	//Platform     *ValueType       `json:"platform"`
 	//GexValue *GexValue    `json:"gexType"`
 	Expression []float32 `json:"expression"`
@@ -177,9 +182,9 @@ type SearchResults struct {
 	// the platform name and id
 
 	//Dataset *Dataset      `json:"dataset"`
-	Dataset string        `json:"dataset"`
-	GexType string        `json:"gexType"`
-	Genes   []*ResultGene `json:"genes"`
+	Dataset  string           `json:"dataset"`
+	GexType  string           `json:"gexType"`
+	Features []*ResultFeature `json:"features"`
 }
 
 type DatasetsCache struct {
@@ -265,7 +270,7 @@ func (cache *DatasetsCache) Species() ([]string, error) {
 	return species, nil
 }
 
-func (cache *DatasetsCache) Plaforms(species string) ([]string, error) {
+func (cache *DatasetsCache) Technologies(species string) ([]string, error) {
 	db, err := sql.Open("sqlite3", cache.path)
 
 	if err != nil {
@@ -277,7 +282,7 @@ func (cache *DatasetsCache) Plaforms(species string) ([]string, error) {
 
 	platforms := make([]string, 0, 10)
 
-	rows, err := db.Query(PLATFORMS_SQL, species)
+	rows, err := db.Query(TECHNOLOGIES_SQL, species)
 
 	if err != nil {
 		return nil, err
@@ -367,6 +372,7 @@ func (cache *DatasetsCache) Datasets(species string, platform string) ([]*Datase
 			&dataset.Id,
 			&dataset.PublicId,
 			&dataset.Species,
+			&dataset.Technology,
 			&dataset.Platform,
 			&dataset.Institution,
 			&dataset.Name,
@@ -486,6 +492,7 @@ func (cache *DatasetsCache) dataset(datasetId string) (*Dataset, error) {
 		&dataset.Id,
 		&dataset.PublicId,
 		&dataset.Species,
+		&dataset.Technology,
 		&dataset.Platform,
 		&dataset.Institution,
 		&dataset.Name,

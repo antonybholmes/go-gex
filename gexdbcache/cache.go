@@ -8,17 +8,17 @@ import (
 
 var instance *gex.DatasetsCache
 var once sync.Once
-var platforms []gex.Platform
+var technologies []gex.Technology
 
 func init() {
-	platforms = []gex.Platform{
+	technologies = []gex.Technology{
 		{PublicId: "8wyay6lyvz9f", Name: "RNA-seq", GexTypes: []string{"Counts", "TPM", "VST"}},
 		{PublicId: "4fdknkjpa95h", Name: "Microarray", GexTypes: []string{"RMA"}}}
 
 }
 
-func Platforms() []gex.Platform {
-	return platforms
+func Technologies() []gex.Technology {
+	return technologies
 }
 
 func InitCache(dir string) (*gex.DatasetsCache, error) {

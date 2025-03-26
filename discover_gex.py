@@ -40,7 +40,7 @@ for root, dirs, files in os.walk(dir):
 
             # Execute a query to fetch data
             cursor.execute(
-                "SELECT public_id, species, platform, institution, name, description FROM dataset"
+                "SELECT public_id, species, technology, platform, institution, name, description FROM dataset"
             )
 
             # Fetch all results
@@ -62,7 +62,7 @@ with open(os.path.join(dir, "gex.sql"), "w") as f:
     for row in data:
         values = ", ".join([f"'{v}'" for v in row])
         print(
-            f"INSERT INTO datasets (public_id, species, platform, institution, name, description, path) VALUES ({values});",
+            f"INSERT INTO datasets (public_id, species, technology, platform, institution, name, description, path) VALUES ({values});",
             file=f,
         )
 

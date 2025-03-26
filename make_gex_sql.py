@@ -72,7 +72,8 @@ def get_file_id(name: str) -> str:
     return re.sub(r"[\/ ]+", "_", name.lower())
 
 
-def load_sample_data(df: pd.DataFrame, num_id_cols):
+def load_sample_data(df: pd.DataFrame, num_id_cols: int):
+
     id_names = df.columns.values[0:num_id_cols]
     sample_metadata_names = df.columns.values[num_id_cols:]
 
@@ -113,53 +114,45 @@ def load_data(
     file,
     dataset_name,
     dataset_id,
-    samples,
-    sample_map,
     exp_map,
     filter="",
 ):
-    print(dataset_name)
+    print(file)
 
     df = pd.read_csv(file, sep="\t", header=0, index_col=0, keep_default_na=False)
+
+    if data_type == "rma":
+        probes = df.index.values
+        genes = df.iloc[:, 0].values
+        df = df.iloc[:, 1:]
+    else:
+        probes = df.index.values
+        genes = df.index.values
 
     if filter != "":
         df = df.iloc[:, np.where(df.columns.str.contains(filter, regex=True))[0]]
 
-    print(file, df.shape)
+    # print(df.shape)
+    # exit(0)
 
-    for i, gene in enumerate(df.index):
+    for i, probe in enumerate(probes):
+        gene = genes[i]
+
         # only keep genes we can match to hugo
         if gene not in gene_id_map:
             continue
 
         gene_id = gene_id_map[gene]
 
-        for j in range(df.shape[1]):
-            sample = df.columns.values[j].split("/")[0].split("|")[0]
-
-            # print(sample)
-
-            if sample not in sample_map:
-                samples.append(sample)
-
-                sample_id = generate("0123456789abcdefghijklmnopqrstuvwxyz", 12)
-
-                sample_map[sample] = {
-                    "id": len(samples),
-                    "name": sample,
-                    "sample_id": sample_id,
-                    "dataset_id": dataset_id,
-                }
-
-            sample_id = sample_map[sample]["id"]
-
-        exp_map[dataset_id][gene_id][data_type] = ",".join(
+        exp_map[dataset_id][probe][gene_id][data_type] = ",".join(
             [str(x) for x in df.iloc[i].values]
         )
 
 
 exp_map = collections.defaultdict(
-    lambda: collections.defaultdict(lambda: collections.defaultdict(str))
+    lambda: collections.defaultdict(
+        lambda: collections.defaultdict(lambda: collections.defaultdict(str))
+    )
 )
 
 genes = []
@@ -194,7 +187,13 @@ parser.add_argument("--vst", type=str, help="VST file")
 parser.add_argument("--rma", type=str, help="RMA file")
 parser.add_argument("--id_col_count", type=int, help="How many id columns", default=1)
 parser.add_argument(
-    "--platform", type=str, help="Sequencing platform, e.g. RNA-seq", default="RNA-seq"
+    "--technology",
+    type=str,
+    help="Sequencing technology, e.g. RNA-seq",
+    default="RNA-seq",
+)
+parser.add_argument(
+    "--platform", type=str, help="Sequencing platform, e.g. HG-U133_Plus_2", default=""
 )
 parser.add_argument("--species", type=str, help="Species, e.g. Human", default="Human")
 
@@ -218,8 +217,8 @@ print(sample_id_map)
 print(sample_data_map)
 
 
-samples = []
-sample_map = {}
+# samples = []
+# sample_map = {}
 
 dataset_name = args.name
 file_id = get_file_id(dataset_name)
@@ -228,16 +227,17 @@ dataset = {
     "dataset_id": dataset_id,
     "name": dataset_name,
     "institution": args.institution,
+    "technology": args.technology,
     "platform": args.platform,
     "species": args.species,
 }
 
 
-with open(f"../../data/modules/gex/{args.platform}/{file_id}.sql", "w") as f:
+with open(f"../../data/modules/gex/{args.technology}/{file_id}.sql", "w") as f:
     print("BEGIN TRANSACTION;", file=f)
 
     print(
-        f"INSERT INTO dataset (public_id, name, species, institution, platform) VALUES ('{dataset["dataset_id"]}', '{dataset["name"]}', '{dataset["species"]}', '{dataset["institution"]}', '{dataset["platform"]}');",
+        f"INSERT INTO dataset (public_id, name, species, institution, technology, platform) VALUES ('{dataset["dataset_id"]}', '{dataset["name"]}', '{dataset["species"]}', '{dataset["institution"]}', '{dataset["technology"]}', '{dataset["platform"]}');",
         file=f,
     )
 
@@ -256,7 +256,7 @@ with open(f"../../data/modules/gex/{args.platform}/{file_id}.sql", "w") as f:
 
     print("BEGIN TRANSACTION;", file=f)
 
-    for i, sample in enumerate(samples):
+    for i, sample in enumerate(sample_ids):
         for name in alt_id_names:
             value = sample_id_map[sample][name]
 
@@ -269,7 +269,7 @@ with open(f"../../data/modules/gex/{args.platform}/{file_id}.sql", "w") as f:
 
     print("BEGIN TRANSACTION;", file=f)
 
-    for si, sample in enumerate(samples):
+    for si, sample in enumerate(sample_ids):
         for name in sample_metadata_names:
             value = sample_data_map[sample][name]
 
@@ -280,30 +280,30 @@ with open(f"../../data/modules/gex/{args.platform}/{file_id}.sql", "w") as f:
 
     print("COMMIT;", file=f)
 
-    if args.platform == "Microarray":
+    if args.technology == "Microarray":
         rma_file = args.rma
+
         load_data(
             "rma",
             rma_file,
             dataset_name,
             dataset_id,
-            samples,
-            sample_map,
             exp_map,
         )
 
         print("BEGIN TRANSACTION;", file=f)
 
         for dataset_id in sorted(exp_map):
-            for gene_id in sorted(exp_map[dataset_id]):
-                values = exp_map[dataset_id][gene_id]["rma"]
+            for probe_id in sorted(exp_map[dataset_id]):
+                for gene_id in sorted(exp_map[dataset_id][probe_id]):
+                    values = exp_map[dataset_id][probe_id][gene_id]["rma"]
 
-                gene_index = gene_db_map[gene_id]
+                    gene_index = gene_db_map[gene_id]
 
-                print(
-                    f"INSERT INTO expression (gene_id, rma) VALUES ({gene_index}, '{values}');",
-                    file=f,
-                )
+                    print(
+                        f"INSERT INTO expression (probe_id, gene_id, rma) VALUES ('{probe_id}', {gene_index}, '{values}');",
+                        file=f,
+                    )
 
         print("COMMIT;", file=f)
 
@@ -314,8 +314,6 @@ with open(f"../../data/modules/gex/{args.platform}/{file_id}.sql", "w") as f:
             counts_file,
             dataset_name,
             dataset_id,
-            samples,
-            sample_map,
             exp_map,
         )
 
@@ -325,8 +323,6 @@ with open(f"../../data/modules/gex/{args.platform}/{file_id}.sql", "w") as f:
             tpm_file,
             dataset_name,
             dataset_id,
-            samples,
-            sample_map,
             exp_map,
         )
 
@@ -336,34 +332,33 @@ with open(f"../../data/modules/gex/{args.platform}/{file_id}.sql", "w") as f:
             vst_file,
             dataset_name,
             dataset_id,
-            samples,
-            sample_map,
             exp_map,
         )
 
         print("BEGIN TRANSACTION;", file=f)
 
         for dataset_id in sorted(exp_map):
-            for gene_id in sorted(exp_map[dataset_id]):
-                values = ",".join(
-                    [
-                        f"'{str(exp_map[dataset_id][gene_id][data_type])}'"
-                        for data_type in DATA_TYPES
-                    ]
-                )
+            for probe_id in sorted(exp_map[dataset_id]):
+                for gene_id in sorted(exp_map[dataset_id][probe_id]):
+                    values = ",".join(
+                        [
+                            f"'{str(exp_map[dataset_id][probe_id][gene_id][data_type])}'"
+                            for data_type in DATA_TYPES
+                        ]
+                    )
 
-                gene_index = gene_db_map[gene_id]
+                    gene_index = gene_db_map[gene_id]
 
-                print(
-                    f'INSERT INTO expression (gene_id, {", ".join(
-                        DATA_TYPES)}) VALUES ({gene_index}, {values});',
-                    file=f,
-                )
+                    print(
+                        f'INSERT INTO expression (gene_id, {", ".join(
+                            DATA_TYPES)}) VALUES ({gene_index}, {values});',
+                        file=f,
+                    )
 
         print("COMMIT;", file=f)
 
 
-with open(f"../../data/modules/gex/{args.platform}/{file_id}.sql", "a") as f:
+with open(f"../../data/modules/gex/{args.technology}/{file_id}.sql", "a") as f:
     print("BEGIN TRANSACTION;", file=f)
 
     for i, id in enumerate(gene_ids):

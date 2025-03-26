@@ -1,6 +1,7 @@
 CREATE TABLE expression (
 	id INTEGER PRIMARY KEY ASC,
-	gene_id INTEGER NOT NULL,
+	probe_id TEXT NOT NULL,
+	gene_id INTEGER NOT NULL NOT NULL,
 	rma REAL NOT NULL DEFAUlT -1,
 	FOREIGN KEY(gene_id) REFERENCES genes(id));
 

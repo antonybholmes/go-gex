@@ -52,6 +52,7 @@ const RNA_SQL = `SELECT
 
 const MICROARRAY_SQL = `SELECT
 	expression.id,
+	expression.probe_id,
 	expression.rma
 	FROM expression 
 	WHERE expression.gene_id = ?1`
@@ -132,9 +133,9 @@ func (cache *DatasetCache) RNASeqValues(gexType string,
 
 	ret := SearchResults{
 
-		Dataset: cache.dataset.PublicId,
-		GexType: gexType,
-		Genes:   make([]*ResultGene, 0, len(genes))}
+		Dataset:  cache.dataset.PublicId,
+		GexType:  gexType,
+		Features: make([]*ResultFeature, 0, len(genes))}
 
 	var id int
 	var counts string
@@ -177,7 +178,7 @@ func (cache *DatasetCache) RNASeqValues(gexType string,
 		//log.Debug().Msgf("hmm %s %f %f", gexType, sample.Value, tpm)
 
 		//datasetResults.Samples = append(datasetResults.Samples, &sample)
-		ret.Genes = append(ret.Genes, &ResultGene{Gene: gene, Expression: values})
+		ret.Features = append(ret.Features, &ResultFeature{Gene: gene, Expression: values})
 
 	}
 
@@ -209,18 +210,18 @@ func (cache *DatasetCache) MicroarrayValues(
 	defer db.Close()
 
 	ret := SearchResults{
-		Dataset: cache.dataset.PublicId,
-		GexType: "rma",
-		Genes:   make([]*ResultGene, 0, len(genes))}
+		Dataset:  cache.dataset.PublicId,
+		GexType:  "rma",
+		Features: make([]*ResultFeature, 0, len(genes))}
 
 	var id int
-	var counts string
+	var probeId string
 	var rma string
 
 	for _, gene := range genes {
 		err := db.QueryRow(MICROARRAY_SQL, gene.Id).Scan(
 			&id,
-			&counts,
+			&probeId,
 			&rma)
 
 		if err != nil {
@@ -240,7 +241,7 @@ func (cache *DatasetCache) MicroarrayValues(
 		}
 
 		//datasetResults.Samples = append(datasetResults.Samples, &sample)
-		ret.Genes = append(ret.Genes, &ResultGene{Gene: gene, Expression: values})
+		ret.Features = append(ret.Features, &ResultFeature{ProbeId: probeId, Gene: gene, Expression: values})
 
 	}
 

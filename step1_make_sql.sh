@@ -1,4 +1,4 @@
-platform="RNA-seq"
+technology="RNA-seq"
 species="Human"
 
 dataset_name="BCCA Morin DLBCL 230"
@@ -11,7 +11,7 @@ vst="/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/other_labs/BC_morin/dlbc
 # python make_gex_sql.py \
 #     --name="${dataset_name}" \
 #     --institution="${institution}" \
-#     --platform="${platform}" \
+#     --technology="${technology}" \
 #     --species="${species}" \
 #     --phenotypes="${phenotypes}" \
 #     --counts="${counts}" \
@@ -30,7 +30,7 @@ vst="/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/vst_n_g
 # python make_gex_sql.py \
 #     --name="${dataset_name}" \
 #     --institution="${institution}" \
-#     --platform="${platform}" \
+#     --technology="${technology}" \
 #     --species="${species}" \
 #     --phenotypes="${phenotypes}" \
 #     --counts="${counts}" \
@@ -49,7 +49,7 @@ vst=/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/other_labs/nci_staudt/dlb
 # python make_gex_sql.py \
 #     --name="${dataset_name}" \
 #     --institution="${institution}" \
-#     --platform="${platform}" \
+#     --technology="${technology}" \
 #     --species="${species}" \
 #     --phenotypes="${phenotypes}" \
 #     --counts="${counts}" \
@@ -60,16 +60,17 @@ vst=/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/other_labs/nci_staudt/dlb
 #
 # Some microarry datasets
 #
-platform="Microarray"
-
+technology="Microarray"
+platform="HG-U133_Plus_2"
 dataset_name="Harvard DFCI Shipp DLBCL"
 institution="Harvard DFCI"
 phenotypes=/ifs/scratch/cancer/Lab_RDF/ngs/microarray/data/human/other_labs/dlbcl_harvard_shipp/dlbcl/phenotypes_match_rma.txt
-rma=/ifs/scratch/cancer/Lab_RDF/ngs/microarray/data/human/other_labs/dlbcl_harvard_shipp/dlbcl/shipp_dlbcl_rma_approved_max_med_renamed.tsv
+rma=/ifs/scratch/cancer/Lab_RDF/ngs/microarray/data/human/other_labs/dlbcl_harvard_shipp/dlbcl/shipp_dlbcl_rma_approved.tsv
  
 python make_gex_sql.py \
     --name="${dataset_name}" \
     --institution="${institution}" \
+    --technology="${technology}" \
     --platform="${platform}" \
     --species="${species}" \
     --phenotypes="${phenotypes}" \
