@@ -52,7 +52,7 @@ const DATASETS_SQL = `SELECT
 	datasets.path,
 	datasets.description
 	FROM datasets 
-	WHERE datasets.species = ?1 AND datasets.platform = ?2
+	WHERE datasets.species = ?1 AND datasets.technology = ?2
 	ORDER BY datasets.name`
 
 const DATASET_SQL = `SELECT 
@@ -343,7 +343,7 @@ func (cache *DatasetsCache) Technologies(species string) ([]string, error) {
 // 	return valueTypes, nil
 // }
 
-func (cache *DatasetsCache) Datasets(species string, platform string) ([]*Dataset, error) {
+func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Dataset, error) {
 	var name string
 	var value string
 
@@ -357,7 +357,7 @@ func (cache *DatasetsCache) Datasets(species string, platform string) ([]*Datase
 
 	datasets := make([]*Dataset, 0, 10)
 
-	datasetRows, err := db.Query(DATASETS_SQL, species, platform)
+	datasetRows, err := db.Query(DATASETS_SQL, species, technology)
 
 	if err != nil {
 		return nil, err

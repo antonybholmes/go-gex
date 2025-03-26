@@ -45,8 +45,8 @@ func Species() ([]string, error) {
 // 	return instance.Plaforms(species)
 // }
 
-func Datasets(species string, platform string) ([]*gex.Dataset, error) {
-	return instance.Datasets(species, platform)
+func Datasets(species string, technology string) ([]*gex.Dataset, error) {
+	return instance.Datasets(species, technology)
 }
 
 func FindRNASeqValues(datasetIds []string,
