@@ -79,6 +79,8 @@ def load_sample_data(df: pd.DataFrame, num_id_cols):
     sample_id_map = collections.defaultdict(lambda: collections.defaultdict(str))
     sample_data_map = collections.defaultdict(lambda: collections.defaultdict(str))
 
+    sample_ids = df.iloc[:, 0].values
+
     for i, row in df.iterrows():
         values = row.astype(str)
 
@@ -97,11 +99,16 @@ def load_sample_data(df: pd.DataFrame, num_id_cols):
             if value != "":
                 sample_data_map[sample_id][name] = value
 
-    return [alt_id_names, sample_id_map, sample_metadata_names, sample_data_map]
+    return [
+        sample_ids,
+        alt_id_names,
+        sample_id_map,
+        sample_metadata_names,
+        sample_data_map,
+    ]
 
 
 def load_data(
-    gex_type,
     data_type,
     file,
     dataset_name,
@@ -121,6 +128,7 @@ def load_data(
     print(file, df.shape)
 
     for i, gene in enumerate(df.index):
+        # only keep genes we can match to hugo
         if gene not in gene_id_map:
             continue
 
@@ -202,8 +210,8 @@ df_samples = pd.read_csv(
 )
 
 
-alt_id_names, sample_id_map, sample_metadata_names, sample_data_map = load_sample_data(
-    df_samples, args.id_col_count
+sample_ids, alt_id_names, sample_id_map, sample_metadata_names, sample_data_map = (
+    load_sample_data(df_samples, args.id_col_count)
 )
 
 print(sample_id_map)
@@ -237,10 +245,10 @@ with open(f"../../data/modules/gex/{args.platform}/{file_id}.sql", "w") as f:
 
     print("BEGIN TRANSACTION;", file=f)
 
-    for i, sample in enumerate(samples):
-        sample_info = sample_map[sample]
+    for i, sample in enumerate(sample_ids):
+        public_id = generate("0123456789abcdefghijklmnopqrstuvwxyz", 12)
         print(
-            f"INSERT INTO samples (public_id, name) VALUES ('{sample_info["sample_id"]}', '{sample_info["name"]}');",
+            f"INSERT INTO samples (public_id, name) VALUES ('{public_id}', '{sample}');",
             file=f,
         )
 
@@ -275,7 +283,6 @@ with open(f"../../data/modules/gex/{args.platform}/{file_id}.sql", "w") as f:
     if args.platform == "Microarray":
         rma_file = args.rma
         load_data(
-            args.platform,
             "rma",
             rma_file,
             dataset_name,
@@ -294,7 +301,7 @@ with open(f"../../data/modules/gex/{args.platform}/{file_id}.sql", "w") as f:
                 gene_index = gene_db_map[gene_id]
 
                 print(
-                    f"INSERT INTO expression (gene_id, rma) VALUES ({gene_index}, {values});",
+                    f"INSERT INTO expression (gene_id, rma) VALUES ({gene_index}, '{values}');",
                     file=f,
                 )
 
@@ -303,7 +310,6 @@ with open(f"../../data/modules/gex/{args.platform}/{file_id}.sql", "w") as f:
     else:
         counts_file = args.counts
         load_data(
-            args.platform,
             "counts",
             counts_file,
             dataset_name,
@@ -315,7 +321,6 @@ with open(f"../../data/modules/gex/{args.platform}/{file_id}.sql", "w") as f:
 
         tpm_file = args.tpm
         load_data(
-            args.platform,
             "tpm",
             tpm_file,
             dataset_name,
@@ -327,7 +332,6 @@ with open(f"../../data/modules/gex/{args.platform}/{file_id}.sql", "w") as f:
 
         vst_file = args.vst
         load_data(
-            args.platform,
             "vst",
             vst_file,
             dataset_name,
