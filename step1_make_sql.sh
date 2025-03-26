@@ -38,7 +38,7 @@ vst="/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/vst_n_g
 #     --vst="${vst}"
 
 
-dir=/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/other_labs/nci_staudt/dlbcl/transcriptome/grch38
+ 
 dataset_name="NCI Staudt DLBCL 481"
 institution="NCI"
 phenotypes=/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/other_labs/nci_staudt/dlbcl/transcriptome/grch38/phenotypes.txt
@@ -46,13 +46,31 @@ counts=/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/other_labs/nci_staudt/
 tpm=/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/other_labs/nci_staudt/dlbcl/transcriptome/grch38/tpm_grch38_20190807_renamed.txt
 vst=/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/other_labs/nci_staudt/dlbcl/transcriptome/grch38/vst_counts_grch38_20190807_renamed.txt
 
+# python make_gex_sql.py \
+#     --name="${dataset_name}" \
+#     --institution="${institution}" \
+#     --platform="${platform}" \
+#     --species="${species}" \
+#     --phenotypes="${phenotypes}" \
+#     --counts="${counts}" \
+#     --tpm="${tpm}" \
+#     --vst="${vst}"
+ 
+
+#
+# Some microarry datasets
+#
+platform="Microarray"
+
+dataset_name="Harvard DFCI Shipp DLBCL"
+institution="Harvard DFCI"
+phenotypes=/ifs/scratch/cancer/Lab_RDF/ngs/microarray/data/human/other_labs/dlbcl_harvard_shipp/dlbcl/phenotypes_match_rma.txt
+rma=/ifs/scratch/cancer/Lab_RDF/ngs/microarray/data/human/other_labs/dlbcl_harvard_shipp/dlbcl/shipp_dlbcl_rma_approved_max_med_renamed.tsv
+ 
 python make_gex_sql.py \
     --name="${dataset_name}" \
     --institution="${institution}" \
     --platform="${platform}" \
     --species="${species}" \
     --phenotypes="${phenotypes}" \
-    --counts="${counts}" \
-    --tpm="${tpm}" \
-    --vst="${vst}"
- 
+    --rma="${rma}"

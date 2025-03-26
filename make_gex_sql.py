@@ -180,9 +180,10 @@ parser.add_argument(
     "--institution", type=str, help="Where data came from", required=True
 )
 parser.add_argument("--phenotypes", type=str, help="Phenotypes file", required=True)
-parser.add_argument("--counts", type=str, help="Counts file", required=True)
-parser.add_argument("--tpm", type=str, help="TPM file", required=True)
-parser.add_argument("--vst", type=str, help="VST file", required=True)
+parser.add_argument("--counts", type=str, help="Counts file")
+parser.add_argument("--tpm", type=str, help="TPM file")
+parser.add_argument("--vst", type=str, help="VST file")
+parser.add_argument("--rma", type=str, help="RMA file")
 parser.add_argument("--id_col_count", type=int, help="How many id columns", default=1)
 parser.add_argument(
     "--platform", type=str, help="Sequencing platform, e.g. RNA-seq", default="RNA-seq"
@@ -224,44 +225,7 @@ dataset = {
 }
 
 
-counts_file = args.counts
-load_data(
-    args.platform,
-    "counts",
-    counts_file,
-    dataset_name,
-    dataset_id,
-    samples,
-    sample_map,
-    exp_map,
-)
-
-tpm_file = args.tpm
-load_data(
-    args.platform,
-    "tpm",
-    tpm_file,
-    dataset_name,
-    dataset_id,
-    samples,
-    sample_map,
-    exp_map,
-)
-
-vst_file = args.vst
-load_data(
-    args.platform,
-    "vst",
-    vst_file,
-    dataset_name,
-    dataset_id,
-    samples,
-    sample_map,
-    exp_map,
-)
-
-
-with open(f"../../data/modules/gex/RNA-seq/{file_id}.sql", "w") as f:
+with open(f"../../data/modules/gex/{args.platform}/{file_id}.sql", "w") as f:
     print("BEGIN TRANSACTION;", file=f)
 
     print(
@@ -308,32 +272,94 @@ with open(f"../../data/modules/gex/RNA-seq/{file_id}.sql", "w") as f:
 
     print("COMMIT;", file=f)
 
-    print("BEGIN TRANSACTION;", file=f)
+    if args.platform == "Microarray":
+        rma_file = args.rma
+        load_data(
+            args.platform,
+            "rma",
+            rma_file,
+            dataset_name,
+            dataset_id,
+            samples,
+            sample_map,
+            exp_map,
+        )
 
-    # exp_map[gex_type][dataset_id][gene_id][sample_id][data_type]
-    type = "RNA-seq"
+        print("BEGIN TRANSACTION;", file=f)
 
-    for dataset_id in sorted(exp_map):
-        for gene_id in sorted(exp_map[dataset_id]):
-            values = ",".join(
-                [
-                    f"'{str(exp_map[dataset_id][gene_id][data_type])}'"
-                    for data_type in DATA_TYPES
-                ]
-            )
+        for dataset_id in sorted(exp_map):
+            for gene_id in sorted(exp_map[dataset_id]):
+                values = exp_map[dataset_id][gene_id]["rma"]
 
-            gene_index = gene_db_map[gene_id]
+                gene_index = gene_db_map[gene_id]
 
-            print(
-                f'INSERT INTO expression (gene_id, {", ".join(
-                    DATA_TYPES)}) VALUES ({gene_index}, {values});',
-                file=f,
-            )
+                print(
+                    f"INSERT INTO expression (gene_id, rma) VALUES ({gene_index}, {values});",
+                    file=f,
+                )
 
-    print("COMMIT;", file=f)
+        print("COMMIT;", file=f)
+
+    else:
+        counts_file = args.counts
+        load_data(
+            args.platform,
+            "counts",
+            counts_file,
+            dataset_name,
+            dataset_id,
+            samples,
+            sample_map,
+            exp_map,
+        )
+
+        tpm_file = args.tpm
+        load_data(
+            args.platform,
+            "tpm",
+            tpm_file,
+            dataset_name,
+            dataset_id,
+            samples,
+            sample_map,
+            exp_map,
+        )
+
+        vst_file = args.vst
+        load_data(
+            args.platform,
+            "vst",
+            vst_file,
+            dataset_name,
+            dataset_id,
+            samples,
+            sample_map,
+            exp_map,
+        )
+
+        print("BEGIN TRANSACTION;", file=f)
+
+        for dataset_id in sorted(exp_map):
+            for gene_id in sorted(exp_map[dataset_id]):
+                values = ",".join(
+                    [
+                        f"'{str(exp_map[dataset_id][gene_id][data_type])}'"
+                        for data_type in DATA_TYPES
+                    ]
+                )
+
+                gene_index = gene_db_map[gene_id]
+
+                print(
+                    f'INSERT INTO expression (gene_id, {", ".join(
+                        DATA_TYPES)}) VALUES ({gene_index}, {values});',
+                    file=f,
+                )
+
+        print("COMMIT;", file=f)
 
 
-with open(f"../../data/modules/gex/RNA-seq/{file_id}.sql", "a") as f:
+with open(f"../../data/modules/gex/{args.platform}/{file_id}.sql", "a") as f:
     print("BEGIN TRANSACTION;", file=f)
 
     for i, id in enumerate(gene_ids):

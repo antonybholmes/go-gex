@@ -2,9 +2,20 @@ for f in `find data/modules/gex/RNA-seq | grep sql`
 do
     name=`echo ${f} | sed -r 's/.sql//'`
     rm ${name}.db
+    cat core.sql | sqlite3 ${name}.db
     cat rna.sql | sqlite3 ${name}.db
     cat ${f} | sqlite3 ${name}.db
-    cat rna_indexes.sql | sqlite3 ${name}.db
+    cat indexes.sql | sqlite3 ${name}.db
+done
+
+for f in `find data/modules/gex/Microarray | grep sql`
+do
+    name=`echo ${f} | sed -r 's/.sql//'`
+    rm ${name}.db
+    cat core.sql | sqlite3 ${name}.db
+    cat microarray.sql | sqlite3 ${name}.db
+    cat ${f} | sqlite3 ${name}.db
+    cat indexes.sql | sqlite3 ${name}.db
 done
 
 
