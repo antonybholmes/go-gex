@@ -3,11 +3,12 @@ PRAGMA foreign_keys = ON;
 
 CREATE TABLE genes (
 	id INTEGER PRIMARY KEY ASC,
-	hugo_id TEXT NOT NULL,	
-	ensembl_id TEXT NOT NULL,
-	refseq_id TEXT NOT NULL,
-	ncbi_id TEXT NOT NULL,
-	gene_symbol TEXT NOT NULL);
+	hugo_id TEXT NOT NULL DEFAULT '',
+	mgi_id TEXT NOT NULL DEFAULT '',	
+	ensembl_id TEXT NOT NULL DEFAULT '',
+	refseq_id TEXT NOT NULL DEFAULT '',
+	ncbi_id TEXT NOT NULL DEFAULT '',
+	gene_symbol TEXT NOT NULL DEFAULT '');
 
 CREATE TABLE dataset (
 	id INTEGER PRIMARY KEY ASC,

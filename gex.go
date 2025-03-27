@@ -104,6 +104,7 @@ type GexGene struct {
 	Ensembl    string `json:"ensembl"`
 	Refseq     string `json:"refseq"`
 	Hugo       string `json:"hugo"`
+	Mgi        string `json:"mgi"`
 	GeneSymbol string `json:"geneSymbol"`
 	Id         int    `json:"-"`
 }

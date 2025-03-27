@@ -27,15 +27,15 @@ counts="/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/n_gc
 tpm="/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/n_gc_m_lz_dz_tpm_restricted_gencode_grch38_20180724_simple.tsv"
 vst="/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/vst_n_gc_m_lz_dz_restricted_gencode_grch38_20180724.txt"
 
-# python make_gex_sql.py \
-#     --name="${dataset_name}" \
-#     --institution="${institution}" \
-#     --technology="${technology}" \
-#     --species="${species}" \
-#     --phenotypes="${phenotypes}" \
-#     --counts="${counts}" \
-#     --tpm="${tpm}" \
-#     --vst="${vst}"
+python make_gex_sql.py \
+    --name="${dataset_name}" \
+    --institution="${institution}" \
+    --technology="${technology}" \
+    --species="${species}" \
+    --phenotypes="${phenotypes}" \
+    --counts="${counts}" \
+    --tpm="${tpm}" \
+    --vst="${vst}"
 
 
  
@@ -46,15 +46,15 @@ counts=/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/other_labs/nci_staudt/
 tpm=/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/other_labs/nci_staudt/dlbcl/transcriptome/grch38/tpm_grch38_20190807_renamed.txt
 vst=/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/other_labs/nci_staudt/dlbcl/transcriptome/grch38/vst_counts_grch38_20190807_renamed.txt
 
-# python make_gex_sql.py \
-#     --name="${dataset_name}" \
-#     --institution="${institution}" \
-#     --technology="${technology}" \
-#     --species="${species}" \
-#     --phenotypes="${phenotypes}" \
-#     --counts="${counts}" \
-#     --tpm="${tpm}" \
-#     --vst="${vst}"
+python make_gex_sql.py \
+    --name="${dataset_name}" \
+    --institution="${institution}" \
+    --technology="${technology}" \
+    --species="${species}" \
+    --phenotypes="${phenotypes}" \
+    --counts="${counts}" \
+    --tpm="${tpm}" \
+    --vst="${vst}"
 
 dataset_name="RDF 29 DLBCL Cell Lines"
 institution="RDF"
@@ -86,14 +86,14 @@ institution="Harvard DFCI"
 phenotypes=/ifs/scratch/cancer/Lab_RDF/ngs/microarray/data/human/other_labs/dlbcl_harvard_shipp/dlbcl/phenotypes_match_rma.txt
 rma=/ifs/scratch/cancer/Lab_RDF/ngs/microarray/data/human/other_labs/dlbcl_harvard_shipp/dlbcl/shipp_dlbcl_rma_approved.tsv
  
-# python make_gex_sql.py \
-#     --name="${dataset_name}" \
-#     --institution="${institution}" \
-#     --technology="${technology}" \
-#     --platform="${platform}" \
-#     --species="${species}" \
-#     --phenotypes="${phenotypes}" \
-#     --rma="${rma}"
+python make_gex_sql.py \
+    --name="${dataset_name}" \
+    --institution="${institution}" \
+    --technology="${technology}" \
+    --platform="${platform}" \
+    --species="${species}" \
+    --phenotypes="${phenotypes}" \
+    --rma="${rma}"
 
 
 
@@ -104,11 +104,11 @@ institution="RDF"
 phenotypes=/ifs/scratch/cancer/Lab_RDF/ngs/microarray/data/human/rdf/hg-u133_plus2/dlbcl/phenotypes.tsv
 rma=/ifs/scratch/cancer/Lab_RDF/ngs/microarray/data/human/rdf/hg-u133_plus2/dlbcl/dlbcl_rma_approved.tsv
  
-# python make_gex_sql.py \
-#     --name="${dataset_name}" \
-#     --institution="${institution}" \
-#     --technology="${technology}" \
-#     --platform="${platform}" \
-#     --species="${species}" \
-#     --phenotypes="${phenotypes}" \
-#     --rma="${rma}"
+python make_gex_sql.py \
+    --name="${dataset_name}" \
+    --institution="${institution}" \
+    --technology="${technology}" \
+    --platform="${platform}" \
+    --species="${species}" \
+    --phenotypes="${phenotypes}" \
+    --rma="${rma}"
