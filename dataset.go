@@ -94,11 +94,15 @@ func (cache *DatasetCache) FindGenes(genes []string) ([]*GexGene, error) {
 			&gene.Refseq,
 			&gene.GeneSymbol)
 
-		if err != nil {
-			return nil, err
+		if err == nil {
+			// add as many genes as possible
+			ret = append(ret, &gene)
+		} else {
+			// log that we couldn't find a gene, but continue
+			// anyway
+			log.Debug().Msgf("gene not found: %s", g)
+			//return nil, err
 		}
-
-		ret = append(ret, &gene)
 	}
 
 	return ret, nil
@@ -113,15 +117,13 @@ func (cache *DatasetCache) FindRNASeqValues(gexType string,
 		return nil, err
 	}
 
-	log.Debug().Msgf("aha %v", genes[0])
-
 	return cache.RNASeqValues(gexType, genes)
 }
 
 func (cache *DatasetCache) RNASeqValues(gexType string,
 	genes []*GexGene) (*SearchResults, error) {
 
-	log.Debug().Msgf("cripes %v", filepath.Join(cache.dir, cache.dataset.Path))
+	//log.Debug().Msgf("cripes %v", filepath.Join(cache.dir, cache.dataset.Path))
 
 	db, err := sql.Open("sqlite3", filepath.Join(cache.dir, cache.dataset.Path))
 
