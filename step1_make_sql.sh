@@ -80,8 +80,8 @@ species="Mouse"
 
 dataset_name="Kurosaki Bach2 high/low"
 institution="Osaka"
-phenotypes=/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/mouse/other_labs/kurosaki/bach2_high_low/analysis/counts_grcm38_20241128_simple_cleaned.tsv
-counts=/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/rdf/dlbcl_cell_lines_elodie_29/counts_grch37v29_20221014_simple.tsv
+phenotypes=/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/mouse/other_labs/kurosaki/bach2_high_low/analysis/phenotypes.tsv
+counts=/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/mouse/other_labs/kurosaki/bach2_high_low/analysis/counts_grcm38_20241128_simple_cleaned.tsv
 tpm=/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/mouse/other_labs/kurosaki/bach2_high_low/analysis/tpm_grcm38_20241128_simple_cleaned.tsv
 vst=/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/mouse/other_labs/kurosaki/bach2_high_low/analysis/vst_grcm38_20241128_simple_cleaned.tsv
 

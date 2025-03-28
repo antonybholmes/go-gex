@@ -35,6 +35,7 @@ const SAMPLE_METADATA_SQL = `SELECT
 const GENE_SQL = `SELECT 
 	genes.id, 
 	genes.hugo_id,
+	genes.mgi_id,
 	genes.ensembl_id,
 	genes.refseq_id,
 	genes.gene_symbol 
@@ -90,6 +91,7 @@ func (cache *DatasetCache) FindGenes(genes []string) ([]*GexGene, error) {
 		err := db.QueryRow(GENE_SQL, g).Scan(
 			&gene.Id,
 			&gene.Hugo,
+			&gene.Mgi,
 			&gene.Ensembl,
 			&gene.Refseq,
 			&gene.GeneSymbol)
