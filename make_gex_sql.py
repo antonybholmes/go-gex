@@ -11,63 +11,6 @@ import argparse
 DATA_TYPES = ["counts", "tpm", "vst"]
 
 
-file = "/ifs/scratch/cancer/Lab_RDF/ngs/references/hugo/hugo_20240524.tsv"
-df_hugo = pd.read_csv(file, sep="\t", header=0, keep_default_na=False)
-
-official_symbols = {}
-
-gene_ids = []
-gene_id_map = {}
-gene_db_map = {}
-
-for i, gene_id in enumerate(df_hugo["Approved symbol"].values):
-
-    genes = [gene_id] + list(
-        filter(
-            lambda x: x != "",
-            [x.strip() for x in df_hugo["Previous symbols"].values[i].split(",")],
-        )
-    )
-
-    hugo = df_hugo["HGNC ID"].values[i]
-    ensembl = df_hugo["Ensembl gene ID"].values[i]
-    refseq = df_hugo["RefSeq IDs"].values[i].replace(" ", "")
-    ncbi = df_hugo["NCBI Gene ID"].values[i].replace(" ", "")
-
-    official_symbols[hugo] = {
-        "hugo": hugo,
-        "gene_symbol": gene_id,
-        "ensembl": ensembl,
-        "refseq": refseq,
-        "ncbi": ncbi,
-    }
-
-    gene_id_map[hugo] = hugo
-    gene_id_map[gene_id] = hugo
-    gene_id_map[refseq] = hugo
-    gene_id_map[ncbi] = hugo
-
-    for g in [x.strip() for x in df_hugo["Previous symbols"].values[i].split(",")]:
-        gene_id_map[g] = hugo
-
-    for g in [x.strip() for x in df_hugo["Alias symbols"].values[i].split(",")]:
-        gene_id_map[g] = hugo
-
-    index = i + 1
-    gene_db_map[hugo] = index
-    gene_db_map[gene_id] = index
-    gene_db_map[refseq] = index
-    gene_db_map[ncbi] = index
-
-    for g in [x.strip() for x in df_hugo["Previous symbols"].values[i].split(",")]:
-        gene_db_map[g] = index
-
-    for g in [x.strip() for x in df_hugo["Alias symbols"].values[i].split(",")]:
-        gene_db_map[g] = index
-
-    gene_ids.append(hugo)
-
-
 def get_file_id(name: str) -> str:
     return re.sub(r"[\/ ]+", "_", name.lower())
 
@@ -201,6 +144,105 @@ parser.add_argument("--species", type=str, help="Species, e.g. Human", default="
 args = parser.parse_args()
 
 
+#
+# Read gene symbols for matching
+#
+
+official_symbols = {}
+
+gene_ids = []
+gene_id_map = {}
+gene_db_map = {}
+
+if args.species == "Mouse":
+    file = "/ifs/scratch/cancer/Lab_RDF/ngs/references/mgi/mgi_entrez_ensembl_gene_list_20240531.tsv"
+    df_mgi = pd.read_csv(file, sep="\t", header=0, keep_default_na=False)
+
+    for i, gene_symbol in enumerate(df_mgi["gene_symbol"].values):
+
+        mgi = df_mgi["mgi"].values[i]
+        ensembl = df_mgi["ensembl"].values[i]
+        refseq = df_mgi["refseq"].values[i].replace(" ", "")
+        ncbi = df_mgi["entrez"].values[i].replace(" ", "")
+
+        official_symbols[mgi] = {
+            "hugo": "",
+            "mgi": mgi,
+            "gene_symbol": gene_symbol,
+            "ensembl": ensembl,
+            "refseq": refseq,
+            "ncbi": ncbi,
+        }
+
+        gene_id_map[mgi] = mgi
+        gene_id_map[gene_symbol] = mgi
+        gene_id_map[refseq] = mgi
+        gene_id_map[ncbi] = mgi
+
+        index = i + 1
+        gene_db_map[mgi] = index
+        gene_db_map[gene_symbol] = index
+        gene_db_map[refseq] = index
+        gene_db_map[ncbi] = index
+
+        gene_ids.append(mgi)
+else:
+    file = "/ifs/scratch/cancer/Lab_RDF/ngs/references/hugo/hugo_20240524.tsv"
+    df_hugo = pd.read_csv(file, sep="\t", header=0, keep_default_na=False)
+
+    for i, gene_symbol in enumerate(df_hugo["Approved symbol"].values):
+
+        # genes = [gene_id] + list(
+        #     filter(
+        #         lambda x: x != "",
+        #         [x.strip() for x in df_hugo["Previous symbols"].values[i].split(",")],
+        #     )
+        # )
+
+        hugo = df_hugo["HGNC ID"].values[i]
+        ensembl = df_hugo["Ensembl gene ID"].values[i]
+        refseq = df_hugo["RefSeq IDs"].values[i].replace(" ", "")
+        ncbi = df_hugo["NCBI Gene ID"].values[i].replace(" ", "")
+
+        official_symbols[hugo] = {
+            "hugo": hugo,
+            "mgi": "",
+            "gene_symbol": gene_symbol,
+            "ensembl": ensembl,
+            "refseq": refseq,
+            "ncbi": ncbi,
+        }
+
+        gene_id_map[hugo] = hugo
+        gene_id_map[gene_symbol] = hugo
+        gene_id_map[refseq] = hugo
+        gene_id_map[ncbi] = hugo
+
+        for g in [x.strip() for x in df_hugo["Previous symbols"].values[i].split(",")]:
+            gene_id_map[g] = hugo
+
+        for g in [x.strip() for x in df_hugo["Alias symbols"].values[i].split(",")]:
+            gene_id_map[g] = hugo
+
+        index = i + 1
+        gene_db_map[hugo] = index
+        gene_db_map[gene_symbol] = index
+        gene_db_map[refseq] = index
+        gene_db_map[ncbi] = index
+
+        for g in [x.strip() for x in df_hugo["Previous symbols"].values[i].split(",")]:
+            gene_db_map[g] = index
+
+        for g in [x.strip() for x in df_hugo["Alias symbols"].values[i].split(",")]:
+            gene_db_map[g] = index
+
+        gene_ids.append(hugo)
+
+
+#
+# Read sample data
+#
+
 df_samples = pd.read_csv(
     args.phenotypes,
     sep="\t",
@@ -232,8 +274,13 @@ dataset = {
     "species": args.species,
 }
 
+#
+# Write sql
+#
 
-with open(f"../../data/modules/gex/{args.technology}/{file_id}.sql", "w") as f:
+with open(
+    f"../../data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w"
+) as f:
     print("BEGIN TRANSACTION;", file=f)
 
     print(
@@ -295,10 +342,10 @@ with open(f"../../data/modules/gex/{args.technology}/{file_id}.sql", "w") as f:
 
         for dataset_id in sorted(exp_map):
             for probe_id in sorted(exp_map[dataset_id]):
-                for gene_id in sorted(exp_map[dataset_id][probe_id]):
-                    values = exp_map[dataset_id][probe_id][gene_id]["rma"]
+                for gene_symbol in sorted(exp_map[dataset_id][probe_id]):
+                    values = exp_map[dataset_id][probe_id][gene_symbol]["rma"]
 
-                    gene_index = gene_db_map[gene_id]
+                    gene_index = gene_db_map[gene_symbol]
 
                     print(
                         f"INSERT INTO expression (probe_id, gene_id, rma) VALUES ('{probe_id}', {gene_index}, '{values}');",
@@ -339,15 +386,15 @@ with open(f"../../data/modules/gex/{args.technology}/{file_id}.sql", "w") as f:
 
         for dataset_id in sorted(exp_map):
             for probe_id in sorted(exp_map[dataset_id]):
-                for gene_id in sorted(exp_map[dataset_id][probe_id]):
+                for gene_symbol in sorted(exp_map[dataset_id][probe_id]):
                     values = ",".join(
                         [
-                            f"'{str(exp_map[dataset_id][probe_id][gene_id][data_type])}'"
+                            f"'{str(exp_map[dataset_id][probe_id][gene_symbol][data_type])}'"
                             for data_type in DATA_TYPES
                         ]
                     )
 
-                    gene_index = gene_db_map[gene_id]
+                    gene_index = gene_db_map[gene_symbol]
 
                     print(
                         f'INSERT INTO expression (gene_id, {", ".join(
@@ -358,16 +405,28 @@ with open(f"../../data/modules/gex/{args.technology}/{file_id}.sql", "w") as f:
         print("COMMIT;", file=f)
 
 
-with open(f"../../data/modules/gex/{args.technology}/{file_id}.sql", "a") as f:
+with open(
+    f"../../data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "a"
+) as f:
     print("BEGIN TRANSACTION;", file=f)
 
-    for i, id in enumerate(gene_ids):
-        gene = official_symbols[id]
-        print(gene)
+    if args.species == "Mouse":
+        for i, id in enumerate(gene_ids):
+            gene = official_symbols[id]
+            print(gene)
 
-        print(
-            f"INSERT INTO genes (id, hugo_id, ensembl_id, refseq_id, ncbi_id, gene_symbol) VALUES ({i + 1}, '{gene["hugo"]}', '{gene["ensembl"]}', '{gene["refseq"]}', '{gene["ncbi"]}', '{gene["gene_symbol"]}');",
-            file=f,
-        )
+            print(
+                f"INSERT INTO genes (id, mgi_id, ensembl_id, refseq_id, ncbi_id, gene_symbol) VALUES ({i + 1}, '{gene["mgi"]}', '{gene["ensembl"]}', '{gene["refseq"]}', '{gene["ncbi"]}', '{gene["gene_symbol"]}');",
+                file=f,
+            )
+    else:
+        for i, id in enumerate(gene_ids):
+            gene = official_symbols[id]
+            print(gene)
+
+            print(
+                f"INSERT INTO genes (id, hugo_id, ensembl_id, refseq_id, ncbi_id, gene_symbol) VALUES ({i + 1}, '{gene["hugo"]}', '{gene["ensembl"]}', '{gene["refseq"]}', '{gene["ncbi"]}', '{gene["gene_symbol"]}');",
+                file=f,
+            )
 
     print("COMMIT;", file=f)
