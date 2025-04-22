@@ -55,7 +55,6 @@ def load_sample_data(df: pd.DataFrame, num_id_cols: int):
 def load_data(
     data_type,
     file,
-    dataset_name,
     dataset_id,
     exp_map,
     filter="",
@@ -85,7 +84,16 @@ def load_data(
         if gene not in gene_id_map:
             continue
 
-        gene_id = gene_id_map[gene]
+        gene_id = gene_id_map.get(gene, "")
+
+        if gene_id == "":
+            gene_id = prev_gene_id_map.get(gene, "")
+
+        if gene_id == "":
+            gene_id = alias_gene_id_map.get(gene, "")
+
+        if gene == "ELF1":
+            print(gene, gene_id)
 
         exp_map[dataset_id][probe][gene_id][data_type] = ",".join(
             [str(x) for x in df.iloc[i].values]
@@ -152,6 +160,8 @@ official_symbols = {}
 
 gene_ids = []
 gene_id_map = {}
+prev_gene_id_map = {}
+alias_gene_id_map = {}
 gene_db_map = {}
 
 if args.species == "Mouse":
@@ -181,13 +191,13 @@ if args.species == "Mouse":
 
         index = i + 1
         gene_db_map[mgi] = index
-        gene_db_map[gene_symbol] = index
-        gene_db_map[refseq] = index
-        gene_db_map[ncbi] = index
+        # gene_db_map[gene_symbol] = index
+        # gene_db_map[refseq] = index
+        # gene_db_map[ncbi] = index
 
         gene_ids.append(mgi)
 else:
-    file = "/ifs/scratch/cancer/Lab_RDF/ngs/references/hugo/hugo_20240524.tsv"
+    file = "/home/antony/Desktop/laura/hugo_20240524.tsv"
     df_hugo = pd.read_csv(file, sep="\t", header=0, keep_default_na=False)
 
     for i, gene_symbol in enumerate(df_hugo["Approved symbol"].values):
@@ -219,22 +229,22 @@ else:
         gene_id_map[ncbi] = hugo
 
         for g in [x.strip() for x in df_hugo["Previous symbols"].values[i].split(",")]:
-            gene_id_map[g] = hugo
+            prev_gene_id_map[g] = hugo
 
         for g in [x.strip() for x in df_hugo["Alias symbols"].values[i].split(",")]:
-            gene_id_map[g] = hugo
+            alias_gene_id_map[g] = hugo
 
         index = i + 1
         gene_db_map[hugo] = index
-        gene_db_map[gene_symbol] = index
-        gene_db_map[refseq] = index
-        gene_db_map[ncbi] = index
+        # gene_db_map[gene_symbol] = index
+        # gene_db_map[refseq] = index
+        # gene_db_map[ncbi] = index
 
-        for g in [x.strip() for x in df_hugo["Previous symbols"].values[i].split(",")]:
-            gene_db_map[g] = index
+        # for g in [x.strip() for x in df_hugo["Previous symbols"].values[i].split(",")]:
+        #     gene_db_map[g] = index
 
-        for g in [x.strip() for x in df_hugo["Alias symbols"].values[i].split(",")]:
-            gene_db_map[g] = index
+        # for g in [x.strip() for x in df_hugo["Alias symbols"].values[i].split(",")]:
+        #     gene_db_map[g] = index
 
         gene_ids.append(hugo)
 
@@ -278,13 +288,11 @@ dataset = {
 # Write sql
 #
 
-with open(
-    f"../../data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w"
-) as f:
+with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w") as f:
     print("BEGIN TRANSACTION;", file=f)
 
     print(
-        f"INSERT INTO dataset (public_id, name, species, institution, technology, platform) VALUES ('{dataset["dataset_id"]}', '{dataset["name"]}', '{dataset["species"]}', '{dataset["institution"]}', '{dataset["technology"]}', '{dataset["platform"]}');",
+        f"INSERT INTO dataset (public_id, name, species, institution, technology, platform) VALUES ('{dataset['dataset_id']}', '{dataset['name']}', '{dataset['species']}', '{dataset['institution']}', '{dataset['technology']}', '{dataset['platform']}');",
         file=f,
     )
 
@@ -333,7 +341,6 @@ with open(
         load_data(
             "rma",
             rma_file,
-            dataset_name,
             dataset_id,
             exp_map,
         )
@@ -359,7 +366,6 @@ with open(
         load_data(
             "counts",
             counts_file,
-            dataset_name,
             dataset_id,
             exp_map,
         )
@@ -368,7 +374,6 @@ with open(
         load_data(
             "tpm",
             tpm_file,
-            dataset_name,
             dataset_id,
             exp_map,
         )
@@ -377,7 +382,6 @@ with open(
         load_data(
             "vst",
             vst_file,
-            dataset_name,
             dataset_id,
             exp_map,
         )
@@ -395,10 +399,9 @@ with open(
                     )
 
                     gene_index = gene_db_map[gene_symbol]
-
+                    t = ", ".join(DATA_TYPES)
                     print(
-                        f'INSERT INTO expression (gene_id, {", ".join(
-                            DATA_TYPES)}) VALUES ({gene_index}, {values});',
+                        f"INSERT INTO expression (gene_id, {t}) VALUES ({gene_index}, {values});",
                         file=f,
                     )
 
@@ -416,7 +419,7 @@ with open(
             print(gene)
 
             print(
-                f"INSERT INTO genes (id, mgi_id, ensembl_id, refseq_id, ncbi_id, gene_symbol) VALUES ({i + 1}, '{gene["mgi"]}', '{gene["ensembl"]}', '{gene["refseq"]}', '{gene["ncbi"]}', '{gene["gene_symbol"]}');",
+                f"INSERT INTO genes (id, mgi_id, ensembl_id, refseq_id, ncbi_id, gene_symbol) VALUES ({i + 1}, '{gene['mgi']}', '{gene['ensembl']}', '{gene['refseq']}', '{gene['ncbi']}', '{gene['gene_symbol']}');",
                 file=f,
             )
     else:
@@ -425,7 +428,7 @@ with open(
             print(gene)
 
             print(
-                f"INSERT INTO genes (id, hugo_id, ensembl_id, refseq_id, ncbi_id, gene_symbol) VALUES ({i + 1}, '{gene["hugo"]}', '{gene["ensembl"]}', '{gene["refseq"]}', '{gene["ncbi"]}', '{gene["gene_symbol"]}');",
+                f"INSERT INTO genes (id, hugo_id, ensembl_id, refseq_id, ncbi_id, gene_symbol) VALUES ({i + 1}, '{gene['hugo']}', '{gene['ensembl']}', '{gene['refseq']}', '{gene['ncbi']}', '{gene['gene_symbol']}');",
                 file=f,
             )
 

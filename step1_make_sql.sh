@@ -1,6 +1,28 @@
 technology="RNA-seq"
 species="Human"
 
+# /ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/rdf/dlbcl_cell_lines_elodie_29/
+dataset_name="RDF 29 DLBCL Cell Lines"
+institution="RDF"
+phenotypes=/home/antony/Desktop/laura/phenotypes.txt
+counts=/home/antony/Desktop/laura/counts_grch37v29_20221014_simple.tsv
+tpm=/home/antony/Desktop/laura/tpm_grch37v29_20221014_simple.tsv
+vst=/home/antony/Desktop/laura/vst_grch37v29_20221014_simple.tsv
+
+python make_gex_sql.py \
+    --name="${dataset_name}" \
+    --institution="${institution}" \
+    --technology="${technology}" \
+    --species="${species}" \
+    --phenotypes="${phenotypes}" \
+    --counts="${counts}" \
+    --tpm="${tpm}" \
+    --vst="${vst}"
+
+exit(0)
+
+
+
 dataset_name="BCCA Morin DLBCL 230"
 institution="BCCA"
 phenotypes=/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/other_labs/BC_morin/dlbcl_ega_EGAD00001003783/324/grch37/analysis/phenotypes_230_renamed.txt
@@ -56,22 +78,7 @@ vst=/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/other_labs/nci_staudt/dlb
 #     --vst="${vst}"
 
 
-dataset_name="RDF 29 DLBCL Cell Lines"
-institution="RDF"
-phenotypes=/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/rdf/dlbcl_cell_lines_elodie_29/phenotypes.txt
-counts=/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/rdf/dlbcl_cell_lines_elodie_29/counts_grch37v29_20221014_simple.tsv
-tpm=/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/rdf/dlbcl_cell_lines_elodie_29/tpm_grch37v29_20221014_simple.tsv
-vst=/ifs/scratch/cancer/Lab_RDF/ngs/rna_seq/data/human/rdf/dlbcl_cell_lines_elodie_29/vst_grch37v29_20221014_simple.tsv
 
-# python make_gex_sql.py \
-#     --name="${dataset_name}" \
-#     --institution="${institution}" \
-#     --technology="${technology}" \
-#     --species="${species}" \
-#     --phenotypes="${phenotypes}" \
-#     --counts="${counts}" \
-#     --tpm="${tpm}" \
-#     --vst="${vst}"
 
 
 # mouse
