@@ -197,7 +197,7 @@ if args.species == "Mouse":
 
         gene_ids.append(mgi)
 else:
-    file = "/home/antony/Desktop/laura/hugo_20240524.tsv"
+    file = "/ifs/scratch/cancer/Lab_RDF/ngs/references/hugo/hugo_20240524.tsv"
     df_hugo = pd.read_csv(file, sep="\t", header=0, keep_default_na=False)
 
     for i, gene_symbol in enumerate(df_hugo["Approved symbol"].values):
