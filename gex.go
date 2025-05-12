@@ -85,7 +85,7 @@ type Idtype struct {
 	Id   int    `json:"id"`
 }
 
-type NameValuetype struct {
+type NameValueType struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
 }
@@ -120,7 +120,7 @@ type Sample struct {
 	Name     string          `json:"name"`
 	AltNames []string        `json:"altNames"`
 	Id       int             `json:"-"`
-	Metadata []NameValuetype `json:"metadata"`
+	Metadata []NameValueType `json:"metadata"`
 }
 
 type Dataset struct {
@@ -447,7 +447,7 @@ func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Data
 			// Attach sample meta data
 			//
 
-			sample.Metadata = make([]NameValuetype, 0, 50)
+			sample.Metadata = make([]NameValueType, 0, 50)
 
 			//sample.Metadata =) make(map[string]string)
 
@@ -466,7 +466,7 @@ func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Data
 					return nil, err
 				}
 
-				sample.Metadata = append(sample.Metadata, NameValuetype{Name: name, Value: value})
+				sample.Metadata = append(sample.Metadata, NameValueType{Name: name, Value: value})
 			}
 
 			dataset.Samples = append(dataset.Samples, &sample)

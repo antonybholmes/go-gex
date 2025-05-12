@@ -51,6 +51,7 @@ for root, dirs, files in os.walk(dir):
                 row = list(row)
                 # row.append(generate("0123456789abcdefghijklmnopqrstuvwxyz", 12))
                 # row.append(dataset)
+                # row.append("db")
                 row.append(path)
                 # row.append(dataset)
                 data.append(row)
