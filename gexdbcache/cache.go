@@ -49,6 +49,10 @@ func Datasets(species string, technology string) ([]*gex.Dataset, error) {
 	return instance.Datasets(species, technology)
 }
 
+func AllTechnologies() (map[string]map[string][]string, error) {
+	return instance.AllTechnologies()
+}
+
 func FindRNASeqValues(datasetIds []string,
 	gexType string,
 	geneIds []string) ([]*gex.SearchResults, error) {

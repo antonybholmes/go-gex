@@ -17,16 +17,21 @@ const GENES_SQL = `SELECT
 	FROM genes 
 	ORDER BY genome.gene_symbol`
 
-const SPECIES_SQL = `SELECT
-	datasets.species,
+const SPECIES_SQL = `SELECT DISTINCT
+	species,
 	FROM datasets
-	ORDER BY datasets.species`
+	ORDER BY species`
 
 const TECHNOLOGIES_SQL = `SELECT
 	datasets.platform
 	FROM datasets
 	WHERE datasets.species = ?1 
 	ORDER BY datasets.platform`
+
+const ALL_TECHNOLOGIES_SQL = `SELECT DISTINCT 
+	species, technology, platform 
+	FROM datasets 
+	ORDER BY species, technology, platform`
 
 // const ALL_VALUE_TYPES_SQL = `SELECT
 // 	gex_value_types.id,
@@ -305,6 +310,54 @@ func (cache *DatasetsCache) Technologies(species string) ([]string, error) {
 	}
 
 	return platforms, nil
+}
+
+func (cache *DatasetsCache) AllTechnologies() (map[string]map[string][]string, error) {
+	db, err := sql.Open("sqlite3", cache.path)
+
+	if err != nil {
+
+		return nil, err
+	}
+
+	defer db.Close()
+
+	technologies := make(map[string]map[string][]string)
+
+	rows, err := db.Query(ALL_TECHNOLOGIES_SQL)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var species string
+	var technology string
+	var platform string
+	for rows.Next() {
+
+		err := rows.Scan(&species,
+			&technology,
+			&platform)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if technologies[species] == nil {
+			technologies[species] = make(map[string][]string)
+		}
+
+		if technologies[species][technology] == nil {
+			technologies[species][technology] = make([]string, 0, 10)
+		}
+
+		technologies[species][technology] = append(technologies[species][technology], platform)
+
+	}
+
+	return technologies, nil
 }
 
 // func (cache *DatasetsCache) GexValues(platform int) ([]*GexValue, error) {
