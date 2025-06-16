@@ -66,8 +66,8 @@ const (
 )
 
 type DatasetCache struct {
-	dir     string
 	dataset *Dataset
+	dir     string
 }
 
 func NewDatasetCache(dir string, dataset *Dataset) *DatasetCache {

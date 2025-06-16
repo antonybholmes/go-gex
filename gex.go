@@ -124,8 +124,8 @@ type Sample struct {
 	PublicId string          `json:"publicId"`
 	Name     string          `json:"name"`
 	AltNames []string        `json:"altNames"`
-	Id       int             `json:"-"`
 	Metadata []NameValueType `json:"metadata"`
+	Id       int             `json:"-"`
 }
 
 type Dataset struct {
@@ -136,9 +136,9 @@ type Dataset struct {
 	Platform    string    `json:"platform"`
 	Path        string    `json:"-"`
 	Institution string    `json:"institution"`
+	Description string    `json:"description"`
 	Samples     []*Sample `json:"samples"`
 	Id          int       `json:"id"`
-	Description string    `json:"description"`
 }
 
 // type RNASeqGex struct {
@@ -168,8 +168,8 @@ type ResultSample struct {
 }
 
 type ResultDataset struct {
-	Values   []float32 `json:"values"`
 	PublicId string    `json:"publicId"`
+	Values   []float32 `json:"values"`
 }
 
 // Either a probe or gene
