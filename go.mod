@@ -1,6 +1,6 @@
 module github.com/antonybholmes/go-gex
 
-go 1.24
+go 1.25
 
 require github.com/rs/zerolog v1.34.0
 
