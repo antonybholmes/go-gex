@@ -39,7 +39,24 @@ CREATE TABLE sample_metadata (
 	name TEXT NOT NULL,
 	value TEXT NOT NULL DEFAULT '',
 	FOREIGN KEY(sample_id) REFERENCES samples(id));
- 
- 
- 
+
+CREATE TABLE expr_types (
+    id INTEGER PRIMARY KEY ASC,
+	public_id TEXT UNIQUE NOT NULL UNIQUE,
+    name TEXT UNIQUE NOT NULL
+);
+
+CREATE TABLE expression (
+	id INTEGER PRIMARY KEY ASC,
+	sample_id INTEGER NOT NULL,
+	gene_id INTEGER NOT NULL,
+	probe_id TEXT NOT NULL DEFAULT '',
+	expr_type_id INTEGER NOT NULL,
+	value REAL NOT NULL DEFAULT -1,
+	FOREIGN KEY(sample_id) REFERENCES samples(id),
+	FOREIGN KEY(gene_id) REFERENCES genes(id),
+	FOREIGN KEY(expr_type_id) REFERENCES expr_types(id));
+
+
+
 

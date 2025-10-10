@@ -3,12 +3,13 @@ import re
 import sys
 import pandas as pd
 import numpy as np
-from nanoid import generate
 
+# from nanoid import generate
+import uuid_utils as uuid
 import argparse
 
 
-DATA_TYPES = ["counts", "tpm", "vst"]
+DATA_TYPES = ["Counts", "TPM", "VST"]
 
 
 def get_file_id(name: str) -> str:
@@ -30,10 +31,14 @@ def load_sample_data(df: pd.DataFrame, num_id_cols: int):
 
         ids = values[0:num_id_cols]
         sample_id = ids[0]
-        alt_id_names = id_names[1:]
-        alt_ids = ids[1:]
+        alt_id_names = id_names  # [1:]
+        alt_ids = ids  # [1:]
 
         for name, alt_id in zip(alt_id_names, alt_ids):
+            # here name is the column name, alt_id is the value
+            # e.g. if a sample has multiple ids, e.g. GEO and SRA
+            # then name is "GEO" and alt_id is "GSMxxxx" or
+            # name is "SRA" and alt_id is "SRRxxxx"
             sample_id_map[sample_id][name] = alt_id
 
         values = values.astype(str)
@@ -92,12 +97,7 @@ def load_data(
         if gene_id == "":
             gene_id = alias_gene_id_map.get(gene, "")
 
-        if gene == "ELF1":
-            print(gene, gene_id)
-
-        exp_map[dataset_id][probe][gene_id][data_type] = ",".join(
-            [str(x) for x in df.iloc[i].values]
-        )
+        exp_map[dataset_id][probe][gene_id][data_type] = df.iloc[i, :].values
 
 
 exp_map = collections.defaultdict(
@@ -165,7 +165,7 @@ alias_gene_id_map = {}
 gene_db_map = {}
 
 if args.species == "Mouse":
-    file = "/ifs/scratch/cancer/Lab_RDF/ngs/references/mgi/mgi_entrez_ensembl_gene_list_20240531.tsv"
+    file = "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/references/mgi/mgi_entrez_ensembl_gene_list_20240531.tsv"
     df_mgi = pd.read_csv(file, sep="\t", header=0, keep_default_na=False)
 
     for i, gene_symbol in enumerate(df_mgi["gene_symbol"].values):
@@ -197,7 +197,7 @@ if args.species == "Mouse":
 
         gene_ids.append(mgi)
 else:
-    file = "/ifs/scratch/cancer/Lab_RDF/ngs/references/hugo/hugo_20240524.tsv"
+    file = "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/references/hugo/hugo_20240524.tsv"
     df_hugo = pd.read_csv(file, sep="\t", header=0, keep_default_na=False)
 
     for i, gene_symbol in enumerate(df_hugo["Approved symbol"].values):
@@ -265,8 +265,8 @@ sample_ids, alt_id_names, sample_id_map, sample_metadata_names, sample_data_map 
     load_sample_data(df_samples, args.id_col_count)
 )
 
-print(sample_id_map)
-print(sample_data_map)
+# print(sample_id_map)
+# print(sample_data_map)
 
 
 # samples = []
@@ -274,7 +274,7 @@ print(sample_data_map)
 
 dataset_name = args.name
 file_id = get_file_id(dataset_name)
-dataset_id = generate("0123456789abcdefghijklmnopqrstuvwxyz", 12)
+dataset_id = uuid.uuid7()  # generate("0123456789abcdefghijklmnopqrstuvwxyz", 12)
 dataset = {
     "dataset_id": dataset_id,
     "name": dataset_name,
@@ -301,7 +301,7 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
     print("BEGIN TRANSACTION;", file=f)
 
     for i, sample in enumerate(sample_ids):
-        public_id = generate("0123456789abcdefghijklmnopqrstuvwxyz", 12)
+        public_id = uuid.uuid7()  # generate("0123456789abcdefghijklmnopqrstuvwxyz", 12)
         print(
             f"INSERT INTO samples (public_id, name) VALUES ('{public_id}', '{sample}');",
             file=f,
@@ -310,6 +310,8 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
     print("COMMIT;", file=f)
 
     print("BEGIN TRANSACTION;", file=f)
+
+    sample_db_ids = {sample: i + 1 for i, sample in enumerate(sample_ids)}
 
     for i, sample in enumerate(sample_ids):
         for name in alt_id_names:
@@ -339,32 +341,52 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
         rma_file = args.rma
 
         load_data(
-            "rma",
+            "RMA",
             rma_file,
             dataset_id,
             exp_map,
         )
+
+        expr_types = set()
+        expr_types.add("RMA")
+
+        print("BEGIN TRANSACTION;", file=f)
+
+        expr_type_map = {i: expr_type for i, expr_type in enumerate(sorted(expr_types))}
+
+        for i, expr_type in enumerate(sorted(expr_types)):
+            public_id = uuid.uuid7()
+            print(
+                f"INSERT INTO expr_types (id, public_id, name) VALUES ({i + 1}, '{public_id}', '{expr_type[1]}');",
+                file=f,
+            )
+
+        print("COMMIT;", file=f)
 
         print("BEGIN TRANSACTION;", file=f)
 
         for dataset_id in sorted(exp_map):
             for probe_id in sorted(exp_map[dataset_id]):
                 for gene_symbol in sorted(exp_map[dataset_id][probe_id]):
-                    values = exp_map[dataset_id][probe_id][gene_symbol]["rma"]
+                    values = exp_map[dataset_id][probe_id][gene_symbol]["RMA"]
 
                     gene_index = gene_db_map[gene_symbol]
 
-                    print(
-                        f"INSERT INTO expression (probe_id, gene_id, rma) VALUES ('{probe_id}', {gene_index}, '{values}');",
-                        file=f,
-                    )
+                    for si, sample in enumerate(sample_ids):
+                        sample_index = sample_db_ids[sample]
+                        value = values[si]
+                        print(
+                            f"INSERT INTO expression (sample_id, gene_id, probe_id, expr_type_id, value) VALUES ({sample_index}, {gene_index}, '{probe_id}', 1, {np.round(value, 4)});",
+                            file=f,
+                        )
 
         print("COMMIT;", file=f)
 
     else:
+        expr_types = set()
         counts_file = args.counts
         load_data(
-            "counts",
+            "Counts",
             counts_file,
             dataset_id,
             exp_map,
@@ -372,7 +394,7 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
 
         tpm_file = args.tpm
         load_data(
-            "tpm",
+            "TPM",
             tpm_file,
             dataset_id,
             exp_map,
@@ -380,30 +402,59 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
 
         vst_file = args.vst
         load_data(
-            "vst",
+            "VST",
             vst_file,
             dataset_id,
             exp_map,
         )
+        expr_types.add("Counts")
+        expr_types.add("TPM")
+        expr_types.add("VST")
+
+        print("BEGIN TRANSACTION;", file=f)
+
+        expr_type_map = {
+            expr_type: i + 1 for i, expr_type in enumerate(sorted(expr_types))
+        }
+
+        for i, expr_type in enumerate(sorted(expr_types)):
+            public_id = uuid.uuid7()
+            print(
+                f"INSERT INTO expr_types (id, public_id, name) VALUES ({i + 1}, '{public_id}', '{expr_type}');",
+                file=f,
+            )
+
+        print("COMMIT;", file=f)
 
         print("BEGIN TRANSACTION;", file=f)
 
         for dataset_id in sorted(exp_map):
             for probe_id in sorted(exp_map[dataset_id]):
                 for gene_symbol in sorted(exp_map[dataset_id][probe_id]):
-                    values = ",".join(
-                        [
-                            f"'{str(exp_map[dataset_id][probe_id][gene_symbol][data_type])}'"
-                            for data_type in DATA_TYPES
-                        ]
-                    )
-
                     gene_index = gene_db_map[gene_symbol]
-                    t = ", ".join(DATA_TYPES)
-                    print(
-                        f"INSERT INTO expression (gene_id, {t}) VALUES ({gene_index}, {values});",
-                        file=f,
-                    )
+
+                    for data_type in DATA_TYPES:
+                        if data_type not in exp_map[dataset_id][probe_id][gene_symbol]:
+                            continue
+
+                        expr_type_id = expr_type_map[data_type]
+
+                        values = exp_map[dataset_id][probe_id][gene_symbol][data_type]
+
+                        for si, sample in enumerate(sample_ids):
+                            sample_index = sample_db_ids[sample]
+                            value = values[si]
+                            print(
+                                f"INSERT INTO expression (sample_id, gene_id, expr_type_id, value) VALUES ({sample_index}, {gene_index}, {expr_type_id}, {np.round(value, 4)});",
+                                file=f,
+                            )
+
+                    # gene_index = gene_db_map[gene_symbol]
+                    # t = ", ".join(DATA_TYPES)
+                    # print(
+                    #     f"INSERT INTO expression (gene_id, {t}) VALUES ({gene_index}, {values});",
+                    #     file=f,
+                    # )
 
         print("COMMIT;", file=f)
 
@@ -416,7 +467,6 @@ with open(
     if args.species == "Mouse":
         for i, id in enumerate(gene_ids):
             gene = official_symbols[id]
-            print(gene)
 
             print(
                 f"INSERT INTO genes (id, mgi_id, ensembl_id, refseq_id, ncbi_id, gene_symbol) VALUES ({i + 1}, '{gene['mgi']}', '{gene['ensembl']}', '{gene['refseq']}', '{gene['ncbi']}', '{gene['gene_symbol']}');",
@@ -425,7 +475,6 @@ with open(
     else:
         for i, id in enumerate(gene_ids):
             gene = official_symbols[id]
-            print(gene)
 
             print(
                 f"INSERT INTO genes (id, hugo_id, ensembl_id, refseq_id, ncbi_id, gene_symbol) VALUES ({i + 1}, '{gene['hugo']}', '{gene['ensembl']}', '{gene['refseq']}', '{gene['ncbi']}', '{gene['gene_symbol']}');",

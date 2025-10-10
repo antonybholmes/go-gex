@@ -45,6 +45,10 @@ func Species() ([]string, error) {
 // 	return instance.Plaforms(species)
 // }
 
+func ExprTypes(datasetIds []string) ([]*gex.ExprType, error) {
+	return instance.ExprTypes(datasetIds)
+}
+
 func Datasets(species string, technology string) ([]*gex.Dataset, error) {
 	return instance.Datasets(species, technology)
 }
@@ -53,10 +57,10 @@ func AllTechnologies() (map[string]map[string][]string, error) {
 	return instance.AllTechnologies()
 }
 
-func FindRNASeqValues(datasetIds []string,
-	gexType string,
+func FindSeqValues(datasetIds []string,
+	gexType gex.ExprType,
 	geneIds []string) ([]*gex.SearchResults, error) {
-	return instance.FindRNASeqValues(datasetIds, gexType, geneIds)
+	return instance.FindSeqValues(datasetIds, gexType, geneIds)
 }
 
 func FindMicroarrayValues(datasetIds []string,

@@ -8,45 +8,46 @@ import (
 )
 
 // approx size of dataset
-const DATASET_SIZE = 500
+const (
+	DATASET_SIZE = 500
 
-const GENES_SQL = `SELECT 
+	GENES_SQL = `SELECT 
 	genome.id, 
 	genome.gene_id, 
 	genome.gene_symbol 
 	FROM genes 
 	ORDER BY genome.gene_symbol`
 
-const SPECIES_SQL = `SELECT DISTINCT
+	SPECIES_SQL = `SELECT DISTINCT
 	species,
 	FROM datasets
 	ORDER BY species`
 
-const TECHNOLOGIES_SQL = `SELECT
+	TECHNOLOGIES_SQL = `SELECT
 	datasets.platform
 	FROM datasets
 	WHERE datasets.species = ?1 
 	ORDER BY datasets.platform`
 
-const ALL_TECHNOLOGIES_SQL = `SELECT DISTINCT 
+	ALL_TECHNOLOGIES_SQL = `SELECT DISTINCT 
 	species, technology, platform 
 	FROM datasets 
 	ORDER BY species, technology, platform`
 
-// const ALL_VALUE_TYPES_SQL = `SELECT
-// 	gex_value_types.id,
-// 	gex_value_types.name
-// 	FROM gex_value_types
-// 	ORDER BY gex_value_types.platform_id, gex_value_types.id`
+	//  ALL_VALUE_TYPES_SQL = `SELECT
+	// 	gex_value_types.id,
+	// 	gex_value_types.name
+	// 	FROM gex_value_types
+	// 	ORDER BY gex_value_types.platform_id, gex_value_types.id`
 
-// const VALUE_TYPES_SQL = `SELECT
-// 	gex_value_types.id,
-// 	gex_value_types.name
-// 	FROM gex_value_types
-// 	WHERE gex_value_types.platform_id = ?1
-// 	ORDER BY gex_value_types.id`
+	//  VALUE_TYPES_SQL = `SELECT
+	// 	gex_value_types.id,
+	// 	gex_value_types.name
+	// 	FROM gex_value_types
+	// 	WHERE gex_value_types.platform_id = ?1
+	// 	ORDER BY gex_value_types.id`
 
-const DATASETS_SQL = `SELECT 
+	DATASETS_SQL = `SELECT 
 	datasets.id,
 	datasets.public_id,
 	datasets.species,
@@ -60,7 +61,7 @@ const DATASETS_SQL = `SELECT
 	WHERE datasets.species = ?1 AND datasets.technology = ?2
 	ORDER BY datasets.name`
 
-const DATASET_SQL = `SELECT 
+	DATASET_SQL = `SELECT 
 	datasets.id,
 	datasets.public_id,
 	datasets.species,
@@ -73,14 +74,13 @@ const DATASET_SQL = `SELECT
 	FROM datasets 
 	WHERE datasets.public_id = ?1`
 
-// const DATASETS_SQL = `SELECT
-// 	name
-// 	FROM datasets
-// 	ORDER BY datasets.name`
+	// const DATASETS_SQL = `SELECT
+	// 	name
+	// 	FROM datasets
+	// 	ORDER BY datasets.name`
 
-// type GexValue string
+	// type GexValue string
 
-const (
 	RNA_SEQ_TECHNOLOGY    string = "RNA-seq"
 	MICROARRAY_TECHNOLOGY string = "Microarray"
 )
@@ -123,7 +123,7 @@ type Technology struct {
 type Sample struct {
 	PublicId string          `json:"publicId"`
 	Name     string          `json:"name"`
-	AltNames []string        `json:"altNames"`
+	AltNames []NameValueType `json:"altNames"`
 	Metadata []NameValueType `json:"metadata"`
 	Id       int             `json:"-"`
 }
@@ -398,8 +398,6 @@ func (cache *DatasetsCache) AllTechnologies() (map[string]map[string][]string, e
 // }
 
 func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Dataset, error) {
-	var name string
-	var value string
 
 	db, err := sql.Open("sqlite3", cache.path)
 
@@ -451,7 +449,7 @@ func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Data
 
 		defer db2.Close()
 
-		geneRows, err := db2.Query(SAMPLES_SQL, dataset.Id)
+		geneRows, err := db2.Query(SamplesSQL, dataset.Id)
 
 		if err != nil {
 			return nil, err
@@ -475,9 +473,9 @@ func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Data
 			// See if sample has alternative names
 			//
 
-			sample.AltNames = make([]string, 0, 10)
+			sample.AltNames = make([]NameValueType, 0, 10)
 
-			dataRows, err := db2.Query(SAMPLE_ALT_NAMES_SQL, sample.Id)
+			dataRows, err := db2.Query(SampleAltNamesSQL, sample.Id)
 
 			if err != nil {
 				return nil, err
@@ -486,14 +484,15 @@ func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Data
 			defer dataRows.Close()
 
 			for dataRows.Next() {
+				var nv NameValueType
 
-				err := dataRows.Scan(&name, &value)
+				err := dataRows.Scan(&nv.Name, &nv.Value)
 
 				if err != nil {
 					return nil, err
 				}
 
-				sample.AltNames = append(sample.AltNames, value)
+				sample.AltNames = append(sample.AltNames, nv)
 			}
 
 			//
@@ -504,7 +503,7 @@ func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Data
 
 			//sample.Metadata =) make(map[string]string)
 
-			dataRows, err = db2.Query(SAMPLE_METADATA_SQL, sample.Id)
+			dataRows, err = db2.Query(SampleMetadataSQL, sample.Id)
 
 			if err != nil {
 				return nil, err
@@ -513,13 +512,14 @@ func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Data
 			defer dataRows.Close()
 
 			for dataRows.Next() {
-				err := dataRows.Scan(&name, &value)
+				var nv NameValueType
+				err := dataRows.Scan(&nv.Name, &nv.Value)
 
 				if err != nil {
 					return nil, err
 				}
 
-				sample.Metadata = append(sample.Metadata, NameValueType{Name: name, Value: value})
+				sample.Metadata = append(sample.Metadata, nv)
 			}
 
 			dataset.Samples = append(dataset.Samples, &sample)
@@ -560,8 +560,34 @@ func (cache *DatasetsCache) dataset(datasetId string) (*Dataset, error) {
 	return &dataset, nil
 }
 
-func (cache *DatasetsCache) FindRNASeqValues(datasetIds []string,
-	gexType string,
+func (cache *DatasetsCache) ExprTypes(datasetIds []string,
+) ([]*ExprType, error) {
+
+	ret := make([]*ExprType, 0, len(datasetIds))
+
+	for _, datasetId := range datasetIds {
+		dataset, err := cache.dataset(datasetId)
+
+		if err != nil {
+			return nil, err
+		}
+
+		datasetCache := NewDatasetCache(cache.dir, dataset)
+
+		res, err := datasetCache.ExprTypes()
+
+		if err != nil {
+			return nil, err
+		}
+
+		ret = append(ret, res...)
+	}
+
+	return ret, nil
+}
+
+func (cache *DatasetsCache) FindSeqValues(datasetIds []string,
+	gexType ExprType,
 	geneIds []string) ([]*SearchResults, error) {
 
 	ret := make([]*SearchResults, 0, len(datasetIds))
@@ -575,7 +601,7 @@ func (cache *DatasetsCache) FindRNASeqValues(datasetIds []string,
 
 		datasetCache := NewDatasetCache(cache.dir, dataset)
 
-		res, err := datasetCache.FindRNASeqValues(gexType, geneIds)
+		res, err := datasetCache.FindSeqValues(gexType, geneIds)
 
 		if err != nil {
 			return nil, err

@@ -3,36 +3,48 @@ package gex
 import (
 	"database/sql"
 	"path/filepath"
-	"strconv"
-	"strings"
 
 	"github.com/rs/zerolog/log"
 )
 
+type (
+	DatasetCache struct {
+		dataset *Dataset
+		dir     string
+	}
+
+	ExprType struct {
+		Id       uint   `json:"id"`
+		PublicId string `json:"publicId"`
+		Name     string `json:"name"`
+	}
+)
+
 // keep them in the entered order so we can preserve
 // groupings such as N/GC/M which are not alphabetical
-const SAMPLES_SQL = `SELECT
+const (
+	SamplesSQL = `SELECT
 	samples.id,
 	samples.public_id,
 	samples.name
 	FROM samples
 	ORDER BY samples.id`
 
-const SAMPLE_ALT_NAMES_SQL = `SELECT
+	SampleAltNamesSQL = `SELECT
 	sample_alt_names.name,
 	sample_alt_names.value
 	FROM sample_alt_names
 	WHERE sample_alt_names.sample_id = ?1
 	ORDER by sample_alt_names.id`
 
-const SAMPLE_METADATA_SQL = `SELECT
+	SampleMetadataSQL = `SELECT
 	sample_metadata.name,
 	sample_metadata.value
 	FROM sample_metadata
 	WHERE sample_metadata.sample_id = ?1
 	ORDER by sample_metadata.id`
 
-const GENE_SQL = `SELECT 
+	GeneSQL = `SELECT 
 	genes.id, 
 	genes.hugo_id,
 	genes.mgi_id,
@@ -40,38 +52,172 @@ const GENE_SQL = `SELECT
 	genes.refseq_id,
 	genes.gene_symbol 
 	FROM genes
-	WHERE genes.gene_symbol LIKE ?1 OR genes.hugo_id = ?1 OR genes.ensembl_id LIKE ?1 OR genes.refseq_id LIKE ?1 
+	WHERE genes.gene_symbol LIKE ?1 OR 
+	genes.hugo_id = ?1 OR 
+	genes.ensembl_id LIKE ?1 OR 
+	genes.refseq_id LIKE ?1 
 	LIMIT 1`
 
-const RNA_SQL = `SELECT
-	expression.id,
-	expression.counts,
-	expression.tpm,
-	expression.vst
-	FROM expression 
-	WHERE expression.gene_id = ?1`
+	ExprTypesSQL = `SELECT
+	expr_types.id,
+	expr_types.public_id,
+	expr_types.name
+	FROM expr_types
+	ORDER BY expr_types.id`
 
-const MICROARRAY_SQL = `SELECT
+	ExpressionSQL = `SELECT
 	expression.id,
+	expression.sample_id,
+	expression.gene_id,
 	expression.probe_id,
-	expression.rma
+	expression.value
 	FROM expression 
-	WHERE expression.gene_id = ?1`
+	WHERE expression.gene_id = ?1 AND
+	expression.expr_type = ?2
+	ORDER BY expression.sample_id`
 
-const (
-	GEX_TYPE_COUNTS string = "Counts"
-	GEX_TYPE_TPM    string = "TPM"
-	GEX_TYPE_VST    string = "VST"
-	GEX_TYPE_RMA    string = "RMA"
+	// MICROARRAY_SQL = `SELECT
+	// expression.id,
+	// expression.feature_id AS probe_id,
+	// expression.value
+	// FROM expression
+	// WHERE expression.gene_id = ?1 AND
+	// expression.expr_type = 'rma'`
+
+	GexTypeCounts string = "Counts"
+	GexTypeTPM    string = "TPM"
+	GexTypeVST    string = "VST"
+	GexTypeRMA    string = "RMA"
 )
 
-type DatasetCache struct {
-	dataset *Dataset
-	dir     string
-}
+var (
+	ExprTypeRMA = ExprType{Id: 1, PublicId: "00000000-0000-0000-0000-000000000001", Name: GexTypeRMA}
+)
 
 func NewDatasetCache(dir string, dataset *Dataset) *DatasetCache {
 	return &DatasetCache{dir: dir, dataset: dataset}
+}
+
+// func (cache *DatasetCache) Samples() ([]*Sample, error) {
+
+// 	db, err := sql.Open("sqlite3", filepath.Join(cache.dir, cache.dataset.Path))
+
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	defer db.Close()
+
+// 	rows, err := db.Query(SAMPLES_SQL)
+
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	defer rows.Close()
+
+// 	ret := make([]*Sample, 0, DATASET_SIZE)
+
+// 	for rows.Next() {
+// 		var sample Sample
+
+// 		err := rows.Scan(
+// 			&sample.Id,
+// 			&sample.PublicId,
+// 			&sample.Name)
+
+// 		if err != nil {
+// 			return nil, err
+// 		}
+
+// 		// get alt names
+// 		altRows, err := db.Query(SAMPLE_ALT_NAMES_SQL, sample.Id)
+
+// 		if err != nil {
+// 			return nil, err
+// 		}
+
+// 		sample.AltNames = make([]NameValueType, 0, 10)
+
+// 		for altRows.Next() {
+// 			var nv NameValueType
+
+// 			err := altRows.Scan(&nv.Name, &nv.Value)
+
+// 			if err != nil {
+// 				return nil, err
+// 			}
+
+// 			sample.AltNames = append(sample.AltNames, nv)
+// 		}
+
+// 		altRows.Close()
+
+// 		// get metadata
+// 		metaRows, err := db.Query(SAMPLE_METADATA_SQL, sample.Id)
+
+// 		if err != nil {
+// 			return nil, err
+// 		}
+
+// 		sample.Metadata = make([]NameValueType, 0, 10)
+
+// 		for metaRows.Next() {
+// 			var nv = NameValueType{}
+
+// 			err := metaRows.Scan(&nv.Name, &nv.Value)
+
+// 			if err != nil {
+// 				return nil, err
+// 			}
+
+// 			sample.Metadata = append(sample.Metadata, nv)
+// 		}
+
+// 		metaRows.Close()
+
+// 		ret = append(ret, &sample)
+// 	}
+
+// 	return ret, nil
+// }
+
+func (cache *DatasetCache) ExprTypes() ([]*ExprType, error) {
+
+	db, err := sql.Open("sqlite3", filepath.Join(cache.dir, cache.dataset.Path))
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer db.Close()
+
+	rows, err := db.Query(ExprTypesSQL)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	ret := make([]*ExprType, 0, 10)
+
+	for rows.Next() {
+		var exprType ExprType
+
+		err := rows.Scan(
+			&exprType.Id,
+			&exprType.PublicId,
+			&exprType.Name)
+
+		if err != nil {
+			return nil, err
+		}
+
+		ret = append(ret, &exprType)
+	}
+
+	return ret, nil
 }
 
 func (cache *DatasetCache) FindGenes(genes []string) ([]*GexGene, error) {
@@ -88,7 +234,7 @@ func (cache *DatasetCache) FindGenes(genes []string) ([]*GexGene, error) {
 
 	for _, g := range genes {
 		var gene GexGene
-		err := db.QueryRow(GENE_SQL, g).Scan(
+		err := db.QueryRow(GeneSQL, g).Scan(
 			&gene.Id,
 			&gene.Hugo,
 			&gene.Mgi,
@@ -110,7 +256,7 @@ func (cache *DatasetCache) FindGenes(genes []string) ([]*GexGene, error) {
 	return ret, nil
 }
 
-func (cache *DatasetCache) FindRNASeqValues(gexType string,
+func (cache *DatasetCache) FindSeqValues(exprType ExprType,
 	geneIds []string) (*SearchResults, error) {
 
 	genes, err := cache.FindGenes(geneIds)
@@ -119,13 +265,11 @@ func (cache *DatasetCache) FindRNASeqValues(gexType string,
 		return nil, err
 	}
 
-	return cache.RNASeqValues(gexType, genes)
+	return cache.GexValues(exprType, genes)
 }
 
-func (cache *DatasetCache) RNASeqValues(gexType string,
+func (cache *DatasetCache) GexValues(exprType ExprType,
 	genes []*GexGene) (*SearchResults, error) {
-
-	//log.Debug().Msgf("cripes %v", filepath.Join(cache.dir, cache.dataset.Path))
 
 	db, err := sql.Open("sqlite3", filepath.Join(cache.dir, cache.dataset.Path))
 
@@ -136,53 +280,56 @@ func (cache *DatasetCache) RNASeqValues(gexType string,
 	defer db.Close()
 
 	ret := SearchResults{
-
 		Dataset:  cache.dataset.PublicId,
-		GexType:  gexType,
+		GexType:  exprType.Name,
 		Features: make([]*ResultFeature, 0, len(genes))}
 
-	var id int
-	var counts string
-	var tpm string
-	var vst string
-	var gex string
+	var id uint
+	var sampleId uint
+	var geneId uint
+	var probeId string
+	var value float32
 
 	for _, gene := range genes {
-		err := db.QueryRow(RNA_SQL, gene.Id).Scan(
-			&id,
-			&counts,
-			&tpm,
-			&vst)
+
+		rows, err := db.Query(ExpressionSQL, gene.Id, exprType.Id)
 
 		if err != nil {
 			return nil, err
 		}
 
-		switch gexType {
-		case GEX_TYPE_TPM:
-			gex = tpm
-		case GEX_TYPE_VST:
-			gex = vst
-		default:
-			gex = counts
-		}
+		defer rows.Close()
 
-		values := make([]float32, 0, DATASET_SIZE)
+		// to store expression values for each sample
+		var values = make([]float32, 0, len(cache.dataset.Samples))
 
-		for stringValue := range strings.SplitSeq(gex, ",") {
-			value, err := strconv.ParseFloat(stringValue, 32)
+		for rows.Next() {
+
+			err := rows.Scan(&id,
+				&sampleId,
+				&geneId,
+				&probeId,
+				&value)
 
 			if err != nil {
 				return nil, err
 			}
 
-			values = append(values, float32(value))
+			values = append(values, value)
+
+			//log.Debug().Msgf("hmm %s %f %f", gexType, sample.Value, tpm)
 		}
 
-		//log.Debug().Msgf("hmm %s %f %f", gexType, sample.Value, tpm)
+		feature := ResultFeature{Gene: gene, Expression: values}
+
+		if probeId != "" {
+			feature.ProbeId = probeId
+		}
+
+		log.Debug().Msgf("got %d values for gene %s", len(values), gene.GeneSymbol)
 
 		//datasetResults.Samples = append(datasetResults.Samples, &sample)
-		ret.Features = append(ret.Features, &ResultFeature{Gene: gene, Expression: values})
+		ret.Features = append(ret.Features, &feature)
 
 	}
 
@@ -198,56 +345,56 @@ func (cache *DatasetCache) FindMicroarrayValues(
 		return nil, err
 	}
 
-	return cache.MicroarrayValues(genes)
+	return cache.GexValues(ExprTypeRMA, genes)
 }
 
-func (cache *DatasetCache) MicroarrayValues(
+// func (cache *DatasetCache) MicroarrayValues(
 
-	genes []*GexGene) (*SearchResults, error) {
+// 	genes []*GexGene) (*SearchResults, error) {
 
-	db, err := sql.Open("sqlite3", filepath.Join(cache.dir, cache.dataset.Path))
+// 	db, err := sql.Open("sqlite3", filepath.Join(cache.dir, cache.dataset.Path))
 
-	if err != nil {
-		return nil, err
-	}
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	defer db.Close()
+// 	defer db.Close()
 
-	ret := SearchResults{
-		Dataset:  cache.dataset.PublicId,
-		GexType:  "rma",
-		Features: make([]*ResultFeature, 0, len(genes))}
+// 	ret := SearchResults{
+// 		Dataset:  cache.dataset.PublicId,
+// 		GexType:  "rma",
+// 		Features: make([]*ResultFeature, 0, len(genes))}
 
-	var id int
-	var probeId string
-	var rma string
+// 	var id int
+// 	var probeId string
+// 	var rma string
 
-	for _, gene := range genes {
-		err := db.QueryRow(MICROARRAY_SQL, gene.Id).Scan(
-			&id,
-			&probeId,
-			&rma)
+// 	for _, gene := range genes {
+// 		err := db.QueryRow(MICROARRAY_SQL, gene.Id).Scan(
+// 			&id,
+// 			&probeId,
+// 			&rma)
 
-		if err != nil {
-			return nil, err
-		}
+// 		if err != nil {
+// 			return nil, err
+// 		}
 
-		values := make([]float32, 0, DATASET_SIZE)
+// 		values := make([]float32, 0, DATASET_SIZE)
 
-		for stringValue := range strings.SplitSeq(rma, ",") {
-			value, err := strconv.ParseFloat(stringValue, 32)
+// 		for stringValue := range strings.SplitSeq(rma, ",") {
+// 			value, err := strconv.ParseFloat(stringValue, 32)
 
-			if err != nil {
-				return nil, err
-			}
+// 			if err != nil {
+// 				return nil, err
+// 			}
 
-			values = append(values, float32(value))
-		}
+// 			values = append(values, float32(value))
+// 		}
 
-		//datasetResults.Samples = append(datasetResults.Samples, &sample)
-		ret.Features = append(ret.Features, &ResultFeature{ProbeId: probeId, Gene: gene, Expression: values})
+// 		//datasetResults.Samples = append(datasetResults.Samples, &sample)
+// 		ret.Features = append(ret.Features, &ResultFeature{ProbeId: probeId, Gene: gene, Expression: values})
 
-	}
+// 	}
 
-	return &ret, nil
-}
+// 	return &ret, nil
+// }
