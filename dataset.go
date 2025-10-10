@@ -73,7 +73,7 @@ const (
 	expression.value
 	FROM expression 
 	WHERE expression.gene_id = ?1 AND
-	expression.expr_type = ?2
+	expression.expr_type_id = ?2
 	ORDER BY expression.sample_id`
 
 	// MICROARRAY_SQL = `SELECT
