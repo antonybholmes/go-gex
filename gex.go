@@ -4,32 +4,33 @@ import (
 	"database/sql"
 	"path/filepath"
 
+	"github.com/antonybholmes/go-sys"
 	"github.com/rs/zerolog/log"
 )
 
 // approx size of dataset
 const (
-	DATASET_SIZE = 500
+	DatasetSize = 500
 
-	GENES_SQL = `SELECT 
+	GenesSql = `SELECT 
 	genome.id, 
 	genome.gene_id, 
 	genome.gene_symbol 
 	FROM genes 
 	ORDER BY genome.gene_symbol`
 
-	SPECIES_SQL = `SELECT DISTINCT
+	SpeciesSql = `SELECT DISTINCT
 	species,
 	FROM datasets
 	ORDER BY species`
 
-	TECHNOLOGIES_SQL = `SELECT
+	TechnologiesSql = `SELECT
 	datasets.platform
 	FROM datasets
 	WHERE datasets.species = ?1 
 	ORDER BY datasets.platform`
 
-	ALL_TECHNOLOGIES_SQL = `SELECT DISTINCT 
+	AllTechnologiesSql = `SELECT DISTINCT 
 	species, technology, platform 
 	FROM datasets 
 	ORDER BY species, technology, platform`
@@ -47,7 +48,7 @@ const (
 	// 	WHERE gex_value_types.platform_id = ?1
 	// 	ORDER BY gex_value_types.id`
 
-	DATASETS_SQL = `SELECT 
+	DatasetsSql = `SELECT 
 	datasets.id,
 	datasets.public_id,
 	datasets.species,
@@ -61,7 +62,7 @@ const (
 	WHERE datasets.species = ?1 AND datasets.technology = ?2
 	ORDER BY datasets.name`
 
-	DATASET_SQL = `SELECT 
+	DatasetSql = `SELECT 
 	datasets.id,
 	datasets.public_id,
 	datasets.species,
@@ -81,122 +82,117 @@ const (
 
 	// type GexValue string
 
-	RNA_SEQ_TECHNOLOGY    string = "RNA-seq"
-	MICROARRAY_TECHNOLOGY string = "Microarray"
+	RNASeqTechnology     string = "RNA-seq"
+	MicroarrayTechnology string = "Microarray"
 )
 
-type Idtype struct {
-	Name string `json:"name"`
-	Id   int    `json:"id"`
-}
+type (
+	Idtype struct {
+		Name string `json:"name"`
+		Id   int    `json:"id"`
+	}
 
-type NameValueType struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
-}
+	NameValueType struct {
+		Name  string `json:"name"`
+		Value string `json:"value"`
+	}
 
-type Species = Idtype
-type GexValue = Idtype
+	Species  = Idtype
+	GexValue = Idtype
 
-// type GexType string
+	GexGene struct {
+		Ensembl    string `json:"ensembl"`
+		Refseq     string `json:"refseq"`
+		Hugo       string `json:"hugo"`
+		Mgi        string `json:"mgi"`
+		GeneSymbol string `json:"geneSymbol"`
+		Id         int    `json:"-"`
+	}
 
-// const (
-// 	GEX_TYPE_RNA_SEQ        GexType = "RNA-seq"
-// 	GEX_TYPE_RNA_MICROARRAY GexType = "Microarray"
-//)
+	Technology struct {
+		Name     string   `json:"name"`
+		PublicId string   `json:"publicId"`
+		GexTypes []string `json:"gexTypes"`
+	}
 
-type GexGene struct {
-	Ensembl    string `json:"ensembl"`
-	Refseq     string `json:"refseq"`
-	Hugo       string `json:"hugo"`
-	Mgi        string `json:"mgi"`
-	GeneSymbol string `json:"geneSymbol"`
-	Id         int    `json:"-"`
-}
+	Sample struct {
+		PublicId string          `json:"publicId"`
+		Name     string          `json:"name"`
+		AltNames []NameValueType `json:"altNames"`
+		Metadata []NameValueType `json:"metadata"`
+		Id       int             `json:"-"`
+	}
 
-type Technology struct {
-	Name     string   `json:"name"`
-	PublicId string   `json:"publicId"`
-	GexTypes []string `json:"gexTypes"`
-}
+	Dataset struct {
+		PublicId    string    `json:"publicId"`
+		Name        string    `json:"name"`
+		Species     string    `json:"species"`
+		Technology  string    `json:"technology"`
+		Platform    string    `json:"platform"`
+		Path        string    `json:"-"`
+		Institution string    `json:"institution"`
+		Description string    `json:"description"`
+		Samples     []*Sample `json:"samples"`
+		Id          int       `json:"id"`
+	}
 
-type Sample struct {
-	PublicId string          `json:"publicId"`
-	Name     string          `json:"name"`
-	AltNames []NameValueType `json:"altNames"`
-	Metadata []NameValueType `json:"metadata"`
-	Id       int             `json:"-"`
-}
+	//   RNASeqGex struct {
+	// 	Dataset int     `json:"dataset"`
+	// 	Sample  int     `json:"sample"`
+	// 	Gene    int     `json:"gene"`
+	// 	Counts  int     `json:"counts"`
+	// 	TPM     float32 `json:"tpm"`
+	// 	VST     float32 `json:"vst"`
+	// }
 
-type Dataset struct {
-	PublicId    string    `json:"publicId"`
-	Name        string    `json:"name"`
-	Species     string    `json:"species"`
-	Technology  string    `json:"technology"`
-	Platform    string    `json:"platform"`
-	Path        string    `json:"-"`
-	Institution string    `json:"institution"`
-	Description string    `json:"description"`
-	Samples     []*Sample `json:"samples"`
-	Id          int       `json:"id"`
-}
+	//   MicroarrayGex struct {
+	// 	Dataset int     `json:"dataset"`
+	// 	Sample  int     `json:"sample"`
+	// 	Gene    int     `json:"gene"`
+	// 	RMA     float32 `json:"vst"`
+	// }
 
-// type RNASeqGex struct {
-// 	Dataset int     `json:"dataset"`
-// 	Sample  int     `json:"sample"`
-// 	Gene    int     `json:"gene"`
-// 	Counts  int     `json:"counts"`
-// 	TPM     float32 `json:"tpm"`
-// 	VST     float32 `json:"vst"`
-// }
+	ResultSample struct {
+		//Dataset int     `json:"dataset"`
+		Id int `json:"id"`
+		//Gene    int     `json:"gene"`
+		//Counts int     `json:"counts"`
+		////TPM    float32 `json:"tpm"`
+		//VST    float32 `json:"vst"`
+		Value float32 `json:"value"`
+	}
 
-// type MicroarrayGex struct {
-// 	Dataset int     `json:"dataset"`
-// 	Sample  int     `json:"sample"`
-// 	Gene    int     `json:"gene"`
-// 	RMA     float32 `json:"vst"`
-// }
+	ResultDataset struct {
+		PublicId string    `json:"publicId"`
+		Values   []float32 `json:"values"`
+	}
 
-type ResultSample struct {
-	//Dataset int     `json:"dataset"`
-	Id int `json:"id"`
-	//Gene    int     `json:"gene"`
-	//Counts int     `json:"counts"`
-	////TPM    float32 `json:"tpm"`
-	//VST    float32 `json:"vst"`
-	Value float32 `json:"value"`
-}
+	// Either a probe or gene
+	ResultFeature struct {
+		ProbeId *string  `json:"probeId,omitempty"` // distinguish between null and ""
+		Gene    *GexGene `json:"gene"`
+		//Platform     *ValueType       `json:"platform"`
+		//GexValue *GexValue    `json:"gexType"`
+		Expression []float32 `json:"expression"`
+	}
 
-type ResultDataset struct {
-	PublicId string    `json:"publicId"`
-	Values   []float32 `json:"values"`
-}
+	SearchResults struct {
+		// we use the simpler value type for platform in search
+		// results so that the value types are not repeated in
+		// each search. The useful info in a search is just
+		// the platform name and id
 
-// Either a probe or gene
-type ResultFeature struct {
-	ProbeId string   `json:"probeId,omitempty"`
-	Gene    *GexGene `json:"gene"`
-	//Platform     *ValueType       `json:"platform"`
-	//GexValue *GexValue    `json:"gexType"`
-	Expression []float32 `json:"expression"`
-}
+		//Dataset *Dataset      `json:"dataset"`
+		Dataset  string           `json:"dataset"`
+		GexType  string           `json:"gexType"`
+		Features []*ResultFeature `json:"features"`
+	}
 
-type SearchResults struct {
-	// we use the simpler value type for platform in search
-	// results so that the value types are not repeated in
-	// each search. The useful info in a search is just
-	// the platform name and id
-
-	//Dataset *Dataset      `json:"dataset"`
-	Dataset  string           `json:"dataset"`
-	GexType  string           `json:"gexType"`
-	Features []*ResultFeature `json:"features"`
-}
-
-type DatasetsCache struct {
-	dir  string
-	path string
-}
+	DatasetsCache struct {
+		dir  string
+		path string
+	}
+)
 
 func NewDatasetsCache(dir string) *DatasetsCache {
 
@@ -252,7 +248,7 @@ func (cache *DatasetsCache) Species() ([]string, error) {
 
 	species := make([]string, 0, 10)
 
-	rows, err := db.Query(SPECIES_SQL)
+	rows, err := db.Query(SpeciesSql)
 
 	if err != nil {
 		return nil, err
@@ -288,7 +284,7 @@ func (cache *DatasetsCache) Technologies(species string) ([]string, error) {
 
 	platforms := make([]string, 0, 10)
 
-	rows, err := db.Query(TECHNOLOGIES_SQL, species)
+	rows, err := db.Query(TechnologiesSql, species)
 
 	if err != nil {
 		return nil, err
@@ -313,7 +309,7 @@ func (cache *DatasetsCache) Technologies(species string) ([]string, error) {
 }
 
 func (cache *DatasetsCache) AllTechnologies() (map[string]map[string][]string, error) {
-	db, err := sql.Open("sqlite3", cache.path)
+	db, err := sql.Open(sys.Sqlite3DB, cache.path)
 
 	if err != nil {
 
@@ -324,7 +320,7 @@ func (cache *DatasetsCache) AllTechnologies() (map[string]map[string][]string, e
 
 	technologies := make(map[string]map[string][]string)
 
-	rows, err := db.Query(ALL_TECHNOLOGIES_SQL)
+	rows, err := db.Query(AllTechnologiesSql)
 
 	if err != nil {
 		return nil, err
@@ -409,7 +405,7 @@ func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Data
 
 	datasets := make([]*Dataset, 0, 10)
 
-	datasetRows, err := db.Query(DATASETS_SQL, species, technology)
+	datasetRows, err := db.Query(DatasetsSql, species, technology)
 
 	if err != nil {
 		return nil, err
@@ -437,7 +433,7 @@ func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Data
 
 		// the largest dataset is around 500 samples
 		// so use that as an estimate
-		dataset.Samples = make([]*Sample, 0, DATASET_SIZE)
+		dataset.Samples = make([]*Sample, 0, DatasetSize)
 
 		log.Debug().Msgf("db %s", filepath.Join(cache.dir, dataset.Path))
 
@@ -542,7 +538,7 @@ func (cache *DatasetsCache) dataset(datasetId string) (*Dataset, error) {
 
 	var dataset Dataset
 
-	err = db.QueryRow(DATASET_SQL, datasetId).Scan(
+	err = db.QueryRow(DatasetSql, datasetId).Scan(
 		&dataset.Id,
 		&dataset.PublicId,
 		&dataset.Species,

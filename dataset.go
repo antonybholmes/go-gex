@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 
 	"github.com/rs/zerolog/log"
+
+	"github.com/antonybholmes/go-sys"
 )
 
 type (
@@ -222,7 +224,7 @@ func (cache *DatasetCache) ExprTypes() ([]*ExprType, error) {
 
 func (cache *DatasetCache) FindGenes(genes []string) ([]*GexGene, error) {
 
-	db, err := sql.Open("sqlite3", filepath.Join(cache.dir, cache.dataset.Path))
+	db, err := sql.Open(sys.Sqlite3DB, filepath.Join(cache.dir, cache.dataset.Path))
 
 	if err != nil {
 		return nil, err
@@ -287,7 +289,7 @@ func (cache *DatasetCache) GexValues(exprType ExprType,
 	var id uint
 	var sampleId uint
 	var geneId uint
-	var probeId string
+	var probeId sql.NullString
 	var value float32
 
 	for _, gene := range genes {
@@ -322,13 +324,12 @@ func (cache *DatasetCache) GexValues(exprType ExprType,
 
 		feature := ResultFeature{Gene: gene, Expression: values}
 
-		if probeId != "" {
-			feature.ProbeId = probeId
+		if probeId.Valid {
+			feature.ProbeId = &probeId.String
 		}
 
 		log.Debug().Msgf("got %d values for gene %s", len(values), gene.GeneSymbol)
 
-		//datasetResults.Samples = append(datasetResults.Samples, &sample)
 		ret.Features = append(ret.Features, &feature)
 
 	}
