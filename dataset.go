@@ -25,7 +25,7 @@ type (
 // keep them in the entered order so we can preserve
 // groupings such as N/GC/M which are not alphabetical
 const (
-	SamplesSql = `SELECT
+	SamplesSQL = `SELECT
 		samples.id,
 		samples.public_id,
 		samples.name
@@ -102,7 +102,7 @@ func (cache *DatasetCache) Samples() ([]*Sample, error) {
 
 	defer db.Close()
 
-	rows, err := db.Query(SamplesSql)
+	rows, err := db.Query(SamplesSQL)
 
 	if err != nil {
 		return nil, err

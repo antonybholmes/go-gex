@@ -24,18 +24,18 @@ const (
 		FROM datasets
 		ORDER BY species`
 
-	TechnologiesSql = `SELECT
+	TechnologiesSQL = `SELECT
 		datasets.platform
 		FROM datasets
 		WHERE datasets.species = ?1 
 		ORDER BY datasets.platform`
 
-	AllTechnologiesSql = `SELECT DISTINCT 
+	AllTechnologiesSQL = `SELECT DISTINCT 
 		species, technology, platform 
 		FROM datasets 
 		ORDER BY species, technology, platform`
 
-	DatasetsSql = `SELECT 
+	DatasetsSQL = `SELECT 
 		datasets.id,
 		datasets.public_id,
 		datasets.species,
@@ -49,7 +49,7 @@ const (
 		WHERE datasets.species = ?1 AND datasets.technology = ?2
 		ORDER BY datasets.name`
 
-	DatasetSql = `SELECT 
+	DatasetSQL = `SELECT 
 		datasets.id,
 		datasets.public_id,
 		datasets.species,
@@ -264,7 +264,7 @@ func (cache *DatasetsCache) Technologies(species string) ([]string, error) {
 
 	platforms := make([]string, 0, 10)
 
-	rows, err := db.Query(TechnologiesSql, species)
+	rows, err := db.Query(TechnologiesSQL, species)
 
 	if err != nil {
 		return nil, err
@@ -300,7 +300,7 @@ func (cache *DatasetsCache) AllTechnologies() (map[string]map[string][]string, e
 
 	technologies := make(map[string]map[string][]string)
 
-	rows, err := db.Query(AllTechnologiesSql)
+	rows, err := db.Query(AllTechnologiesSQL)
 
 	if err != nil {
 		return nil, err
@@ -385,7 +385,7 @@ func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Data
 
 	datasets := make([]*Dataset, 0, 10)
 
-	datasetRows, err := db.Query(DatasetsSql, species, technology)
+	datasetRows, err := db.Query(DatasetsSQL, species, technology)
 
 	if err != nil {
 		return nil, err
@@ -425,7 +425,7 @@ func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Data
 
 		defer db2.Close()
 
-		geneRows, err := db2.Query(SamplesSql, dataset.Id)
+		geneRows, err := db2.Query(SamplesSQL, dataset.Id)
 
 		if err != nil {
 			return nil, err
@@ -518,7 +518,7 @@ func (cache *DatasetsCache) dataset(datasetId string) (*Dataset, error) {
 
 	var dataset Dataset
 
-	err = db.QueryRow(DatasetSql, datasetId).Scan(
+	err = db.QueryRow(DatasetSQL, datasetId).Scan(
 		&dataset.Id,
 		&dataset.PublicId,
 		&dataset.Species,

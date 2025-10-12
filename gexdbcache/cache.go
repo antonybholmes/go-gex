@@ -6,9 +6,11 @@ import (
 	"github.com/antonybholmes/go-gex"
 )
 
-var instance *gex.DatasetsCache
-var once sync.Once
-var technologies []gex.Technology
+var (
+	instance     *gex.DatasetsCache
+	once         sync.Once
+	technologies []gex.Technology
+)
 
 func init() {
 	technologies = []gex.Technology{
