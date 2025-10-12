@@ -298,6 +298,31 @@ func (cache *DatasetsCache) dataset(datasetId string) (*Dataset, error) {
 		return nil, err
 	}
 
+	dataset.ExprTypes = make([]*ExprType, 0, 5)
+
+	rows, err := db.Query(ExprTypesSQL)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var exprType ExprType
+
+		err := rows.Scan(
+			&exprType.Id,
+			&exprType.PublicId,
+			&exprType.Name)
+
+		if err != nil {
+			return nil, err
+		}
+
+		dataset.ExprTypes = append(dataset.ExprTypes, &exprType)
+	}
+
 	return &dataset, nil
 }
 
@@ -313,15 +338,7 @@ func (cache *DatasetsCache) ExprTypes(datasetIds []string,
 			return nil, err
 		}
 
-		sampleCache := NewSampleCache(cache.dir, dataset)
-
-		res, err := sampleCache.ExprTypes()
-
-		if err != nil {
-			return nil, err
-		}
-
-		ret = append(ret, res...)
+		ret = append(ret, dataset.ExprTypes...)
 	}
 
 	return ret, nil

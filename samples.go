@@ -37,12 +37,6 @@ type (
 		Id       int             `json:"-"`
 	}
 
-	ExprType struct {
-		Id       uint   `json:"id"`
-		PublicId string `json:"publicId"`
-		Name     string `json:"name"`
-	}
-
 	GexGene struct {
 		Ensembl    string `json:"ensembl"`
 		Refseq     string `json:"refseq"`
@@ -115,13 +109,6 @@ const (
 		genes.ensembl_id LIKE ?1 OR 
 		genes.refseq_id LIKE ?1 
 		LIMIT 1`
-
-	ExprTypesSQL = `SELECT
-		expr_types.id,
-		expr_types.public_id,
-		expr_types.name
-		FROM expr_types
-		ORDER BY expr_types.id`
 
 	ExpressionSQL = `SELECT
 		expression.id,
@@ -253,44 +240,6 @@ func (cache *SampleCache) Samples() ([]*Sample, error) {
 	}
 
 	return samples, nil
-}
-
-func (cache *SampleCache) ExprTypes() ([]*ExprType, error) {
-
-	db, err := sql.Open(sys.Sqlite3DB, cache.db)
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer db.Close()
-
-	rows, err := db.Query(ExprTypesSQL)
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer rows.Close()
-
-	ret := make([]*ExprType, 0, 10)
-
-	for rows.Next() {
-		var exprType ExprType
-
-		err := rows.Scan(
-			&exprType.Id,
-			&exprType.PublicId,
-			&exprType.Name)
-
-		if err != nil {
-			return nil, err
-		}
-
-		ret = append(ret, &exprType)
-	}
-
-	return ret, nil
 }
 
 // FindGenes looks up genes by their gene symbol, hugo id, ensembl id or refseq id
