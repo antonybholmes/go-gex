@@ -13,74 +13,54 @@ const (
 	DatasetSize = 500
 
 	GenesSql = `SELECT 
-	genome.id, 
-	genome.gene_id, 
-	genome.gene_symbol 
-	FROM genes 
-	ORDER BY genome.gene_symbol`
+		genome.id, 
+		genome.gene_id, 
+		genome.gene_symbol 
+		FROM genes 
+		ORDER BY genome.gene_symbol`
 
 	SpeciesSql = `SELECT DISTINCT
-	species,
-	FROM datasets
-	ORDER BY species`
+		species,
+		FROM datasets
+		ORDER BY species`
 
 	TechnologiesSql = `SELECT
-	datasets.platform
-	FROM datasets
-	WHERE datasets.species = ?1 
-	ORDER BY datasets.platform`
+		datasets.platform
+		FROM datasets
+		WHERE datasets.species = ?1 
+		ORDER BY datasets.platform`
 
 	AllTechnologiesSql = `SELECT DISTINCT 
-	species, technology, platform 
-	FROM datasets 
-	ORDER BY species, technology, platform`
-
-	//  ALL_VALUE_TYPES_SQL = `SELECT
-	// 	gex_value_types.id,
-	// 	gex_value_types.name
-	// 	FROM gex_value_types
-	// 	ORDER BY gex_value_types.platform_id, gex_value_types.id`
-
-	//  VALUE_TYPES_SQL = `SELECT
-	// 	gex_value_types.id,
-	// 	gex_value_types.name
-	// 	FROM gex_value_types
-	// 	WHERE gex_value_types.platform_id = ?1
-	// 	ORDER BY gex_value_types.id`
+		species, technology, platform 
+		FROM datasets 
+		ORDER BY species, technology, platform`
 
 	DatasetsSql = `SELECT 
-	datasets.id,
-	datasets.public_id,
-	datasets.species,
-	datasets.technology,
-	datasets.platform,
-	datasets.institution,
-	datasets.name,
-	datasets.path,
-	datasets.description
-	FROM datasets 
-	WHERE datasets.species = ?1 AND datasets.technology = ?2
-	ORDER BY datasets.name`
+		datasets.id,
+		datasets.public_id,
+		datasets.species,
+		datasets.technology,
+		datasets.platform,
+		datasets.institution,
+		datasets.name,
+		datasets.path,
+		datasets.description
+		FROM datasets 
+		WHERE datasets.species = ?1 AND datasets.technology = ?2
+		ORDER BY datasets.name`
 
 	DatasetSql = `SELECT 
-	datasets.id,
-	datasets.public_id,
-	datasets.species,
-	datasets.technology,
-	datasets.platform,
-	datasets.institution,
-	datasets.name,
-	datasets.path,
-	datasets.description
-	FROM datasets 
-	WHERE datasets.public_id = ?1`
-
-	// const DATASETS_SQL = `SELECT
-	// 	name
-	// 	FROM datasets
-	// 	ORDER BY datasets.name`
-
-	// type GexValue string
+		datasets.id,
+		datasets.public_id,
+		datasets.species,
+		datasets.technology,
+		datasets.platform,
+		datasets.institution,
+		datasets.name,
+		datasets.path,
+		datasets.description
+		FROM datasets 
+		WHERE datasets.public_id = ?1`
 
 	RNASeqTechnology     string = "RNA-seq"
 	MicroarrayTechnology string = "Microarray"
@@ -445,7 +425,7 @@ func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Data
 
 		defer db2.Close()
 
-		geneRows, err := db2.Query(SamplesSQL, dataset.Id)
+		geneRows, err := db2.Query(SamplesSql, dataset.Id)
 
 		if err != nil {
 			return nil, err

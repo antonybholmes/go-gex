@@ -25,66 +25,58 @@ type (
 // keep them in the entered order so we can preserve
 // groupings such as N/GC/M which are not alphabetical
 const (
-	SamplesSQL = `SELECT
-	samples.id,
-	samples.public_id,
-	samples.name
-	FROM samples
-	ORDER BY samples.id`
+	SamplesSql = `SELECT
+		samples.id,
+		samples.public_id,
+		samples.name
+		FROM samples
+		ORDER BY samples.id`
 
 	SampleAltNamesSQL = `SELECT
-	sample_alt_names.name,
-	sample_alt_names.value
-	FROM sample_alt_names
-	WHERE sample_alt_names.sample_id = ?1
-	ORDER by sample_alt_names.id`
+		sample_alt_names.name,
+		sample_alt_names.value
+		FROM sample_alt_names
+		WHERE sample_alt_names.sample_id = ?1
+		ORDER by sample_alt_names.id`
 
 	SampleMetadataSQL = `SELECT
-	sample_metadata.name,
-	sample_metadata.value
-	FROM sample_metadata
-	WHERE sample_metadata.sample_id = ?1
-	ORDER by sample_metadata.id`
+		sample_metadata.name,
+		sample_metadata.value
+		FROM sample_metadata
+		WHERE sample_metadata.sample_id = ?1
+		ORDER by sample_metadata.id`
 
 	GeneSQL = `SELECT 
-	genes.id, 
-	genes.hugo_id,
-	genes.mgi_id,
-	genes.ensembl_id,
-	genes.refseq_id,
-	genes.gene_symbol 
-	FROM genes
-	WHERE genes.gene_symbol LIKE ?1 OR 
-	genes.hugo_id = ?1 OR 
-	genes.ensembl_id LIKE ?1 OR 
-	genes.refseq_id LIKE ?1 
-	LIMIT 1`
+		genes.id, 
+		genes.hugo_id,
+		genes.mgi_id,
+		genes.ensembl_id,
+		genes.refseq_id,
+		genes.gene_symbol 
+		FROM genes
+		WHERE genes.gene_symbol LIKE ?1 OR 
+		genes.hugo_id = ?1 OR 
+		genes.ensembl_id LIKE ?1 OR 
+		genes.refseq_id LIKE ?1 
+		LIMIT 1`
 
 	ExprTypesSQL = `SELECT
-	expr_types.id,
-	expr_types.public_id,
-	expr_types.name
-	FROM expr_types
-	ORDER BY expr_types.id`
+		expr_types.id,
+		expr_types.public_id,
+		expr_types.name
+		FROM expr_types
+		ORDER BY expr_types.id`
 
 	ExpressionSQL = `SELECT
-	expression.id,
-	expression.sample_id,
-	expression.gene_id,
-	expression.probe_id,
-	expression.value
-	FROM expression 
-	WHERE expression.gene_id = ?1 AND
-	expression.expr_type_id = ?2
-	ORDER BY expression.sample_id`
-
-	// MICROARRAY_SQL = `SELECT
-	// expression.id,
-	// expression.feature_id AS probe_id,
-	// expression.value
-	// FROM expression
-	// WHERE expression.gene_id = ?1 AND
-	// expression.expr_type = 'rma'`
+		expression.id,
+		expression.sample_id,
+		expression.gene_id,
+		expression.probe_id,
+		expression.value
+		FROM expression 
+		WHERE expression.gene_id = ?1 AND
+		expression.expr_type_id = ?2
+		ORDER BY expression.sample_id`
 
 	GexTypeCounts string = "Counts"
 	GexTypeTPM    string = "TPM"
@@ -93,96 +85,96 @@ const (
 )
 
 var (
-	ExprTypeRMA = &ExprType{Id: 1, PublicId: "00000000-0000-0000-0000-000000000001", Name: GexTypeRMA}
+	ExprTypeRMA = &ExprType{Id: 1, PublicId: sys.BlankUUID, Name: GexTypeRMA}
 )
 
 func NewDatasetCache(dir string, dataset *Dataset) *DatasetCache {
 	return &DatasetCache{dir: dir, dataset: dataset}
 }
 
-// func (cache *DatasetCache) Samples() ([]*Sample, error) {
+func (cache *DatasetCache) Samples() ([]*Sample, error) {
 
-// 	db, err := sql.Open("sqlite3", filepath.Join(cache.dir, cache.dataset.Path))
+	db, err := sql.Open(sys.Sqlite3DB, filepath.Join(cache.dir, cache.dataset.Path))
 
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	if err != nil {
+		return nil, err
+	}
 
-// 	defer db.Close()
+	defer db.Close()
 
-// 	rows, err := db.Query(SAMPLES_SQL)
+	rows, err := db.Query(SamplesSql)
 
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	if err != nil {
+		return nil, err
+	}
 
-// 	defer rows.Close()
+	defer rows.Close()
 
-// 	ret := make([]*Sample, 0, DATASET_SIZE)
+	ret := make([]*Sample, 0, DatasetSize)
 
-// 	for rows.Next() {
-// 		var sample Sample
+	for rows.Next() {
+		var sample Sample
 
-// 		err := rows.Scan(
-// 			&sample.Id,
-// 			&sample.PublicId,
-// 			&sample.Name)
+		err := rows.Scan(
+			&sample.Id,
+			&sample.PublicId,
+			&sample.Name)
 
-// 		if err != nil {
-// 			return nil, err
-// 		}
+		if err != nil {
+			return nil, err
+		}
 
-// 		// get alt names
-// 		altRows, err := db.Query(SAMPLE_ALT_NAMES_SQL, sample.Id)
+		// get alt names
+		altRows, err := db.Query(SampleAltNamesSQL, sample.Id)
 
-// 		if err != nil {
-// 			return nil, err
-// 		}
+		if err != nil {
+			return nil, err
+		}
 
-// 		sample.AltNames = make([]NameValueType, 0, 10)
+		sample.AltNames = make([]NameValueType, 0, 10)
 
-// 		for altRows.Next() {
-// 			var nv NameValueType
+		for altRows.Next() {
+			var nv NameValueType
 
-// 			err := altRows.Scan(&nv.Name, &nv.Value)
+			err := altRows.Scan(&nv.Name, &nv.Value)
 
-// 			if err != nil {
-// 				return nil, err
-// 			}
+			if err != nil {
+				return nil, err
+			}
 
-// 			sample.AltNames = append(sample.AltNames, nv)
-// 		}
+			sample.AltNames = append(sample.AltNames, nv)
+		}
 
-// 		altRows.Close()
+		altRows.Close()
 
-// 		// get metadata
-// 		metaRows, err := db.Query(SAMPLE_METADATA_SQL, sample.Id)
+		// get metadata
+		metaRows, err := db.Query(SampleMetadataSQL, sample.Id)
 
-// 		if err != nil {
-// 			return nil, err
-// 		}
+		if err != nil {
+			return nil, err
+		}
 
-// 		sample.Metadata = make([]NameValueType, 0, 10)
+		sample.Metadata = make([]NameValueType, 0, 10)
 
-// 		for metaRows.Next() {
-// 			var nv = NameValueType{}
+		for metaRows.Next() {
+			var nv = NameValueType{}
 
-// 			err := metaRows.Scan(&nv.Name, &nv.Value)
+			err := metaRows.Scan(&nv.Name, &nv.Value)
 
-// 			if err != nil {
-// 				return nil, err
-// 			}
+			if err != nil {
+				return nil, err
+			}
 
-// 			sample.Metadata = append(sample.Metadata, nv)
-// 		}
+			sample.Metadata = append(sample.Metadata, nv)
+		}
 
-// 		metaRows.Close()
+		metaRows.Close()
 
-// 		ret = append(ret, &sample)
-// 	}
+		ret = append(ret, &sample)
+	}
 
-// 	return ret, nil
-// }
+	return ret, nil
+}
 
 func (cache *DatasetCache) ExprTypes() ([]*ExprType, error) {
 
