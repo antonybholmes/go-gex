@@ -50,9 +50,9 @@ CREATE TABLE expression (
 	id INTEGER PRIMARY KEY ASC,
 	sample_id INTEGER NOT NULL,
 	gene_id INTEGER NOT NULL,
-	probe_id TEXT NOT NULL DEFAULT '',
+	probe_id TEXT,
 	expr_type_id INTEGER NOT NULL,
-	value REAL NOT NULL DEFAULT -1,
+	value REAL NOT NULL DEFAULT 0,
 	FOREIGN KEY(sample_id) REFERENCES samples(id),
 	FOREIGN KEY(gene_id) REFERENCES genes(id),
 	FOREIGN KEY(expr_type_id) REFERENCES expr_types(id));

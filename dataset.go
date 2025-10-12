@@ -214,6 +214,8 @@ func (cache *DatasetCache) ExprTypes() ([]*ExprType, error) {
 	return ret, nil
 }
 
+// FindGenes looks up genes by their gene symbol, hugo id, ensembl id or refseq id
+// since expr values are stored by gene id
 func (cache *DatasetCache) FindGenes(genes []string) ([]*GexGene, error) {
 
 	db, err := sql.Open(sys.Sqlite3DB, filepath.Join(cache.dir, cache.dataset.Path))
@@ -236,15 +238,16 @@ func (cache *DatasetCache) FindGenes(genes []string) ([]*GexGene, error) {
 			&gene.Refseq,
 			&gene.GeneSymbol)
 
-		if err == nil {
-			// add as many genes as possible
-			ret = append(ret, &gene)
-		} else {
+		if err != nil {
 			// log that we couldn't find a gene, but continue
-			// anyway
-			log.Debug().Msgf("gene not found: %s", g)
+			// anyway to find as many as possible
+			log.Info().Msgf("gene not found: %s", g)
+
 			//return nil, err
+			continue
 		}
+
+		ret = append(ret, &gene)
 	}
 
 	return ret, nil
@@ -323,7 +326,6 @@ func (cache *DatasetCache) Expr(exprType *ExprType,
 		log.Debug().Msgf("got %d values for gene %s", len(values), gene.GeneSymbol)
 
 		ret.Features = append(ret.Features, &feature)
-
 	}
 
 	return &ret, nil
@@ -340,54 +342,3 @@ func (cache *DatasetCache) FindMicroarrayValues(
 
 	return cache.Expr(ExprTypeRMA, genes)
 }
-
-// func (cache *DatasetCache) MicroarrayValues(
-
-// 	genes []*GexGene) (*SearchResults, error) {
-
-// 	db, err := sql.Open("sqlite3", filepath.Join(cache.dir, cache.dataset.Path))
-
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	defer db.Close()
-
-// 	ret := SearchResults{
-// 		Dataset:  cache.dataset.PublicId,
-// 		GexType:  "rma",
-// 		Features: make([]*ResultFeature, 0, len(genes))}
-
-// 	var id int
-// 	var probeId string
-// 	var rma string
-
-// 	for _, gene := range genes {
-// 		err := db.QueryRow(MICROARRAY_SQL, gene.Id).Scan(
-// 			&id,
-// 			&probeId,
-// 			&rma)
-
-// 		if err != nil {
-// 			return nil, err
-// 		}
-
-// 		values := make([]float32, 0, DATASET_SIZE)
-
-// 		for stringValue := range strings.SplitSeq(rma, ",") {
-// 			value, err := strconv.ParseFloat(stringValue, 32)
-
-// 			if err != nil {
-// 				return nil, err
-// 			}
-
-// 			values = append(values, float32(value))
-// 		}
-
-// 		//datasetResults.Samples = append(datasetResults.Samples, &sample)
-// 		ret.Features = append(ret.Features, &ResultFeature{ProbeId: probeId, Gene: gene, Expression: values})
-
-// 	}
-
-// 	return &ret, nil
-// }
