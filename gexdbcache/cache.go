@@ -4,20 +4,18 @@ import (
 	"sync"
 
 	"github.com/antonybholmes/go-gex"
+	"github.com/antonybholmes/go-sys"
 )
 
 var (
-	instance     *gex.DatasetsCache
-	once         sync.Once
-	technologies []gex.Technology
-)
+	instance *gex.DatasetsCache
+	once     sync.Once
 
-func init() {
 	technologies = []gex.Technology{
-		{PublicId: "8wyay6lyvz9f", Name: "RNA-seq", GexTypes: []string{"Counts", "TPM", "VST"}},
-		{PublicId: "4fdknkjpa95h", Name: "Microarray", GexTypes: []string{"RMA"}}}
-
-}
+		{PublicId: sys.BlankUUID, Name: "RNA-seq", ExprTypes: []gex.ExprType{{Id: 1, PublicId: sys.BlankUUID, Name: "Counts"}, {Id: 2, PublicId: sys.BlankUUID, Name: "TPM"}, {Id: 3, PublicId: sys.BlankUUID, Name: "VST"}}},
+		{PublicId: sys.BlankUUID, Name: "Microarray", ExprTypes: []gex.ExprType{{Id: 1, PublicId: sys.BlankUUID, Name: "RMA"}}},
+	}
+)
 
 func Technologies() []gex.Technology {
 	return technologies
