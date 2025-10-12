@@ -301,7 +301,7 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
     print("BEGIN TRANSACTION;", file=f)
 
     for i, sample in enumerate(sample_ids):
-        public_id = f"{args.technology.lower()}:{uuid.uuid7()}"  # generate("0123456789abcdefghijklmnopqrstuvwxyz", 12)
+        public_id = uuid.uuid7() #f"{args.technology.lower()}:{uuid.uuid7()}"  # generate("0123456789abcdefghijklmnopqrstuvwxyz", 12)
         print(
             f"INSERT INTO samples (public_id, name) VALUES ('{public_id}', '{sample}');",
             file=f,
@@ -418,7 +418,7 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
         }
 
         for i, expr_type in enumerate(sorted(expr_types)):
-            public_id = f"{args.technology.lower()}:{uuid.uuid7()}"
+            public_id = uuid.uuid7() # f"{args.technology.lower()}:{uuid.uuid7()}"
             print(
                 f"INSERT INTO expr_types (id, public_id, name) VALUES ({i + 1}, '{public_id}', '{expr_type}');",
                 file=f,
