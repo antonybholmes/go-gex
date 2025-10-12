@@ -60,7 +60,7 @@ type (
 
 		//Dataset *Dataset      `json:"dataset"`
 		Dataset  string           `json:"dataset"`
-		ExprType string           `json:"exprType"`
+		ExprType *ExprType        `json:"exprType"`
 		Features []*ResultFeature `json:"features"`
 	}
 
@@ -357,7 +357,7 @@ func (cache *SampleCache) Expr(exprType *ExprType,
 
 	ret := SearchResults{
 		Dataset:  cache.dataset.PublicId,
-		ExprType: exprType.Name,
+		ExprType: exprType,
 		Features: make([]*ResultFeature, 0, len(genes))}
 
 	var id uint
