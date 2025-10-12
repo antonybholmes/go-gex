@@ -93,7 +93,7 @@ const (
 )
 
 var (
-	ExprTypeRMA = ExprType{Id: 1, PublicId: "00000000-0000-0000-0000-000000000001", Name: GexTypeRMA}
+	ExprTypeRMA = &ExprType{Id: 1, PublicId: "00000000-0000-0000-0000-000000000001", Name: GexTypeRMA}
 )
 
 func NewDatasetCache(dir string, dataset *Dataset) *DatasetCache {
@@ -186,7 +186,7 @@ func NewDatasetCache(dir string, dataset *Dataset) *DatasetCache {
 
 func (cache *DatasetCache) ExprTypes() ([]*ExprType, error) {
 
-	db, err := sql.Open("sqlite3", filepath.Join(cache.dir, cache.dataset.Path))
+	db, err := sql.Open(sys.Sqlite3DB, filepath.Join(cache.dir, cache.dataset.Path))
 
 	if err != nil {
 		return nil, err
@@ -258,7 +258,7 @@ func (cache *DatasetCache) FindGenes(genes []string) ([]*GexGene, error) {
 	return ret, nil
 }
 
-func (cache *DatasetCache) FindSeqValues(exprType ExprType,
+func (cache *DatasetCache) FindSeqValues(exprType *ExprType,
 	geneIds []string) (*SearchResults, error) {
 
 	genes, err := cache.FindGenes(geneIds)
@@ -267,13 +267,13 @@ func (cache *DatasetCache) FindSeqValues(exprType ExprType,
 		return nil, err
 	}
 
-	return cache.GexValues(exprType, genes)
+	return cache.Expr(exprType, genes)
 }
 
-func (cache *DatasetCache) GexValues(exprType ExprType,
+func (cache *DatasetCache) Expr(exprType *ExprType,
 	genes []*GexGene) (*SearchResults, error) {
 
-	db, err := sql.Open("sqlite3", filepath.Join(cache.dir, cache.dataset.Path))
+	db, err := sql.Open(sys.Sqlite3DB, filepath.Join(cache.dir, cache.dataset.Path))
 
 	if err != nil {
 		return nil, err
@@ -283,7 +283,7 @@ func (cache *DatasetCache) GexValues(exprType ExprType,
 
 	ret := SearchResults{
 		Dataset:  cache.dataset.PublicId,
-		GexType:  exprType.Name,
+		ExprType: exprType,
 		Features: make([]*ResultFeature, 0, len(genes))}
 
 	var id uint
@@ -346,7 +346,7 @@ func (cache *DatasetCache) FindMicroarrayValues(
 		return nil, err
 	}
 
-	return cache.GexValues(ExprTypeRMA, genes)
+	return cache.Expr(ExprTypeRMA, genes)
 }
 
 // func (cache *DatasetCache) MicroarrayValues(

@@ -274,7 +274,7 @@ sample_ids, alt_id_names, sample_id_map, sample_metadata_names, sample_data_map 
 
 dataset_name = args.name
 file_id = get_file_id(dataset_name)
-dataset_id = uuid.uuid7()  # generate("0123456789abcdefghijklmnopqrstuvwxyz", 12)
+dataset_id = f"{args.technology.lower()}:{uuid.uuid7()}"  # generate("0123456789abcdefghijklmnopqrstuvwxyz", 12)
 dataset = {
     "dataset_id": dataset_id,
     "name": dataset_name,
@@ -301,7 +301,7 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
     print("BEGIN TRANSACTION;", file=f)
 
     for i, sample in enumerate(sample_ids):
-        public_id = uuid.uuid7()  # generate("0123456789abcdefghijklmnopqrstuvwxyz", 12)
+        public_id = f"{args.technology.lower()}:{uuid.uuid7()}"  # generate("0123456789abcdefghijklmnopqrstuvwxyz", 12)
         print(
             f"INSERT INTO samples (public_id, name) VALUES ('{public_id}', '{sample}');",
             file=f,
@@ -418,7 +418,7 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
         }
 
         for i, expr_type in enumerate(sorted(expr_types)):
-            public_id = uuid.uuid7()
+            public_id = f"{args.technology.lower()}:{uuid.uuid7()}"
             print(
                 f"INSERT INTO expr_types (id, public_id, name) VALUES ({i + 1}, '{public_id}', '{expr_type}');",
                 file=f,

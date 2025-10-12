@@ -184,7 +184,7 @@ type (
 
 		//Dataset *Dataset      `json:"dataset"`
 		Dataset  string           `json:"dataset"`
-		GexType  string           `json:"gexType"`
+		ExprType *ExprType        `json:"exprType"`
 		Features []*ResultFeature `json:"features"`
 	}
 
@@ -238,7 +238,7 @@ func (cache *DatasetsCache) Dir() string {
 // }
 
 func (cache *DatasetsCache) Species() ([]string, error) {
-	db, err := sql.Open("sqlite3", cache.path)
+	db, err := sql.Open(sys.Sqlite3DB, cache.path)
 
 	if err != nil {
 		return nil, err
@@ -273,7 +273,7 @@ func (cache *DatasetsCache) Species() ([]string, error) {
 }
 
 func (cache *DatasetsCache) Technologies(species string) ([]string, error) {
-	db, err := sql.Open("sqlite3", cache.path)
+	db, err := sql.Open(sys.Sqlite3DB, cache.path)
 
 	if err != nil {
 
@@ -395,7 +395,7 @@ func (cache *DatasetsCache) AllTechnologies() (map[string]map[string][]string, e
 
 func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Dataset, error) {
 
-	db, err := sql.Open("sqlite3", cache.path)
+	db, err := sql.Open(sys.Sqlite3DB, cache.path)
 
 	if err != nil {
 		return nil, err
@@ -437,7 +437,7 @@ func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Data
 
 		log.Debug().Msgf("db %s", filepath.Join(cache.dir, dataset.Path))
 
-		db2, err := sql.Open("sqlite3", filepath.Join(cache.dir, dataset.Path))
+		db2, err := sql.Open(sys.Sqlite3DB, filepath.Join(cache.dir, dataset.Path))
 
 		if err != nil {
 			return nil, err
@@ -528,7 +528,7 @@ func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Data
 }
 
 func (cache *DatasetsCache) dataset(datasetId string) (*Dataset, error) {
-	db, err := sql.Open("sqlite3", cache.path)
+	db, err := sql.Open(sys.Sqlite3DB, cache.path)
 
 	if err != nil {
 		return nil, err
@@ -582,55 +582,43 @@ func (cache *DatasetsCache) ExprTypes(datasetIds []string,
 	return ret, nil
 }
 
-func (cache *DatasetsCache) FindSeqValues(datasetIds []string,
-	gexType ExprType,
-	geneIds []string) ([]*SearchResults, error) {
+func (cache *DatasetsCache) FindSeqValues(datasetId string,
+	exprType *ExprType,
+	geneIds []string) (*SearchResults, error) {
 
-	ret := make([]*SearchResults, 0, len(datasetIds))
+	dataset, err := cache.dataset(datasetId)
 
-	for _, datasetId := range datasetIds {
-		dataset, err := cache.dataset(datasetId)
-
-		if err != nil {
-			return nil, err
-		}
-
-		datasetCache := NewDatasetCache(cache.dir, dataset)
-
-		res, err := datasetCache.FindSeqValues(gexType, geneIds)
-
-		if err != nil {
-			return nil, err
-		}
-
-		ret = append(ret, res)
+	if err != nil {
+		return nil, err
 	}
 
-	return ret, nil
+	datasetCache := NewDatasetCache(cache.dir, dataset)
+
+	res, err := datasetCache.FindSeqValues(exprType, geneIds)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
 
-func (cache *DatasetsCache) FindMicroarrayValues(datasetIds []string,
-	geneIds []string) ([]*SearchResults, error) {
+func (cache *DatasetsCache) FindMicroarrayValues(datasetId string,
+	geneIds []string) (*SearchResults, error) {
 
-	ret := make([]*SearchResults, 0, len(datasetIds))
+	dataset, err := cache.dataset(datasetId)
 
-	for _, datasetId := range datasetIds {
-		dataset, err := cache.dataset(datasetId)
-
-		if err != nil {
-			return nil, err
-		}
-
-		datasetCache := NewDatasetCache(cache.dir, dataset)
-
-		res, err := datasetCache.FindMicroarrayValues(geneIds)
-
-		if err != nil {
-			return nil, err
-		}
-
-		ret = append(ret, res)
+	if err != nil {
+		return nil, err
 	}
 
-	return ret, nil
+	datasetCache := NewDatasetCache(cache.dir, dataset)
+
+	res, err := datasetCache.FindMicroarrayValues(geneIds)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }

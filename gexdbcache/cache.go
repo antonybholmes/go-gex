@@ -57,15 +57,12 @@ func AllTechnologies() (map[string]map[string][]string, error) {
 	return instance.AllTechnologies()
 }
 
-func FindSeqValues(datasetIds []string,
-	gexType gex.ExprType,
-	geneIds []string) ([]*gex.SearchResults, error) {
-	return instance.FindSeqValues(datasetIds, gexType, geneIds)
+func FindSeqValues(datasetId string, exprType *gex.ExprType, geneIds []string) (*gex.SearchResults, error) {
+	return instance.FindSeqValues(datasetId, exprType, geneIds)
 }
 
-func FindMicroarrayValues(datasetIds []string,
-	geneIds []string) ([]*gex.SearchResults, error) {
-	return instance.FindMicroarrayValues(datasetIds, geneIds)
+func FindMicroarrayValues(datasetId string, geneIds []string) (*gex.SearchResults, error) {
+	return instance.FindMicroarrayValues(datasetId, geneIds)
 }
 
 // func GetDataset(uuid string) (*gex.Dataset, error) {
