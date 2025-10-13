@@ -1,5 +1,14 @@
 package gex
 
+import (
+	"database/sql"
+	"path/filepath"
+
+	"github.com/rs/zerolog/log"
+
+	"github.com/antonybholmes/go-sys"
+)
+
 type (
 	ExprType struct {
 		PublicId string `json:"publicId"`
@@ -8,49 +17,479 @@ type (
 	}
 
 	Dataset struct {
-		PublicId    string      `json:"publicId"`
-		Name        string      `json:"name"`
-		Species     string      `json:"species"`
-		Technology  string      `json:"technology"`
-		Platform    string      `json:"platform"`
-		Path        string      `json:"-"`
+		PublicId   string `json:"publicId"`
+		Name       string `json:"name"`
+		Species    string `json:"species"`
+		Technology string `json:"technology"`
+		Platform   string `json:"platform"`
+
 		Institution string      `json:"institution"`
 		Description string      `json:"description"`
 		Samples     []*Sample   `json:"samples"`
 		ExprTypes   []*ExprType `json:"exprTypes"`
 		Id          uint        `json:"id"`
 	}
+
+	DatasetCache struct {
+
+		// directory where the sqlite db files are stored
+		dir string
+		// full path to the sqlite db file
+		db string
+	}
+
+	Idtype struct {
+		Name string `json:"name"`
+		Id   int    `json:"id"`
+	}
+
+	NameValueType struct {
+		Name  string `json:"name"`
+		Value string `json:"value"`
+	}
+
+	Sample struct {
+		PublicId string          `json:"publicId"`
+		Name     string          `json:"name"`
+		AltNames []NameValueType `json:"altNames"`
+		Metadata []NameValueType `json:"metadata"`
+		Id       uint            `json:"-"`
+	}
+
+	GexGene struct {
+		Ensembl    string `json:"ensembl,omitempty"`
+		Refseq     string `json:"refseq,omitempty"`
+		Hugo       string `json:"hugo,omitempty"`
+		Mgi        string `json:"mgi,omitempty"`
+		GeneSymbol string `json:"geneSymbol"`
+		Ncbi       uint   `json:"ncbi,omitempty"`
+		Id         uint   `json:"-"`
+	}
+
+	SearchResults struct {
+		// we use the simpler value type for platform in search
+		// results so that the value types are not repeated in
+		// each search. The useful info in a search is just
+		// the platform name and id
+
+		//Dataset *Dataset      `json:"dataset"`
+		Dataset  string           `json:"dataset"`
+		ExprType *ExprType        `json:"exprType"`
+		Features []*ResultFeature `json:"features"`
+	}
+
+	// Either a probe or gene
+	ResultFeature struct {
+		ProbeId *string  `json:"probeId,omitempty"` // distinguish between null and ""
+		Gene    *GexGene `json:"gene"`
+		//Platform     *ValueType       `json:"platform"`
+		//GexValue *GexValue    `json:"gexType"`
+		Expression []float32 `json:"expression"`
+	}
 )
 
+// keep them in the entered order so we can preserve
+// groupings such as N/GC/M which are not alphabetical
 const (
+	DefaultNumSamples = 500
+
+	DatasetSQL = `SELECT 
+		dataset.id,
+		dataset.public_id,
+		dataset.species,
+		dataset.technology,
+		dataset.platform,
+		dataset.institution,
+		dataset.name,
+		dataset.description
+		FROM dataset`
+
+	SamplesSQL = `SELECT
+		samples.id,
+		samples.public_id,
+		samples.name
+		FROM samples
+		ORDER BY samples.id`
+
+	SampleAltNamesSQL = `SELECT
+		sample_alt_names.id,
+		sample_alt_names.sample_id,
+		sample_alt_names.name,
+		sample_alt_names.value
+		FROM sample_alt_names
+		ORDER by sample_alt_names.sample_id, sample_alt_names.id`
+
+	SampleMetadataSQL = `SELECT
+		sample_metadata.id,
+		sample_metadata.sample_id,
+		sample_metadata.name,
+		sample_metadata.value
+		FROM sample_metadata
+		ORDER by sample_metadata.sample_id, sample_metadata.id`
+
+	GeneSQL = `SELECT 
+		genes.id, 
+		genes.hugo,
+		genes.mgi,
+		genes.ensembl,
+		genes.refseq,
+		genes.ncbi,
+		genes.gene_symbol 
+		FROM genes
+		WHERE genes.gene_symbol LIKE ?1 OR 
+		genes.hugo = ?1 OR 
+		genes.ensembl LIKE ?1 OR 
+		genes.refseq LIKE ?1 
+		LIMIT 1`
+
+	ExpressionSQL = `SELECT
+		expression.id,
+		expression.sample_id,
+		expression.gene_id,
+		expression.probe_id,
+		expression.value
+		FROM expression 
+		WHERE expression.gene_id = ?1 AND
+		expression.expr_type_id = ?2
+		ORDER BY expression.sample_id`
+
 	ExprTypesSQL = `SELECT
 		expr_types.id,
 		expr_types.public_id,
 		expr_types.name
 		FROM expr_types
 		ORDER BY expr_types.id`
+
+	GexTypeCounts string = "Counts"
+	GexTypeTPM    string = "TPM"
+	GexTypeVST    string = "VST"
+	GexTypeRMA    string = "RMA"
 )
 
-func NewDataset(id uint,
-	publicId string,
-	species string,
-	technology string,
-	platform string,
-	institution string,
-	name string,
-	description string,
-	path string) *Dataset {
+var (
+	ExprTypeRMA = &ExprType{Id: 1, PublicId: sys.BlankUUID, Name: GexTypeRMA}
+)
 
-	return &Dataset{Id: id,
-		PublicId:    publicId,
-		Species:     species,
-		Technology:  technology,
-		Platform:    platform,
-		Institution: institution,
-		Name:        name,
-		Description: description,
-		Path:        path,
-		ExprTypes:   make([]*ExprType, 0, 5),
+func NewDatasetCache(dir string, path string) *DatasetCache {
+
+	return &DatasetCache{dir: dir, db: filepath.Join(dir, path)}
+}
+
+func (cache *DatasetCache) Dataset() (*Dataset, error) {
+
+	db, err := sql.Open(sys.Sqlite3DB, cache.db)
+
+	if err != nil {
+		return nil, err
 	}
 
+	var dataset Dataset
+
+	err = db.QueryRow(DatasetSQL).Scan(
+		&dataset.Id,
+		&dataset.PublicId,
+		&dataset.Species,
+		&dataset.Technology,
+		&dataset.Platform,
+		&dataset.Institution,
+		&dataset.Name,
+		&dataset.Description)
+
+	if err != nil {
+		return nil, err
+	}
+
+	dataset.Samples, err = cache.Samples()
+
+	if err != nil {
+		return nil, err
+	}
+
+	dataset.ExprTypes, err = cache.ExprTypes()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &dataset, nil
+}
+
+func (cache *DatasetCache) ExprTypes() ([]*ExprType, error) {
+	db, err := sql.Open(sys.Sqlite3DB, cache.db)
+
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := db.Query(ExprTypesSQL)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	exprTypes := make([]*ExprType, 0, 5)
+
+	for rows.Next() {
+		var exprType ExprType
+
+		err := rows.Scan(
+			&exprType.Id,
+			&exprType.PublicId,
+			&exprType.Name)
+
+		if err != nil {
+			return nil, err
+		}
+
+		exprTypes = append(exprTypes, &exprType)
+	}
+
+	db.Close()
+
+	return exprTypes, nil
+
+}
+
+func (cache *DatasetCache) Dir() string {
+	return cache.dir
+}
+
+func (cache *DatasetCache) Samples() ([]*Sample, error) {
+
+	db, err := sql.Open(sys.Sqlite3DB, cache.db)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer db.Close()
+
+	rows, err := db.Query(SamplesSQL)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	samples := make([]*Sample, 0, DefaultNumSamples)
+
+	for rows.Next() {
+		var sample Sample
+
+		err := rows.Scan(
+			&sample.Id,
+			&sample.PublicId,
+			&sample.Name)
+
+		if err != nil {
+			return nil, err
+		}
+
+		// initialize alt names and metadata slices
+		// to avoid nil slices
+		// we can estimate the size to avoid too many allocations
+		sample.AltNames = make([]NameValueType, 0, 10)
+		sample.Metadata = make([]NameValueType, 0, 10)
+
+		samples = append(samples, &sample)
+	}
+
+	var id uint
+	var sampleId uint
+
+	// add sample alt names to samples
+
+	rows, err = db.Query(SampleAltNamesSQL)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var nv = NameValueType{}
+
+		err := rows.Scan(&id, &sampleId, &nv.Name, &nv.Value)
+
+		if err != nil {
+			return nil, err
+		}
+
+		// samples are ordered by sample id starting at 1 so
+		// we can use sampleId - 1 as the index
+		// otherwise we would need a map
+		// which would be less efficient
+		index := sampleId - 1
+
+		samples[index].AltNames = append(samples[index].AltNames, nv)
+	}
+
+	// add sample metadata to samples
+
+	rows, err = db.Query(SampleMetadataSQL)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var nv = NameValueType{}
+
+		err := rows.Scan(&id, &sampleId, &nv.Name, &nv.Value)
+
+		if err != nil {
+			return nil, err
+		}
+
+		index := sampleId - 1
+
+		samples[index].Metadata = append(samples[index].Metadata, nv)
+	}
+
+	return samples, nil
+}
+
+// FindGenes looks up genes by their gene symbol, hugo id, ensembl id or refseq id
+// since expr values are stored by gene id
+func (cache *DatasetCache) FindGenes(genes []string) ([]*GexGene, error) {
+
+	db, err := sql.Open(sys.Sqlite3DB, cache.db)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer db.Close()
+
+	ret := make([]*GexGene, 0, len(genes))
+
+	for _, g := range genes {
+		var gene GexGene
+		err := db.QueryRow(GeneSQL, g).Scan(
+			&gene.Id,
+			&gene.Hugo,
+			&gene.Mgi,
+			&gene.Ensembl,
+			&gene.Refseq,
+			&gene.Ncbi,
+			&gene.GeneSymbol)
+
+		if err != nil {
+			// log that we couldn't find a gene, but continue
+			// anyway to find as many as possible
+			log.Info().Msgf("gene not found: %s", g)
+
+			//return nil, err
+			continue
+		}
+
+		ret = append(ret, &gene)
+	}
+
+	return ret, nil
+}
+
+func (cache *DatasetCache) FindSeqValues(exprType *ExprType, geneIds []string) (*SearchResults, error) {
+
+	genes, err := cache.FindGenes(geneIds)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return cache.Expr(exprType, genes)
+}
+
+func (cache *DatasetCache) Expr(exprType *ExprType, genes []*GexGene) (*SearchResults, error) {
+
+	dataset, err := cache.Dataset()
+
+	if err != nil {
+		return nil, err
+	}
+
+	samples, err := cache.Samples()
+
+	if err != nil {
+		return nil, err
+	}
+
+	db, err := sql.Open(sys.Sqlite3DB, cache.db)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer db.Close()
+
+	ret := SearchResults{
+		Dataset:  dataset.PublicId,
+		ExprType: exprType,
+		Features: make([]*ResultFeature, 0, len(genes))}
+
+	var id uint
+	var sampleId uint
+	var geneId uint
+	var probeId sql.NullString
+	var value float32
+
+	for _, gene := range genes {
+
+		rows, err := db.Query(ExpressionSQL, gene.Id, exprType.Id)
+
+		if err != nil {
+			return nil, err
+		}
+
+		defer rows.Close()
+
+		// to store expression values for each sample
+		var values = make([]float32, 0, len(samples))
+
+		for rows.Next() {
+
+			err := rows.Scan(&id,
+				&sampleId,
+				&geneId,
+				&probeId,
+				&value)
+
+			if err != nil {
+				return nil, err
+			}
+
+			values = append(values, value)
+
+			//log.Debug().Msgf("hmm %s %f %f", gexType, sample.Value, tpm)
+		}
+
+		feature := ResultFeature{Gene: gene, Expression: values}
+
+		if probeId.Valid {
+			feature.ProbeId = &probeId.String
+		}
+
+		log.Debug().Msgf("got %d values for gene %s", len(values), gene.GeneSymbol)
+
+		ret.Features = append(ret.Features, &feature)
+	}
+
+	return &ret, nil
+}
+
+func (cache *DatasetCache) FindMicroarrayValues(geneIds []string) (*SearchResults, error) {
+
+	genes, err := cache.FindGenes(geneIds)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return cache.Expr(ExprTypeRMA, genes)
 }

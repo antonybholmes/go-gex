@@ -1,5 +1,29 @@
-technology="RNA-seq"
+# some single cell
+
+technology="scRNA-seq"
 species="Human"
+
+# /ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/dlbcl_cell_lines_elodie_29/
+dataset_name="Frontiers B-cells"
+institution="RDF"
+phenotypes=/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/scrna/data/human/rdf/katia/5p/analysis/RK01_02_03_04_05_06_07/analysis_vdj_cgene/no_ighd/no_cc/mast/phenotypes.txt
+log2=/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/scrna/data/human/rdf/katia/5p/analysis/RK01_02_03_04_05_06_07/analysis_vdj_cgene/no_ighd/no_cc/mast/mast_all_RK01-07_for_heatmaps_avg_tpm_log2_simple.txt
+fc=/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/scrna/data/human/rdf/katia/5p/analysis/RK01_02_03_04_05_06_07/analysis_vdj_cgene/no_ighd/no_cc/mast/mast_all_RK01_02_03_04_05_06_07_log2fc_simple.txt
+ 
+python make_gex_sql.py \
+    --name="${dataset_name}" \
+    --institution="${institution}" \
+    --technology="${technology}" \
+    --species="${species}" \
+    --phenotypes="${phenotypes}" \
+    --filetype="log2(CPM+1),${log2}" \
+    --filetype="log2(FC),${fc}"
+
+
+ 
+
+technology="RNA-seq"
+ 
 
 # /ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/dlbcl_cell_lines_elodie_29/
 dataset_name="RDF 29 DLBCL Cell Lines"
@@ -15,9 +39,9 @@ python make_gex_sql.py \
     --technology="${technology}" \
     --species="${species}" \
     --phenotypes="${phenotypes}" \
-    --counts="${counts}" \
-    --tpm="${tpm}" \
-    --vst="${vst}"
+    --filetype="Counts,${counts}" \
+    --filetype="TPM,${tpm}" \
+    --filetype="VST,${vst}"
 
  
 
@@ -35,9 +59,9 @@ python make_gex_sql.py \
     --technology="${technology}" \
     --species="${species}" \
     --phenotypes="${phenotypes}" \
-    --counts="${counts}" \
-    --tpm="${tpm}" \
-    --vst="${vst}" \
+    --filetype="Counts,${counts}" \
+    --filetype="TPM,${tpm}" \
+    --filetype="VST,${vst}" \
     --id_col_count=3
 
 
@@ -54,9 +78,9 @@ python make_gex_sql.py \
     --technology="${technology}" \
     --species="${species}" \
     --phenotypes="${phenotypes}" \
-    --counts="${counts}" \
-    --tpm="${tpm}" \
-    --vst="${vst}"
+    --filetype="Counts,${counts}" \
+    --filetype="TPM,${tpm}" \
+    --filetype="VST,${vst}"
 
 
 dataset_name="NCI Staudt DLBCL 481"
@@ -72,10 +96,10 @@ python make_gex_sql.py \
     --technology="${technology}" \
     --species="${species}" \
     --phenotypes="${phenotypes}" \
-    --counts="${counts}" \
-    --tpm="${tpm}" \
-    --vst="${vst}"
- 
+    --filetype="Counts,${counts}" \
+    --filetype="TPM,${tpm}" \
+    --filetype="VST,${vst}"
+
 
 
 
@@ -98,10 +122,10 @@ python make_gex_sql.py \
     --technology="${technology}" \
     --species="${species}" \
     --phenotypes="${phenotypes}" \
-    --counts="${counts}" \
-    --tpm="${tpm}" \
-    --vst="${vst}"
- 
+    --filetype="Counts,${counts}" \
+    --filetype="TPM,${tpm}" \
+    --filetype="VST,${vst}"
+
 
 #
 # Some microarry datasets
@@ -122,7 +146,7 @@ python make_gex_sql.py \
     --platform="${platform}" \
     --species="${species}" \
     --phenotypes="${phenotypes}" \
-    --rma="${rma}"
+    --filetype="RMA,${rma}"
 
 
 platform="HG-U133_Plus_2"
@@ -138,4 +162,4 @@ python make_gex_sql.py \
     --platform="${platform}" \
     --species="${species}" \
     --phenotypes="${phenotypes}" \
-    --rma="${rma}"
+    --filetype="RMA,${rma}"

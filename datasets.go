@@ -3,6 +3,7 @@ package gex
 import (
 	"database/sql"
 	"path/filepath"
+	"sort"
 
 	"github.com/antonybholmes/go-sys"
 	"github.com/rs/zerolog/log"
@@ -47,28 +48,14 @@ const (
 
 	DatasetsSQL = `SELECT 
 		datasets.id,
-		datasets.public_id,
-		datasets.species,
-		datasets.technology,
-		datasets.platform,
-		datasets.institution,
-		datasets.name,
-		datasets.description,
 		datasets.path
 		FROM datasets 
 		WHERE datasets.species = ?1 AND datasets.technology = ?2
-		ORDER BY datasets.name`
+		ORDER BY datasets.id`
 
-	DatasetSQL = `SELECT 
+	DatasetFromPublicIdSQL = `SELECT 
 		datasets.id,
-		datasets.public_id,
-		datasets.species,
-		datasets.technology,
-		datasets.platform,
-		datasets.institution,
-		datasets.name,
-		datasets.path,
-		datasets.description
+		datasets.path
 		FROM datasets 
 		WHERE datasets.public_id = ?1`
 )
@@ -222,8 +209,6 @@ func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Data
 
 	defer db.Close()
 
-	datasets := make([]*Dataset, 0, 10)
-
 	datasetRows, err := db.Query(DatasetsSQL, species, technology)
 
 	if err != nil {
@@ -232,19 +217,16 @@ func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Data
 
 	defer datasetRows.Close()
 
+	var id uint
+	var path string
+
+	datasets := make([]*Dataset, 0, 10)
+
 	for datasetRows.Next() {
-		var dataset Dataset
 
 		err := datasetRows.Scan(
-			&dataset.Id,
-			&dataset.PublicId,
-			&dataset.Species,
-			&dataset.Technology,
-			&dataset.Platform,
-			&dataset.Institution,
-			&dataset.Name,
-			&dataset.Description,
-			&dataset.Path)
+			&id,
+			&path)
 
 		if err != nil {
 			return nil, err
@@ -254,25 +236,23 @@ func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Data
 		// so use that as an estimate
 		//dataset.Samples = make([]*Sample, 0, DatasetSize)
 
-		log.Debug().Msgf("db %s", filepath.Join(cache.dir, dataset.Path))
+		log.Debug().Msgf("db %s", filepath.Join(cache.dir, path))
 
-		datasetCache := NewSampleCache(cache.dir, &dataset)
+		datasetCache := NewDatasetCache(cache.dir, path)
 
-		samples, err := datasetCache.Samples()
+		dataset, err := datasetCache.Dataset()
 
 		if err != nil {
 			return nil, err
 		}
 
-		dataset.Samples = samples
-
-		datasets = append(datasets, &dataset)
+		datasets = append(datasets, dataset)
 	}
 
 	return datasets, nil
 }
 
-func (cache *DatasetsCache) dataset(datasetId string) (*Dataset, error) {
+func (cache *DatasetsCache) DatasetCacheFromId(datasetId string) (*DatasetCache, error) {
 	db, err := sql.Open(sys.Sqlite3DB, cache.path)
 
 	if err != nil {
@@ -281,65 +261,53 @@ func (cache *DatasetsCache) dataset(datasetId string) (*Dataset, error) {
 
 	defer db.Close()
 
-	var dataset Dataset
+	var id uint
+	var path string
 
-	err = db.QueryRow(DatasetSQL, datasetId).Scan(
-		&dataset.Id,
-		&dataset.PublicId,
-		&dataset.Species,
-		&dataset.Technology,
-		&dataset.Platform,
-		&dataset.Institution,
-		&dataset.Name,
-		&dataset.Description,
-		&dataset.Path)
+	err = db.QueryRow(DatasetFromPublicIdSQL, datasetId).Scan(
+		&id,
+		&path)
 
 	if err != nil {
 		return nil, err
 	}
 
-	dataset.ExprTypes = make([]*ExprType, 0, 5)
+	datasetCache := NewDatasetCache(cache.dir, path)
 
-	rows, err := db.Query(ExprTypesSQL)
+	return datasetCache, nil
+}
 
-	if err != nil {
-		return nil, err
-	}
+func (cache *DatasetsCache) ExprTypes(datasetIds []string) ([]*ExprType, error) {
 
-	defer rows.Close()
+	allExprTypes := make(map[string]*ExprType)
 
-	for rows.Next() {
-		var exprType ExprType
-
-		err := rows.Scan(
-			&exprType.Id,
-			&exprType.PublicId,
-			&exprType.Name)
+	for _, datasetId := range datasetIds {
+		c, err := cache.DatasetCacheFromId(datasetId)
 
 		if err != nil {
 			return nil, err
 		}
 
-		dataset.ExprTypes = append(dataset.ExprTypes, &exprType)
+		exprTypes, err := c.ExprTypes()
+
+		if err != nil {
+			return nil, err
+		}
+
+		for _, exprType := range exprTypes {
+			allExprTypes[exprType.PublicId] = exprType
+		}
 	}
-
-	return &dataset, nil
-}
-
-func (cache *DatasetsCache) ExprTypes(datasetIds []string,
-) ([]*ExprType, error) {
 
 	ret := make([]*ExprType, 0, len(datasetIds))
 
-	for _, datasetId := range datasetIds {
-		dataset, err := cache.dataset(datasetId)
-
-		if err != nil {
-			return nil, err
-		}
-
-		ret = append(ret, dataset.ExprTypes...)
+	for _, exprType := range allExprTypes {
+		ret = append(ret, exprType)
 	}
+
+	sort.Slice(ret, func(i, j int) bool {
+		return ret[i].Name < ret[j].Name
+	})
 
 	return ret, nil
 }
@@ -348,15 +316,13 @@ func (cache *DatasetsCache) FindSeqValues(datasetId string,
 	exprType *ExprType,
 	geneIds []string) (*SearchResults, error) {
 
-	dataset, err := cache.dataset(datasetId)
+	c, err := cache.DatasetCacheFromId(datasetId)
 
 	if err != nil {
 		return nil, err
 	}
 
-	sampleCache := NewSampleCache(cache.dir, dataset)
-
-	res, err := sampleCache.FindSeqValues(exprType, geneIds)
+	res, err := c.FindSeqValues(exprType, geneIds)
 
 	if err != nil {
 		return nil, err
@@ -368,15 +334,13 @@ func (cache *DatasetsCache) FindSeqValues(datasetId string,
 func (cache *DatasetsCache) FindMicroarrayValues(datasetId string,
 	geneIds []string) (*SearchResults, error) {
 
-	dataset, err := cache.dataset(datasetId)
+	c, err := cache.DatasetCacheFromId(datasetId)
 
 	if err != nil {
 		return nil, err
 	}
 
-	sampleCache := NewSampleCache(cache.dir, dataset)
-
-	res, err := sampleCache.FindMicroarrayValues(geneIds)
+	res, err := c.FindMicroarrayValues(geneIds)
 
 	if err != nil {
 		return nil, err
