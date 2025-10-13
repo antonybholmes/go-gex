@@ -43,7 +43,7 @@ CREATE TABLE sample_metadata (
 CREATE TABLE expr_types (
     id INTEGER PRIMARY KEY ASC,
 	public_id TEXT UNIQUE NOT NULL UNIQUE,
-    name TEXT UNIQUE NOT NULL
+    name TEXT NOT NULL UNIQUE
 );
 
 CREATE TABLE expression (
