@@ -3,12 +3,12 @@ PRAGMA foreign_keys = ON;
 
 CREATE TABLE genes (
 	id INTEGER PRIMARY KEY ASC,
-	hugo TEXT,
-	mgi TEXT,
-	ensembl TEXT,
-	refseq TEXT,
-	ncbi INTEGER,
-	gene_symbol TEXT NOT NULL);
+	hugo TEXT NOT NULL DEFAULT '',
+	mgi TEXT NOT NULL DEFAULT '',
+	ensembl TEXT NOT NULL DEFAULT '',
+	refseq TEXT NOT NULL DEFAULT '',
+	ncbi INTEGER NOT NULL DEFAULT 0,
+	gene_symbol TEXT NOT NULL DEFAULT '');
 
 CREATE TABLE dataset (
 	id INTEGER PRIMARY KEY ASC,
@@ -33,24 +33,34 @@ CREATE TABLE sample_alt_names (
 	value TEXT NOT NULL,
 	FOREIGN KEY(sample_id) REFERENCES samples(id));
 
+CREATE TABLE metadata (
+	id INTEGER PRIMARY KEY ASC,
+	public_id TEXT NOT NULL UNIQUE,
+	name TEXT NOT NULL,
+	value TEXT NOT NULL,
+	description TEXT NOT NULL DEFAULT '',
+	color TEXT NOT NULL DEFAULT '',
+	UNIQUE(name, value, color));
+
 CREATE TABLE sample_metadata (
 	id INTEGER PRIMARY KEY ASC,
 	sample_id INTEGER NOT NULL,
-	name TEXT NOT NULL,
-	value TEXT NOT NULL,
-	FOREIGN KEY(sample_id) REFERENCES samples(id));
+	metadata_id INTEGER NOT NULL,
+	FOREIGN KEY(sample_id) REFERENCES samples(id),
+	FOREIGN KEY(metadata_id) REFERENCES metadata(id));
 
 CREATE TABLE expr_types (
     id INTEGER PRIMARY KEY ASC,
 	public_id TEXT UNIQUE NOT NULL UNIQUE,
-    name TEXT NOT NULL UNIQUE
+    name TEXT NOT NULL UNIQUE,
+	description TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE expression (
 	id INTEGER PRIMARY KEY ASC,
 	sample_id INTEGER NOT NULL,
 	gene_id INTEGER NOT NULL,
-	probe_id TEXT,
+	probe_id TEXT NOT NULL DEFAULT '',
 	expr_type_id INTEGER NOT NULL,
 	value REAL NOT NULL DEFAULT 0,
 	FOREIGN KEY(sample_id) REFERENCES samples(id),

@@ -46,6 +46,16 @@ type (
 	NameValueType struct {
 		Name  string `json:"name"`
 		Value string `json:"value"`
+		Color string `json:"color,omitempty"`
+	}
+
+	Metadata struct {
+		PublicId    string `json:"publicId"`
+		Name        string `json:"name"`
+		Value       string `json:"value"`
+		Description string `json:"description,omitempty"`
+		Color       string `json:"color,omitempty"`
+		Id          uint   `json:"-"`
 	}
 
 	Sample struct {
@@ -119,13 +129,25 @@ const (
 		FROM sample_alt_names
 		ORDER by sample_alt_names.sample_id, sample_alt_names.id`
 
+	MetadataSQL = `SELECT
+		metadata.id,
+		metadata.public_id,
+		metadata.name,
+		metadata.value,
+		metadata.decription,
+		metadata.color
+		FROM metadata
+		ORDER by metadata.id`
+
 	SampleMetadataSQL = `SELECT
 		sample_metadata.id,
 		sample_metadata.sample_id,
-		sample_metadata.name,
-		sample_metadata.value
+		metadata.name,
+		metadata.value,
+		metadata.color
 		FROM sample_metadata
-		ORDER by sample_metadata.sample_id, sample_metadata.id`
+		JOIN metadata ON sample_metadata.metadata_id = metadata.id
+		ORDER by sample_metadata.sample_id, metadata.id`
 
 	GeneSQL = `SELECT 
 		genes.id, 
@@ -249,7 +271,46 @@ func (cache *DatasetCache) ExprTypes() ([]*ExprType, error) {
 	db.Close()
 
 	return exprTypes, nil
+}
 
+func (cache *DatasetCache) Metadata() ([]*Metadata, error) {
+	db, err := sql.Open(sys.Sqlite3DB, cache.db)
+
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := db.Query(MetadataSQL)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	metadata := make([]*Metadata, 0, 20)
+
+	for rows.Next() {
+		var m Metadata
+
+		err := rows.Scan(
+			&m.Id,
+			&m.PublicId,
+			&m.Name,
+			&m.Value,
+			&m.Description,
+			&m.Color)
+
+		if err != nil {
+			return nil, err
+		}
+
+		metadata = append(metadata, &m)
+	}
+
+	db.Close()
+
+	return metadata, nil
 }
 
 func (cache *DatasetCache) Dir() string {
@@ -341,7 +402,7 @@ func (cache *DatasetCache) Samples() ([]*Sample, error) {
 	for rows.Next() {
 		var nv = NameValueType{}
 
-		err := rows.Scan(&id, &sampleId, &nv.Name, &nv.Value)
+		err := rows.Scan(&id, &sampleId, &nv.Name, &nv.Value, &nv.Color)
 
 		if err != nil {
 			return nil, err

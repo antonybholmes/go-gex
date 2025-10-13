@@ -16,13 +16,13 @@ def get_file_id(name: str) -> str:
     return re.sub(r"[\/ ]+", "_", name.lower())
 
 
-def load_sample_data(df: pd.DataFrame, num_id_cols: int):
+def load_sample_data(df: pd.DataFrame, num_id_cols: int = 1):
 
     id_names = df.columns.values[0:num_id_cols]
     sample_metadata_names = df.columns.values[num_id_cols:]
 
     sample_id_map = collections.defaultdict(lambda: collections.defaultdict(str))
-    sample_data_map = collections.defaultdict(lambda: collections.defaultdict(str))
+    sample_metadata_map = collections.defaultdict(lambda: collections.defaultdict(str))
 
     sample_ids = df.iloc[:, 0].values
 
@@ -31,29 +31,48 @@ def load_sample_data(df: pd.DataFrame, num_id_cols: int):
 
         ids = values[0:num_id_cols]
         sample_id = ids[0]
-        alt_id_names = id_names  # [1:]
-        alt_ids = ids  # [1:]
+        sample_index = i + 1
+        # alt_id_names = id_names  # [1:]
+        # alt_ids = ids  # [1:]
 
-        for name, alt_id in zip(alt_id_names, alt_ids):
+        for name, alt_id in zip(id_names, ids):
             # here name is the column name, alt_id is the value
             # e.g. if a sample has multiple ids, e.g. GEO and SRA
             # then name is "GEO" and alt_id is "GSMxxxx" or
             # name is "SRA" and alt_id is "SRRxxxx"
-            sample_id_map[sample_id][name] = alt_id
+
+            color = ""
+
+            if "|" in alt_id:
+                alt_id, color = alt_id.split("|")
+                alt_id = alt_id.strip()
+                color = color.strip()
+
+            sample_id_map[sample_id][name] = alt_id  # {"id": alt_id, "color": color}
 
         values = values.astype(str)
         values = values[num_id_cols:]
 
         for name, value in zip(sample_metadata_names, values):
             if value != "":
-                sample_data_map[sample_id][name] = value
+                color = ""
+
+                if "|" in value:
+                    value, color = value.split("|")
+                    value = value.strip()
+                    color = color.strip()
+
+                if value not in sample_metadata_map[name]:
+                    sample_metadata_map[name][value] = {"color": color, "samples": []}
+
+                sample_metadata_map[name][value]["samples"].append(sample_index)
 
     return [
         sample_ids,
-        alt_id_names,
+        id_names,
         sample_id_map,
         sample_metadata_names,
-        sample_data_map,
+        sample_metadata_map,
     ]
 
 
@@ -271,12 +290,12 @@ df_samples = pd.read_csv(
 )
 
 
-sample_ids, alt_id_names, sample_id_map, sample_metadata_names, sample_data_map = (
+sample_ids, alt_id_names, sample_id_map, sample_metadata_names, sample_metadata_map = (
     load_sample_data(df_samples, args.id_col_count)
 )
 
 # print(sample_id_map)
-# print(sample_data_map)
+# print(sample_metadata_map)
 
 
 # samples = []
@@ -339,14 +358,32 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
 
     print("BEGIN TRANSACTION;", file=f)
 
-    for si, sample in enumerate(sample_ids):
-        for name in sample_metadata_names:
-            value = sample_data_map[sample][name]
+    for name in sorted(sample_metadata_map):
+        for value in sorted(sample_metadata_map[name]):
+            id = uuid.uuid7()
+            color = sample_metadata_map[name][value]["color"]
 
             print(
-                f"INSERT INTO sample_metadata (sample_id, name, value) VALUES ({si + 1}, '{name}', '{value}');",
+                f"INSERT INTO metadata (public_id, name, value, color) VALUES ('{id}', '{name}', '{value}', '{color}');",
                 file=f,
             )
+
+    print("COMMIT;", file=f)
+
+    print("BEGIN TRANSACTION;", file=f)
+
+    metadata_id = 1
+    for name in sorted(sample_metadata_map):
+        for value in sorted(sample_metadata_map[name]):
+            color = sample_metadata_map[name][value]["color"]
+
+            for sample in sorted(sample_metadata_map[name][value]["samples"]):
+                print(
+                    f"INSERT INTO sample_metadata (sample_id, metadata_id) VALUES ({sample}, {metadata_id});",
+                    file=f,
+                )
+
+            metadata_id += 1
 
     print("COMMIT;", file=f)
 
@@ -366,10 +403,10 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
 
         expr_type_map = {i: expr_type for i, expr_type in enumerate(expr_types)}
 
-        for i, expr_type in enumerate(expr_types):
+        for expr_type in expr_types:
             public_id = uuid.uuid7()
             print(
-                f"INSERT INTO expr_types (id, public_id, name) VALUES ({i + 1}, '{public_id}', '{expr_type}');",
+                f"INSERT INTO expr_types (public_id, name) VALUES ('{public_id}', '{expr_type}');",
                 file=f,
             )
 
@@ -432,10 +469,10 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
 
         expr_type_map = {expr_type: i + 1 for i, expr_type in enumerate(expr_types)}
 
-        for i, expr_type in enumerate(expr_types):
+        for expr_type in expr_types:
             public_id = uuid.uuid7()  # f"{args.technology.lower()}:{uuid.uuid7()}"
             print(
-                f"INSERT INTO expr_types (id, public_id, name) VALUES ({i + 1}, '{public_id}', '{expr_type}');",
+                f"INSERT INTO expr_types (public_id, name) VALUES ('{public_id}', '{expr_type}');",
                 file=f,
             )
 

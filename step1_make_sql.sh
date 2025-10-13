@@ -19,7 +19,7 @@ python make_gex_sql.py \
     --filetype="log2(CPM+1),${log2}" \
     --filetype="log2(FC),${fc}"
 
-
+#exit(0)
  
 
 technology="RNA-seq"
