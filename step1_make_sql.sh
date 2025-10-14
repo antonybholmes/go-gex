@@ -19,7 +19,7 @@ python make_gex_sql.py \
     --filetype="log2(CPM+1),${log2}" \
     --filetype="log2(FC),${fc}"
 
-exit(0)
+#exit(0)
  
 
 technology="RNA-seq"
@@ -64,6 +64,7 @@ python make_gex_sql.py \
     --filetype="VST,${vst}" \
     --id_col_count=3
 
+ 
 
 dataset_name="RDF N/GC/M/DZ/LZ"
 institution="RDF"

@@ -99,6 +99,9 @@ def load_data(
     if filter != "":
         df = df.iloc[:, np.where(df.columns.str.contains(filter, regex=True))[0]]
 
+    # clean up column names
+    df.columns = [re.sub(r"[ \|].+", "", str(c)) for c in df.columns]
+
     # only keep samples we have metadata for and reorder
     print(df.columns)
     df = df[sample_ids]
