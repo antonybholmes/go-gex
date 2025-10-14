@@ -84,11 +84,11 @@ def load_data(
     exp_map,
     filter="",
 ):
-    print(file)
+    print(file, dataset_id)
 
     df = pd.read_csv(file, sep="\t", header=0, index_col=0, keep_default_na=False)
 
-    if data_type == "rma":
+    if data_type == "RMA":
         probes = df.index.values
         genes = df.iloc[:, 0].values
         df = df.iloc[:, 1:]
@@ -105,6 +105,8 @@ def load_data(
     # only keep samples we have metadata for and reorder
     print(df.columns)
     df = df[sample_ids]
+
+    print(df.shape)
 
     # print(df.shape)
     # exit(0)
@@ -422,6 +424,8 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
         print("COMMIT;", file=f)
 
         print("BEGIN TRANSACTION;", file=f)
+
+        print(exp_map.keys())
 
         for dataset_id in sorted(exp_map):
             for probe_id in sorted(exp_map[dataset_id]):

@@ -1,3 +1,43 @@
+#
+# Some microarry datasets
+#
+species="Human"
+technology="Microarray"
+
+platform="HG-U133_Plus_2"
+dataset_name="Harvard DFCI Shipp DLBCL"
+institution="Harvard DFCI"
+phenotypes=/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/microarray/data/human/other_labs/dlbcl_harvard_shipp/dlbcl/phenotypes_match_rma.txt
+rma=/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/microarray/data/human/other_labs/dlbcl_harvard_shipp/dlbcl/shipp_dlbcl_rma_approved.tsv
+ 
+python make_gex_sql.py \
+    --name="${dataset_name}" \
+    --institution="${institution}" \
+    --technology="${technology}" \
+    --platform="${platform}" \
+    --species="${species}" \
+    --phenotypes="${phenotypes}" \
+    --filetype="RMA,${rma}"
+
+
+platform="HG-U133_Plus_2"
+dataset_name="RDF DLBCL"
+institution="RDF"
+phenotypes=/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/microarray/data/human/rdf/hg-u133_plus2/dlbcl/phenotypes.tsv
+rma=/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/microarray/data/human/rdf/hg-u133_plus2/dlbcl/dlbcl_rma_approved.tsv
+ 
+python make_gex_sql.py \
+    --name="${dataset_name}" \
+    --institution="${institution}" \
+    --technology="${technology}" \
+    --platform="${platform}" \
+    --species="${species}" \
+    --phenotypes="${phenotypes}" \
+    --filetype="RMA,${rma}"
+
+
+exit(0)
+
 # some single cell
 
 technology="scRNA-seq"
@@ -128,39 +168,3 @@ python make_gex_sql.py \
     --filetype="VST,${vst}"
 
 
-#
-# Some microarry datasets
-#
-species="Human"
-technology="Microarray"
-
-platform="HG-U133_Plus_2"
-dataset_name="Harvard DFCI Shipp DLBCL"
-institution="Harvard DFCI"
-phenotypes=/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/microarray/data/human/other_labs/dlbcl_harvard_shipp/dlbcl/phenotypes_match_rma.txt
-rma=/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/microarray/data/human/other_labs/dlbcl_harvard_shipp/dlbcl/shipp_dlbcl_rma_approved.tsv
- 
-python make_gex_sql.py \
-    --name="${dataset_name}" \
-    --institution="${institution}" \
-    --technology="${technology}" \
-    --platform="${platform}" \
-    --species="${species}" \
-    --phenotypes="${phenotypes}" \
-    --filetype="RMA,${rma}"
-
-
-platform="HG-U133_Plus_2"
-dataset_name="RDF DLBCL"
-institution="RDF"
-phenotypes=/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/microarray/data/human/rdf/hg-u133_plus2/dlbcl/phenotypes.tsv
-rma=/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/microarray/data/human/rdf/hg-u133_plus2/dlbcl/dlbcl_rma_approved.tsv
- 
-python make_gex_sql.py \
-    --name="${dataset_name}" \
-    --institution="${institution}" \
-    --technology="${technology}" \
-    --platform="${platform}" \
-    --species="${species}" \
-    --phenotypes="${phenotypes}" \
-    --filetype="RMA,${rma}"
