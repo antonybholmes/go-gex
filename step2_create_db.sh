@@ -18,6 +18,8 @@ do
     cat indexes.sql | sqlite3 ${name}.db
 done
 
+exit(0)
+
 for f in `find data/modules/gex/Human/RNA-seq | grep sql`
 do
     echo ${f}

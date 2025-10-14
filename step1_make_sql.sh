@@ -6,7 +6,7 @@ species="Human"
 # /ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/dlbcl_cell_lines_elodie_29/
 dataset_name="Frontiers B-cells"
 institution="RDF"
-phenotypes=/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/scrna/data/human/rdf/katia/5p/analysis/RK01_02_03_04_05_06_07/analysis_vdj_cgene/no_ighd/no_cc/mast/phenotypes.txt
+phenotypes=/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/scrna/data/human/rdf/katia/5p/analysis/RK01_02_03_04_05_06_07/analysis_vdj_cgene/no_ighd/no_cc/mast/phenotypes_ordered.txt
 log2=/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/scrna/data/human/rdf/katia/5p/analysis/RK01_02_03_04_05_06_07/analysis_vdj_cgene/no_ighd/no_cc/mast/mast_all_RK01-07_for_heatmaps_avg_tpm_log2_simple.txt
 fc=/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/scrna/data/human/rdf/katia/5p/analysis/RK01_02_03_04_05_06_07/analysis_vdj_cgene/no_ighd/no_cc/mast/mast_all_RK01_02_03_04_05_06_07_log2fc_simple.txt
  
@@ -19,7 +19,7 @@ python make_gex_sql.py \
     --filetype="log2(CPM+1),${log2}" \
     --filetype="log2(FC),${fc}"
 
-#exit(0)
+exit(0)
  
 
 technology="RNA-seq"

@@ -77,6 +77,7 @@ def load_sample_data(df: pd.DataFrame, num_id_cols: int = 1):
 
 
 def load_data(
+    sample_ids,
     data_type,
     file,
     dataset_id,
@@ -97,6 +98,10 @@ def load_data(
 
     if filter != "":
         df = df.iloc[:, np.where(df.columns.str.contains(filter, regex=True))[0]]
+
+    # only keep samples we have metadata for and reorder
+    print(df.columns)
+    df = df[sample_ids]
 
     # print(df.shape)
     # exit(0)
@@ -391,6 +396,7 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
         rma_file = filetypes[0]["file"]
 
         load_data(
+            sample_ids,
             "RMA",
             rma_file,
             dataset_id,
@@ -438,6 +444,7 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
 
             counts_file = ft["file"]
             load_data(
+                sample_ids,
                 ft["type"],
                 counts_file,
                 dataset_id,
