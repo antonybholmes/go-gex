@@ -93,7 +93,7 @@ counts="/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/other
 tpm="/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/other_labs/BC_morin/dlbcl_ega_EGAD00001003783/324/grch37/analysis/tpm_grch37_20190508_renamed_230.tsv"
 vst="/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/other_labs/BC_morin/dlbcl_ega_EGAD00001003783/324/grch37/analysis/vst_grch37_20190507_renamed_230.tsv"
  
-python make_gex_sql.py \
+python scripts/make_gex_sql.py \
     --name="${dataset_name}" \
     --institution="${institution}" \
     --technology="${technology}" \
@@ -113,7 +113,7 @@ counts="/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/n
 tpm="/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/n_gc_m_lz_dz_tpm_restricted_gencode_grch38_20180724_simple.tsv"
 vst="/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/vst_n_gc_m_lz_dz_restricted_gencode_grch38_20180724.txt"
 
-python make_gex_sql.py \
+python scripts/make_gex_sql.py \
     --name="${dataset_name}" \
     --institution="${institution}" \
     --technology="${technology}" \
@@ -131,7 +131,7 @@ counts=/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/other_
 tpm=/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/other_labs/nci_staudt/dlbcl/transcriptome/grch38/tpm_grch38_20190807_renamed.txt
 vst=/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/other_labs/nci_staudt/dlbcl/transcriptome/grch38/vst_counts_grch38_20190807_renamed.txt
 
-python make_gex_sql.py \
+python scripts/make_gex_sql.py \
     --name="${dataset_name}" \
     --institution="${institution}" \
     --technology="${technology}" \
@@ -157,7 +157,7 @@ counts=/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/mouse/other_
 tpm=/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/mouse/other_labs/kurosaki/bach2_high_low/analysis/tpm_grcm38_20241128_simple_cleaned.tsv
 vst=/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/mouse/other_labs/kurosaki/bach2_high_low/analysis/vst_grcm38_20241128_simple_cleaned.tsv
 
-python make_gex_sql.py \
+python scripts/make_gex_sql.py \
     --name="${dataset_name}" \
     --institution="${institution}" \
     --technology="${technology}" \
