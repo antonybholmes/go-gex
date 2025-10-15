@@ -17,7 +17,7 @@ do
     cat indexes.sql | sqlite3 ${name}.db
 done
 
-exit(0)
+#exit(0)
 
 for f in `find data/modules/gex/Human/scRNA-seq | grep sql`
 do

@@ -1,5 +1,6 @@
 import collections
 import re
+import struct
 import sys
 import pandas as pd
 import numpy as np
@@ -434,13 +435,24 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
 
                     gene_index = gene_db_map[gene_symbol]
 
-                    for si, sample in enumerate(sample_ids):
-                        sample_index = sample_db_ids[sample]
-                        value = values[si]
-                        print(
-                            f"INSERT INTO expr (sample_id, gene_id, probe_id, expr_type_id, value) VALUES ({sample_index}, {gene_index}, '{probe_id}', 1, {np.round(value, 4)});",
-                            file=f,
-                        )
+                    binary_data = struct.pack("<" + "f" * len(values), *values)
+
+                    hex_data = binary_data.hex()
+
+                    blob_literal = f"X'{hex_data}'"
+
+                    print(
+                        f"INSERT INTO expr (gene_id, probe_id, expr_type_id, data) VALUES ({gene_index}, '{probe_id}', 1, {blob_literal});",
+                        file=f,
+                    )
+
+                    # for si, sample in enumerate(sample_ids):
+                    #     sample_index = sample_db_ids[sample]
+                    #     value = values[si]
+                    #     print(
+                    #         f"INSERT INTO expr (sample_id, gene_id, probe_id, expr_type_id, value) VALUES ({sample_index}, {gene_index}, '{probe_id}', 1, {np.round(value, 4)});",
+                    #         file=f,
+                    #     )
 
         print("COMMIT;", file=f)
 
@@ -510,13 +522,17 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
 
                         values = exp_map[dataset_id][probe_id][gene_symbol][data_type]
 
-                        for si, sample in enumerate(sample_ids):
-                            sample_index = sample_db_ids[sample]
-                            value = values[si]
-                            print(
-                                f"INSERT INTO expr (sample_id, gene_id, expr_type_id, value) VALUES ({sample_index}, {gene_index}, {expr_type_id}, {np.round(value, 4)});",
-                                file=f,
-                            )
+                        # unpack as float32
+                        binary_data = struct.pack("<" + "f" * len(values), *values)
+
+                        hex_data = binary_data.hex()
+
+                        blob_literal = f"X'{hex_data}'"
+
+                        print(
+                            f"INSERT INTO expr (gene_id, expr_type_id, data) VALUES ({gene_index}, {expr_type_id}, {blob_literal});",
+                            file=f,
+                        )
 
                     # gene_index = gene_db_map[gene_symbol]
                     # t = ", ".join(DATA_TYPES)

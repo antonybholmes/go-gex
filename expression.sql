@@ -1,4 +1,4 @@
-CREATE TABLE expression (
+CREATE TABLE expr (
 	id INTEGER PRIMARY KEY ASC,
 	sample_id INTEGER NOT NULL,
 	gene_id INTEGER NOT NULL,

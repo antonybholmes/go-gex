@@ -1,7 +1,9 @@
 package gex
 
 import (
+	"bytes"
 	"database/sql"
+	"encoding/binary"
 	"path/filepath"
 
 	"github.com/rs/zerolog/log"
@@ -94,7 +96,7 @@ type (
 		Gene    *GexGene `json:"gene"`
 		//Platform     *ValueType       `json:"platform"`
 		//GexValue *GexValue    `json:"gexType"`
-		Expression []float32 `json:"expression"`
+		Expr []float32 `json:"expr"`
 	}
 )
 
@@ -164,16 +166,25 @@ const (
 		genes.refseq LIKE ?1 
 		LIMIT 1`
 
-	ExpressionSQL = `SELECT
-		expression.id,
-		expression.sample_id,
-		expression.gene_id,
-		expression.probe_id,
-		expression.value
-		FROM expression 
-		WHERE expression.gene_id = ?1 AND
-		expression.expr_type_id = ?2
-		ORDER BY expression.sample_id`
+	// ExprSQL = `SELECT
+	// 	expr.id,
+	// 	expr.sample_id,
+	// 	expr.gene_id,
+	// 	expr.probe_id,
+	// 	expr.value
+	// 	FROM expr
+	// 	WHERE expr.gene_id = ?1 AND
+	// 	expr.expr_type_id = ?2
+	// 	ORDER BY expr.sample_id`
+
+	ExprSQL = `SELECT
+		expr.id,
+		expr.gene_id,
+		expr.probe_id,
+		data
+		FROM expr 
+		WHERE expr.gene_id = ?1 AND
+		expr.expr_type_id = ?2`
 
 	ExprTypesSQL = `SELECT
 		expr_types.id,
@@ -467,6 +478,84 @@ func (cache *DatasetCache) FindSeqValues(exprType *ExprType, geneIds []string) (
 	return cache.Expr(exprType, genes)
 }
 
+// func (cache *DatasetCache) Expr(exprType *ExprType, genes []*GexGene) (*SearchResults, error) {
+
+// 	dataset, err := cache.Dataset()
+
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	samples, err := cache.Samples()
+
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	db, err := sql.Open(sys.Sqlite3DB, cache.db)
+
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	defer db.Close()
+
+// 	ret := SearchResults{
+// 		Dataset:  dataset.PublicId,
+// 		ExprType: exprType,
+// 		Features: make([]*ResultFeature, 0, len(genes))}
+
+// 	var id uint
+// 	var sampleId uint
+// 	var geneId uint
+// 	var probeId sql.NullString
+// 	var value float32
+
+// 	for _, gene := range genes {
+
+// 		rows, err := db.Query(ExprSQL, gene.Id, exprType.Id)
+
+// 		if err != nil {
+// 			return nil, err
+// 		}
+
+// 		defer rows.Close()
+
+// 		// to store expression values for each sample
+// 		var values = make([]float32, 0, len(samples))
+
+// 		for rows.Next() {
+
+// 			err := rows.Scan(&id,
+// 				&sampleId,
+// 				&geneId,
+// 				&probeId,
+// 				&value)
+
+// 			if err != nil {
+// 				return nil, err
+// 			}
+
+// 			values = append(values, value)
+
+// 			//log.Debug().Msgf("hmm %s %f %f", gexType, sample.Value, tpm)
+// 		}
+
+// 		feature := ResultFeature{Gene: gene, Expr: values}
+
+// 		if probeId.Valid {
+// 			feature.ProbeId = &probeId.String
+// 		}
+
+// 		log.Debug().Msgf("got %d values for gene %s", len(values), gene.GeneSymbol)
+
+// 		ret.Features = append(ret.Features, &feature)
+// 	}
+
+// 	return &ret, nil
+// }
+
+// using binary blobs for expression values
 func (cache *DatasetCache) Expr(exprType *ExprType, genes []*GexGene) (*SearchResults, error) {
 
 	dataset, err := cache.Dataset()
@@ -495,42 +584,40 @@ func (cache *DatasetCache) Expr(exprType *ExprType, genes []*GexGene) (*SearchRe
 		Features: make([]*ResultFeature, 0, len(genes))}
 
 	var id uint
-	var sampleId uint
 	var geneId uint
 	var probeId sql.NullString
-	var value float32
+	var blob []byte
+	var f float32
 
 	for _, gene := range genes {
 
-		rows, err := db.Query(ExpressionSQL, gene.Id, exprType.Id)
+		err := db.QueryRow(ExprSQL, gene.Id, exprType.Id).Scan(
+			&id,
+			&geneId,
+			&probeId,
+			&blob)
 
 		if err != nil {
+			log.Debug().Msgf("no expression values for gene %s", gene.GeneSymbol)
 			return nil, err
 		}
 
-		defer rows.Close()
+		buf := bytes.NewReader(blob)
 
 		// to store expression values for each sample
+		// Samples are expected to be in the same order as the values
+		// in the blob
 		var values = make([]float32, 0, len(samples))
 
-		for rows.Next() {
+		for buf.Len() > 0 {
 
-			err := rows.Scan(&id,
-				&sampleId,
-				&geneId,
-				&probeId,
-				&value)
-
-			if err != nil {
+			if err := binary.Read(buf, binary.LittleEndian, &f); err != nil {
 				return nil, err
 			}
-
-			values = append(values, value)
-
-			//log.Debug().Msgf("hmm %s %f %f", gexType, sample.Value, tpm)
+			values = append(values, f)
 		}
 
-		feature := ResultFeature{Gene: gene, Expression: values}
+		feature := ResultFeature{Gene: gene, Expr: values}
 
 		if probeId.Valid {
 			feature.ProbeId = &probeId.String
