@@ -26,21 +26,29 @@ CREATE TABLE samples (
 	name TEXT NOT NULL UNIQUE,
 	description TEXT NOT NULL DEFAULT '');
 
-CREATE TABLE sample_alt_names (
+-- CREATE TABLE sample_alt_names (
+-- 	id INTEGER PRIMARY KEY ASC,
+-- 	sample_id INTEGER NOT NULL,
+-- 	name TEXT NOT NULL,
+-- 	value TEXT NOT NULL,
+-- 	FOREIGN KEY(sample_id) REFERENCES samples(id));
+
+CREATE TABLE metadata_types (
 	id INTEGER PRIMARY KEY ASC,
-	sample_id INTEGER NOT NULL,
+	public_id TEXT NOT NULL UNIQUE,
 	name TEXT NOT NULL,
-	value TEXT NOT NULL,
-	FOREIGN KEY(sample_id) REFERENCES samples(id));
+	description TEXT NOT NULL DEFAULT '',
+	UNIQUE(name));
 
 CREATE TABLE metadata (
 	id INTEGER PRIMARY KEY ASC,
 	public_id TEXT NOT NULL UNIQUE,
-	name TEXT NOT NULL,
+	metadata_type_id INTEGER NOT NULL,
 	value TEXT NOT NULL,
 	description TEXT NOT NULL DEFAULT '',
 	color TEXT NOT NULL DEFAULT '',
-	UNIQUE(name, value, color));
+	UNIQUE(metadata_type_id, value, color),
+	FOREIGN KEY(metadata_type_id) REFERENCES metadata_types(id));
 
 CREATE TABLE sample_metadata (
 	id INTEGER PRIMARY KEY ASC,

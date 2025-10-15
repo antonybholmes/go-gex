@@ -17,10 +17,10 @@ def get_file_id(name: str) -> str:
     return re.sub(r"[\/ ]+", "_", name.lower())
 
 
-def load_sample_data(df: pd.DataFrame, num_id_cols: int = 1):
+def load_sample_data(df: pd.DataFrame):  # , num_id_cols: int = 1):
 
-    id_names = df.columns.values[0:num_id_cols]
-    sample_metadata_names = df.columns.values[num_id_cols:]
+    # id_names = df.columns.values[0:num_id_cols]
+    sample_metadata_names = df.columns.values  # [num_id_cols:]
 
     sample_id_map = collections.defaultdict(lambda: collections.defaultdict(str))
     sample_metadata_map = collections.defaultdict(lambda: collections.defaultdict(str))
@@ -30,31 +30,31 @@ def load_sample_data(df: pd.DataFrame, num_id_cols: int = 1):
     for i, row in df.iterrows():
         values = row.astype(str).values
 
-        ids = values[0:num_id_cols]
-        sample_id = ids[0]
+        # ids = values[0:num_id_cols]
+
         sample_index = i + 1
         # alt_id_names = id_names  # [1:]
         # alt_ids = ids  # [1:]
 
-        for name, alt_id in zip(id_names, ids):
-            # here name is the column name, alt_id is the value
-            # e.g. if a sample has multiple ids, e.g. GEO and SRA
-            # then name is "GEO" and alt_id is "GSMxxxx" or
-            # name is "SRA" and alt_id is "SRRxxxx"
+        # for name, alt_id in zip(id_names, ids):
+        #     # here name is the column name, alt_id is the value
+        #     # e.g. if a sample has multiple ids, e.g. GEO and SRA
+        #     # then name is "GEO" and alt_id is "GSMxxxx" or
+        #     # name is "SRA" and alt_id is "SRRxxxx"
 
-            color = ""
+        #     color = ""
 
-            if "|" in alt_id:
-                alt_id, color = alt_id.split("|")
-                alt_id = alt_id.strip()
-                color = color.strip()
+        #     if "|" in alt_id:
+        #         alt_id, color = alt_id.split("|")
+        #         alt_id = alt_id.strip()
+        #         color = color.strip()
 
-            sample_id_map[sample_id][name] = alt_id  # {"id": alt_id, "color": color}
+        #     sample_id_map[sample_id][name] = alt_id  # {"id": alt_id, "color": color}
 
         values = values.astype(str)
-        values = values[num_id_cols:]
+        # values = values[num_id_cols:]
 
-        for name, value in zip(sample_metadata_names, values):
+        for metadata_name, value in zip(sample_metadata_names, values):
             if value != "":
                 color = ""
 
@@ -63,14 +63,18 @@ def load_sample_data(df: pd.DataFrame, num_id_cols: int = 1):
                     value = value.strip()
                     color = color.strip()
 
-                if value not in sample_metadata_map[name]:
-                    sample_metadata_map[name][value] = {"color": color, "samples": []}
+                if value not in sample_metadata_map[metadata_name]:
+                    sample_metadata_map[metadata_name][value] = {
+                        "color": color,
+                        "samples": [],
+                    }
 
-                sample_metadata_map[name][value]["samples"].append(sample_index)
+                sample_metadata_map[metadata_name][value]["samples"].append(
+                    sample_index
+                )
 
     return [
         sample_ids,
-        id_names,
         sample_id_map,
         sample_metadata_names,
         sample_metadata_map,
@@ -301,8 +305,8 @@ df_samples = pd.read_csv(
 )
 
 
-sample_ids, alt_id_names, sample_id_map, sample_metadata_names, sample_metadata_map = (
-    load_sample_data(df_samples, args.id_col_count)
+sample_ids, sample_id_map, sample_metadata_names, sample_metadata_map = (
+    load_sample_data(df_samples)
 )
 
 # print(sample_id_map)
@@ -341,12 +345,39 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
 
     print("BEGIN TRANSACTION;", file=f)
 
-    for i, sample in enumerate(sample_ids):
+    for i, sample_index in enumerate(sample_ids):
         public_id = (
             uuid.uuid7()
         )  # f"{args.technology.lower()}:{uuid.uuid7()}"  # generate("0123456789abcdefghijklmnopqrstuvwxyz", 12)
         print(
-            f"INSERT INTO samples (public_id, name) VALUES ('{public_id}', '{sample}');",
+            f"INSERT INTO samples (public_id, name) VALUES ('{public_id}', '{sample_index}');",
+            file=f,
+        )
+
+    print("COMMIT;", file=f)
+
+    # print("BEGIN TRANSACTION;", file=f)
+
+    # sample_db_ids = {sample: i + 1 for i, sample in enumerate(sample_ids)}
+
+    # for i, sample in enumerate(sample_ids):
+    #     for metadata_name in alt_id_names:
+    #         value = sample_id_map[sample][metadata_name]
+
+    #         print(
+    #             f"INSERT INTO sample_alt_names (sample_id, name, value) VALUES ({i + 1}, '{metadata_name}', '{value}');",
+    #             file=f,
+    #         )
+
+    # print("COMMIT;", file=f)
+
+    print("BEGIN TRANSACTION;", file=f)
+
+    for metadata_name in sample_metadata_names:
+        id = uuid.uuid7()
+
+        print(
+            f"INSERT INTO metadata_types (public_id, name ) VALUES ('{id}', '{metadata_name}');",
             file=f,
         )
 
@@ -354,47 +385,39 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
 
     print("BEGIN TRANSACTION;", file=f)
 
-    sample_db_ids = {sample: i + 1 for i, sample in enumerate(sample_ids)}
+    metadata_map = collections.defaultdict(lambda: collections.defaultdict(str))
 
-    for i, sample in enumerate(sample_ids):
-        for name in alt_id_names:
-            value = sample_id_map[sample][name]
+    index = 1
+    for mi, metadata_name in enumerate(sample_metadata_names):
+        metadata_type_index = mi + 1
 
-            print(
-                f"INSERT INTO sample_alt_names (sample_id, name, value) VALUES ({i + 1}, '{name}', '{value}');",
-                file=f,
-            )
-
-    print("COMMIT;", file=f)
-
-    print("BEGIN TRANSACTION;", file=f)
-
-    for name in sorted(sample_metadata_map):
-        for value in sorted(sample_metadata_map[name]):
+        for value in sorted(sample_metadata_map[metadata_name]):
             id = uuid.uuid7()
-            color = sample_metadata_map[name][value]["color"]
+
+            color = sample_metadata_map[metadata_name][value]["color"]
 
             print(
-                f"INSERT INTO metadata (public_id, name, value, color) VALUES ('{id}', '{name}', '{value}', '{color}');",
+                f"INSERT INTO metadata (public_id, metadata_type_id, value, color) VALUES ('{id}', {metadata_type_index}, '{value}', '{color}');",
                 file=f,
             )
+
+            metadata_map[metadata_name][value] = index
+            index += 1
 
     print("COMMIT;", file=f)
 
     print("BEGIN TRANSACTION;", file=f)
 
-    metadata_id = 1
-    for name in sorted(sample_metadata_map):
-        for value in sorted(sample_metadata_map[name]):
-            color = sample_metadata_map[name][value]["color"]
-
-            for sample in sorted(sample_metadata_map[name][value]["samples"]):
+    for mi, metadata_name in enumerate(sample_metadata_names):
+        for value in sorted(sample_metadata_map[metadata_name]):
+            metadata_id = metadata_map[metadata_name][value]
+            for sample_index in sorted(
+                sample_metadata_map[metadata_name][value]["samples"]
+            ):
                 print(
-                    f"INSERT INTO sample_metadata (sample_id, metadata_id) VALUES ({sample}, {metadata_id});",
+                    f"INSERT INTO sample_metadata (sample_id, metadata_id) VALUES ({sample_index}, {metadata_id});",
                     file=f,
                 )
-
-            metadata_id += 1
 
     print("COMMIT;", file=f)
 

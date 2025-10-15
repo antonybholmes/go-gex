@@ -61,9 +61,9 @@ type (
 	}
 
 	Sample struct {
-		PublicId string          `json:"publicId"`
-		Name     string          `json:"name"`
-		AltNames []NameValueType `json:"altNames"`
+		PublicId string `json:"publicId"`
+		Name     string `json:"name"`
+		//AltNames []NameValueType `json:"altNames"`
 		Metadata []NameValueType `json:"metadata"`
 		Id       uint            `json:"-"`
 	}
@@ -123,33 +123,35 @@ const (
 		FROM samples
 		ORDER BY samples.id`
 
-	SampleAltNamesSQL = `SELECT
-		sample_alt_names.id,
-		sample_alt_names.sample_id,
-		sample_alt_names.name,
-		sample_alt_names.value
-		FROM sample_alt_names
-		ORDER by sample_alt_names.sample_id, sample_alt_names.id`
+	// SampleAltNamesSQL = `SELECT
+	// 	sample_alt_names.id,
+	// 	sample_alt_names.sample_id,
+	// 	sample_alt_names.name,
+	// 	sample_alt_names.value
+	// 	FROM sample_alt_names
+	// 	ORDER by sample_alt_names.sample_id, sample_alt_names.id`
 
 	MetadataSQL = `SELECT
 		metadata.id,
 		metadata.public_id,
-		metadata.name,
+		metadata_types.name,
 		metadata.value,
 		metadata.decription,
 		metadata.color
 		FROM metadata
-		ORDER by metadata.id`
+		JOIN metadata_types ON metadata.metadata_type_id = metadata_types.id
+		ORDER BY metadata_types.id, metadata.id`
 
 	SampleMetadataSQL = `SELECT
 		sample_metadata.id,
 		sample_metadata.sample_id,
-		metadata.name,
+		metadata_types.name,
 		metadata.value,
 		metadata.color
 		FROM sample_metadata
 		JOIN metadata ON sample_metadata.metadata_id = metadata.id
-		ORDER by sample_metadata.sample_id, metadata.id`
+		JOIN metadata_types ON metadata.metadata_type_id = metadata_types.id
+		ORDER by sample_metadata.sample_id, metadata_types.id, metadata.id`
 
 	GeneSQL = `SELECT 
 		genes.id, 
@@ -364,7 +366,7 @@ func (cache *DatasetCache) Samples() ([]*Sample, error) {
 		// initialize alt names and metadata slices
 		// to avoid nil slices
 		// we can estimate the size to avoid too many allocations
-		sample.AltNames = make([]NameValueType, 0, 10)
+		//sample.AltNames = make([]NameValueType, 0, 10)
 		sample.Metadata = make([]NameValueType, 0, 10)
 
 		samples = append(samples, &sample)
@@ -375,31 +377,31 @@ func (cache *DatasetCache) Samples() ([]*Sample, error) {
 
 	// add sample alt names to samples
 
-	rows, err = db.Query(SampleAltNamesSQL)
+	// rows, err = db.Query(SampleAltNamesSQL)
 
-	if err != nil {
-		return nil, err
-	}
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	defer rows.Close()
+	// defer rows.Close()
 
-	for rows.Next() {
-		var nv = NameValueType{}
+	// for rows.Next() {
+	// 	var nv = NameValueType{}
 
-		err := rows.Scan(&id, &sampleId, &nv.Name, &nv.Value)
+	// 	err := rows.Scan(&id, &sampleId, &nv.Name, &nv.Value)
 
-		if err != nil {
-			return nil, err
-		}
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
 
-		// samples are ordered by sample id starting at 1 so
-		// we can use sampleId - 1 as the index
-		// otherwise we would need a map
-		// which would be less efficient
-		index := sampleId - 1
+	// 	// samples are ordered by sample id starting at 1 so
+	// 	// we can use sampleId - 1 as the index
+	// 	// otherwise we would need a map
+	// 	// which would be less efficient
+	// 	index := sampleId - 1
 
-		samples[index].AltNames = append(samples[index].AltNames, nv)
-	}
+	// 	samples[index].AltNames = append(samples[index].AltNames, nv)
+	// }
 
 	// add sample metadata to samples
 
