@@ -177,6 +177,7 @@ const (
 	// 	expr.expr_type_id = ?2
 	// 	ORDER BY expr.sample_id`
 
+	// for expr values stored as binary blobs
 	ExprSQL = `SELECT
 		expr.id,
 		expr.gene_id,
@@ -598,7 +599,6 @@ func (cache *DatasetCache) Expr(exprType *ExprType, genes []*GexGene) (*SearchRe
 			&blob)
 
 		if err != nil {
-			log.Debug().Msgf("no expression values for gene %s", gene.GeneSymbol)
 			return nil, err
 		}
 
@@ -609,8 +609,8 @@ func (cache *DatasetCache) Expr(exprType *ExprType, genes []*GexGene) (*SearchRe
 		// in the blob
 		var values = make([]float32, 0, len(samples))
 
-		for buf.Len() > 0 {
-
+		//for buf.Len() > 0 {
+		for range samples {
 			if err := binary.Read(buf, binary.LittleEndian, &f); err != nil {
 				return nil, err
 			}
