@@ -54,6 +54,7 @@ CREATE TABLE sample_metadata (
 	id INTEGER PRIMARY KEY ASC,
 	sample_id INTEGER NOT NULL,
 	metadata_id INTEGER NOT NULL,
+	UNIQUE(sample_id, metadata_id),
 	FOREIGN KEY(sample_id) REFERENCES samples(id),
 	FOREIGN KEY(metadata_id) REFERENCES metadata(id));
 

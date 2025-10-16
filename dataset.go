@@ -64,8 +64,8 @@ type (
 		PublicId string `json:"publicId"`
 		Name     string `json:"name"`
 		//AltNames []NameValueType `json:"altNames"`
-		Metadata []NameValueType `json:"metadata"`
-		Id       uint            `json:"-"`
+		Metadata []*NameValueType `json:"metadata"`
+		Id       uint             `json:"id"`
 	}
 
 	GexGene struct {
@@ -367,7 +367,7 @@ func (cache *DatasetCache) Samples() ([]*Sample, error) {
 		// to avoid nil slices
 		// we can estimate the size to avoid too many allocations
 		//sample.AltNames = make([]NameValueType, 0, 10)
-		sample.Metadata = make([]NameValueType, 0, 10)
+		sample.Metadata = make([]*NameValueType, 0, 10)
 
 		samples = append(samples, &sample)
 	}
@@ -424,7 +424,7 @@ func (cache *DatasetCache) Samples() ([]*Sample, error) {
 
 		index := sampleId - 1
 
-		samples[index].Metadata = append(samples[index].Metadata, nv)
+		samples[index].Metadata = append(samples[index].Metadata, &nv)
 	}
 
 	return samples, nil
