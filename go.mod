@@ -23,4 +23,4 @@ require (
 	golang.org/x/text v0.30.0 // indirect
 )
 
-require github.com/antonybholmes/go-sys v0.0.0-20251008222328-ea54acd3095b
+require github.com/antonybholmes/go-sys v0.0.0-20251017225059-9b05304a0fc0
