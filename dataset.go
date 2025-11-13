@@ -6,7 +6,7 @@ import (
 	"encoding/binary"
 	"path/filepath"
 
-	"github.com/rs/zerolog/log"
+	"github.com/antonybholmes/go-sys/log"
 
 	"github.com/antonybholmes/go-sys"
 )

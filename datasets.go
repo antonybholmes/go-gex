@@ -6,7 +6,7 @@ import (
 	"sort"
 
 	"github.com/antonybholmes/go-sys"
-	"github.com/rs/zerolog/log"
+	"github.com/antonybholmes/go-sys/log"
 )
 
 type (
