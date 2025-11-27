@@ -1,7 +1,7 @@
 CREATE INDEX samples_dataset_name_idx ON samples (name);
 -- CREATE INDEX expr_gene_id_sample_id_idx ON expr (gene_id);
 
-CREATE INDEX expr_type_public_id_idx ON expr_types(public_id);
+-- CREATE INDEX expr_type_public_id_idx ON expr_types(public_id);
  
 #CREATE INDEX expr_sample_type_id_idx ON expr(sample_id, expr_type_id);
 CREATE INDEX expr_gene_type_id_idx ON expr(gene_id, expr_type_id);
@@ -9,7 +9,7 @@ CREATE INDEX expr_gene_type_id_idx ON expr(gene_id, expr_type_id);
 CREATE INDEX metadata_types_name_idx ON metadata_types(name);
 
 CREATE INDEX metadata_type_id_idx ON metadata (metadata_type_id);
-CREATE INDEX metadata_public_id_idx ON metadata (public_id);
+-- CREATE INDEX metadata_public_id_idx ON metadata (public_id);
 
 CREATE INDEX genes_hugo_idx ON genes (hugo);
 CREATE INDEX genes_ensembl_idx ON genes (ensembl);

@@ -219,8 +219,7 @@ if args.species == "Mouse":
         ncbi = df_mgi["entrez"].values[i].replace(" ", "")
 
         official_symbols[mgi] = {
-            "hugo": "",
-            "mgi": mgi,
+            "id": mgi,
             "gene_symbol": gene_symbol,
             "ensembl": ensembl,
             "refseq": refseq,
@@ -258,8 +257,7 @@ else:
         ncbi = df_hugo["NCBI Gene ID"].values[i].replace(" ", "")
 
         official_symbols[hugo] = {
-            "hugo": hugo,
-            "mgi": "",
+            "id": hugo,
             "gene_symbol": gene_symbol,
             "ensembl": ensembl,
             "refseq": refseq,
@@ -337,7 +335,7 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
     print("BEGIN TRANSACTION;", file=f)
 
     print(
-        f"INSERT INTO dataset (public_id, name, species, institution, technology, platform) VALUES ('{dataset['dataset_id']}', '{dataset['name']}', '{dataset['species']}', '{dataset['institution']}', '{dataset['technology']}', '{dataset['platform']}');",
+        f"INSERT INTO dataset (id, name, species, institution, technology, platform) VALUES ('{dataset['dataset_id']}', '{dataset['name']}', '{dataset['species']}', '{dataset['institution']}', '{dataset['technology']}', '{dataset['platform']}');",
         file=f,
     )
 
@@ -345,14 +343,16 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
 
     print("BEGIN TRANSACTION;", file=f)
 
-    for i, sample_index in enumerate(sample_ids):
-        public_id = (
-            uuid.uuid7()
-        )  # f"{args.technology.lower()}:{uuid.uuid7()}"  # generate("0123456789abcdefghijklmnopqrstuvwxyz", 12)
+    sample_id_map = {}
+    for i, name in enumerate(sample_ids):
+        id = uuid.uuid7()
+
         print(
-            f"INSERT INTO samples (public_id, name) VALUES ('{public_id}', '{sample_index}');",
+            f"INSERT INTO samples (id, name) VALUES ('{id}', '{name}');",
             file=f,
         )
+
+        sample_id_map[name] = id
 
     print("COMMIT;", file=f)
 
@@ -373,13 +373,16 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
 
     print("BEGIN TRANSACTION;", file=f)
 
+    metadata_type_map = {}
     for metadata_name in sample_metadata_names:
         id = uuid.uuid7()
 
         print(
-            f"INSERT INTO metadata_types (public_id, name ) VALUES ('{id}', '{metadata_name}');",
+            f"INSERT INTO metadata_types (id, name ) VALUES ('{id}', '{metadata_name}');",
             file=f,
         )
+
+        metadata_type_map[metadata_name] = id
 
     print("COMMIT;", file=f)
 
@@ -387,9 +390,8 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
 
     metadata_map = collections.defaultdict(lambda: collections.defaultdict(str))
 
-    index = 1
     for mi, metadata_name in enumerate(sample_metadata_names):
-        metadata_type_index = mi + 1
+        metadata_type_id = metadata_type_map[metadata_name]
 
         for value in sorted(sample_metadata_map[metadata_name]):
             id = uuid.uuid7()
@@ -397,12 +399,11 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
             color = sample_metadata_map[metadata_name][value]["color"]
 
             print(
-                f"INSERT INTO metadata (public_id, metadata_type_id, value, color) VALUES ('{id}', {metadata_type_index}, '{value}', '{color}');",
+                f"INSERT INTO metadata (id, metadata_type_id, value, color) VALUES ('{id}', {metadata_type_id}, '{value}', '{color}');",
                 file=f,
             )
 
-            metadata_map[metadata_name][value] = index
-            index += 1
+            metadata_map[metadata_name][value] = id
 
     print("COMMIT;", file=f)
 
@@ -411,11 +412,9 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
     for mi, metadata_name in enumerate(sample_metadata_names):
         for value in sorted(sample_metadata_map[metadata_name]):
             metadata_id = metadata_map[metadata_name][value]
-            for sample_index in sorted(
-                sample_metadata_map[metadata_name][value]["samples"]
-            ):
+            for name in sorted(sample_metadata_map[metadata_name][value]["samples"]):
                 print(
-                    f"INSERT INTO sample_metadata (sample_id, metadata_id) VALUES ({sample_index}, {metadata_id});",
+                    f"INSERT INTO sample_metadata (sample_id, metadata_id) VALUES ({name}, {metadata_id});",
                     file=f,
                 )
 
@@ -439,9 +438,9 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
         expr_type_map = {i: expr_type for i, expr_type in enumerate(expr_types)}
 
         for expr_type in expr_types:
-            public_id = uuid.uuid7()
+            id = uuid.uuid7()
             print(
-                f"INSERT INTO expr_types (public_id, name) VALUES ('{public_id}', '{expr_type}');",
+                f"INSERT INTO expr_types (id, name) VALUES ('{id}', '{expr_type}');",
                 file=f,
             )
 
@@ -456,7 +455,7 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
                 for gene_symbol in sorted(exp_map[dataset_id][probe_id]):
                     values = exp_map[dataset_id][probe_id][gene_symbol]["RMA"]
 
-                    gene_index = gene_db_map[gene_symbol]
+                    gene_id = gene_db_map[gene_symbol]
 
                     binary_data = struct.pack("<" + "f" * len(values), *values)
 
@@ -465,7 +464,7 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
                     blob_literal = f"X'{hex_data}'"
 
                     print(
-                        f"INSERT INTO expr (gene_id, probe_id, expr_type_id, data) VALUES ({gene_index}, '{probe_id}', 1, {blob_literal});",
+                        f"INSERT INTO expr (gene_id, probe_id, expr_type_id, data) VALUES ({gene_id}, '{probe_id}', 1, {blob_literal});",
                         file=f,
                     )
 
@@ -516,12 +515,12 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
 
         expr_types = sorted(expr_types)
 
-        expr_type_map = {expr_type: i + 1 for i, expr_type in enumerate(expr_types)}
+        expr_type_map = {expr_type: uuid.uuid7() for expr_type in expr_types}
 
         for expr_type in expr_types:
-            public_id = uuid.uuid7()  # f"{args.technology.lower()}:{uuid.uuid7()}"
+            id = expr_type_map[expr_type]  # f"{args.technology.lower()}:{uuid.uuid7()}"
             print(
-                f"INSERT INTO expr_types (public_id, name) VALUES ('{public_id}', '{expr_type}');",
+                f"INSERT INTO expr_types (id, name) VALUES ('{id}', '{expr_type}');",
                 file=f,
             )
 
@@ -534,7 +533,7 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
         for dataset_id in sorted(exp_map):
             for probe_id in sorted(exp_map[dataset_id]):
                 for gene_symbol in sorted(exp_map[dataset_id][probe_id]):
-                    gene_index = gene_db_map[gene_symbol]
+                    gene_id = gene_db_map[gene_symbol]
 
                     for data_type in expr_types:
 
@@ -553,7 +552,7 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
                         blob_literal = f"X'{hex_data}'"
 
                         print(
-                            f"INSERT INTO expr (gene_id, expr_type_id, data) VALUES ({gene_index}, {expr_type_id}, {blob_literal});",
+                            f"INSERT INTO expr (gene_id, expr_type_id, data) VALUES ({gene_id}, {expr_type_id}, {blob_literal});",
                             file=f,
                         )
 

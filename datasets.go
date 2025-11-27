@@ -12,7 +12,7 @@ import (
 type (
 	Technology struct {
 		Name      string     `json:"name"`
-		PublicId  string     `json:"publicId"`
+		Id        string     `json:"id"`
 		ExprTypes []ExprType `json:"exprTypes"`
 	}
 
@@ -217,7 +217,7 @@ func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Data
 
 	defer datasetRows.Close()
 
-	var id uint
+	var id int
 	var path string
 
 	datasets := make([]*Dataset, 0, 10)
@@ -261,7 +261,7 @@ func (cache *DatasetsCache) DatasetCacheFromId(datasetId string) (*DatasetCache,
 
 	defer db.Close()
 
-	var id uint
+	var id int
 	var path string
 
 	err = db.QueryRow(DatasetFromPublicIdSQL, datasetId).Scan(
@@ -295,7 +295,7 @@ func (cache *DatasetsCache) ExprTypes(datasetIds []string) ([]*ExprType, error) 
 		}
 
 		for _, exprType := range exprTypes {
-			allExprTypes[exprType.PublicId] = exprType
+			allExprTypes[exprType.Id] = exprType
 		}
 	}
 

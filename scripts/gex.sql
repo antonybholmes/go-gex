@@ -2,8 +2,7 @@ PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE datasets (
-	id INTEGER PRIMARY KEY ASC,
-	public_id TEXT NOT NULL UNIQUE,
+	id TEXT PRIMARY KEY ASC,
 	species TEXT NOT NULL,
 	technology TEXT NOT NULL,
 	platform TEXT NOT NULL,

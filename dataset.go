@@ -13,13 +13,12 @@ import (
 
 type (
 	ExprType struct {
-		PublicId string `json:"publicId"`
-		Name     string `json:"name"`
-		Id       uint   `json:"id"`
+		Name string `json:"name"`
+		Id   string `json:"id"`
 	}
 
 	Dataset struct {
-		PublicId   string `json:"publicId"`
+		Id         string `json:"Id"`
 		Name       string `json:"name"`
 		Species    string `json:"species"`
 		Technology string `json:"technology"`
@@ -29,7 +28,6 @@ type (
 		Description string      `json:"description"`
 		Samples     []*Sample   `json:"samples"`
 		ExprTypes   []*ExprType `json:"exprTypes"`
-		Id          uint        `json:"id"`
 	}
 
 	DatasetCache struct {
@@ -57,7 +55,7 @@ type (
 		Value       string `json:"value"`
 		Description string `json:"description,omitempty"`
 		Color       string `json:"color,omitempty"`
-		Id          uint   `json:"-"`
+		Id          int    `json:"-"`
 	}
 
 	Sample struct {
@@ -65,17 +63,17 @@ type (
 		Name     string `json:"name"`
 		//AltNames []NameValueType `json:"altNames"`
 		Metadata []*NameValueType `json:"metadata"`
-		Id       uint             `json:"id"`
+		Id       int              `json:"id"`
 	}
 
 	GexGene struct {
-		Ensembl    string `json:"ensembl,omitempty"`
-		Refseq     string `json:"refseq,omitempty"`
-		Hugo       string `json:"hugo,omitempty"`
-		Mgi        string `json:"mgi,omitempty"`
+		Ensembl string `json:"ensembl,omitempty"`
+		Refseq  string `json:"refseq,omitempty"`
+		//Hugo       string `json:"hugo,omitempty"`
+		//Mgi        string `json:"mgi,omitempty"`
 		GeneSymbol string `json:"geneSymbol"`
-		Ncbi       uint   `json:"ncbi,omitempty"`
-		Id         uint   `json:"-"`
+		Ncbi       int    `json:"ncbi,omitempty"`
+		Id         string `json:"id"` // hugo or mgi
 	}
 
 	SearchResults struct {
@@ -107,7 +105,6 @@ const (
 
 	DatasetSQL = `SELECT 
 		dataset.id,
-		dataset.public_id,
 		dataset.species,
 		dataset.technology,
 		dataset.platform,
@@ -118,7 +115,6 @@ const (
 
 	SamplesSQL = `SELECT
 		samples.id,
-		samples.public_id,
 		samples.name
 		FROM samples
 		ORDER BY samples.id`
@@ -133,7 +129,6 @@ const (
 
 	MetadataSQL = `SELECT
 		metadata.id,
-		metadata.public_id,
 		metadata_types.name,
 		metadata.value,
 		metadata.decription,
@@ -155,8 +150,6 @@ const (
 
 	GeneSQL = `SELECT 
 		genes.id, 
-		genes.hugo,
-		genes.mgi,
 		genes.ensembl,
 		genes.refseq,
 		genes.ncbi,
@@ -203,7 +196,7 @@ const (
 )
 
 var (
-	ExprTypeRMA = &ExprType{Id: 1, PublicId: sys.BlankUUID, Name: GexTypeRMA}
+	ExprTypeRMA = &ExprType{Id: sys.BlankUUID, Name: GexTypeRMA}
 )
 
 func NewDatasetCache(dir string, path string) *DatasetCache {
@@ -223,7 +216,6 @@ func (cache *DatasetCache) Dataset() (*Dataset, error) {
 
 	err = db.QueryRow(DatasetSQL).Scan(
 		&dataset.Id,
-		&dataset.PublicId,
 		&dataset.Species,
 		&dataset.Technology,
 		&dataset.Platform,
@@ -272,7 +264,6 @@ func (cache *DatasetCache) ExprTypes() ([]*ExprType, error) {
 
 		err := rows.Scan(
 			&exprType.Id,
-			&exprType.PublicId,
 			&exprType.Name)
 
 		if err != nil {
@@ -372,8 +363,8 @@ func (cache *DatasetCache) Samples() ([]*Sample, error) {
 		samples = append(samples, &sample)
 	}
 
-	var id uint
-	var sampleId uint
+	var id int
+	var sampleId int
 
 	// add sample alt names to samples
 
@@ -448,8 +439,6 @@ func (cache *DatasetCache) FindGenes(genes []string) ([]*GexGene, error) {
 		var gene GexGene
 		err := db.QueryRow(GeneSQL, g).Scan(
 			&gene.Id,
-			&gene.Hugo,
-			&gene.Mgi,
 			&gene.Ensembl,
 			&gene.Refseq,
 			&gene.Ncbi,
@@ -508,9 +497,9 @@ func (cache *DatasetCache) FindSeqValues(exprType *ExprType, geneIds []string) (
 // 		ExprType: exprType,
 // 		Features: make([]*ResultFeature, 0, len(genes))}
 
-// 	var id uint
-// 	var sampleId uint
-// 	var geneId uint
+// 	var id int
+// 	var sampleId int
+// 	var geneId int
 // 	var probeId sql.NullString
 // 	var value float32
 
@@ -582,12 +571,12 @@ func (cache *DatasetCache) Expr(exprType *ExprType, genes []*GexGene) (*SearchRe
 	defer db.Close()
 
 	ret := SearchResults{
-		Dataset:  dataset.PublicId,
+		Dataset:  dataset.Id,
 		ExprType: exprType,
 		Features: make([]*ResultFeature, 0, len(genes))}
 
-	var id uint
-	var geneId uint
+	var id int
+	var geneId int
 	var probeId sql.NullString
 	var blob []byte
 	var f float32

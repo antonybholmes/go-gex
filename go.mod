@@ -24,4 +24,4 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 )
 
-require github.com/antonybholmes/go-sys v0.0.0-20251118212006-fbb615d098c9
+require github.com/antonybholmes/go-sys v0.0.0-20251121215826-41c42c23076e
