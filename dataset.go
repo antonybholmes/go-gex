@@ -18,7 +18,7 @@ type (
 	}
 
 	Dataset struct {
-		Id         string `json:"Id"`
+		Id         string `json:"id"`
 		Name       string `json:"name"`
 		Species    string `json:"species"`
 		Technology string `json:"technology"`
@@ -31,7 +31,6 @@ type (
 	}
 
 	DatasetCache struct {
-
 		// directory where the sqlite db files are stored
 		dir string
 		// full path to the sqlite db file
@@ -50,20 +49,18 @@ type (
 	}
 
 	Metadata struct {
-		PublicId    string `json:"publicId"`
+		Id          string `json:"id"`
 		Name        string `json:"name"`
 		Value       string `json:"value"`
 		Description string `json:"description,omitempty"`
 		Color       string `json:"color,omitempty"`
-		Id          int    `json:"-"`
 	}
 
 	Sample struct {
-		PublicId string `json:"publicId"`
-		Name     string `json:"name"`
+		Id   string `json:"id"`
+		Name string `json:"name"`
 		//AltNames []NameValueType `json:"altNames"`
 		Metadata []*NameValueType `json:"metadata"`
-		Id       int              `json:"id"`
 	}
 
 	GexGene struct {
@@ -300,7 +297,6 @@ func (cache *DatasetCache) Metadata() ([]*Metadata, error) {
 
 		err := rows.Scan(
 			&m.Id,
-			&m.PublicId,
 			&m.Name,
 			&m.Value,
 			&m.Description,
@@ -347,7 +343,6 @@ func (cache *DatasetCache) Samples() ([]*Sample, error) {
 
 		err := rows.Scan(
 			&sample.Id,
-			&sample.PublicId,
 			&sample.Name)
 
 		if err != nil {
