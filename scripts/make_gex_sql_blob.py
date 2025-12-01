@@ -22,17 +22,19 @@ def load_sample_data(df: pd.DataFrame):  # , num_id_cols: int = 1):
     # id_names = df.columns.values[0:num_id_cols]
     sample_metadata_names = df.columns.values  # [num_id_cols:]
 
-    sample_id_map = collections.defaultdict(lambda: collections.defaultdict(str))
     sample_metadata_map = collections.defaultdict(lambda: collections.defaultdict(str))
 
-    sample_ids = df.iloc[:, 0].values
+    sample_names = df.iloc[:, 0].values
+    sample_id_map = {n: uuid.uuid7() for n in sample_names}
 
     for i, row in df.iterrows():
         values = row.astype(str).values
 
+        sample_name = sample_names[i]
+        id = sample_id_map[sample_name]
+
         # ids = values[0:num_id_cols]
 
-        sample_index = i + 1
         # alt_id_names = id_names  # [1:]
         # alt_ids = ids  # [1:]
 
@@ -69,12 +71,12 @@ def load_sample_data(df: pd.DataFrame):  # , num_id_cols: int = 1):
                         "samples": [],
                     }
 
-                sample_metadata_map[metadata_name][value]["samples"].append(
-                    sample_index
-                )
+                sample_metadata_map[metadata_name][value]["samples"].append(id)
+
+    print(sample_names)
 
     return [
-        sample_ids,
+        sample_names,
         sample_id_map,
         sample_metadata_names,
         sample_metadata_map,
@@ -205,7 +207,7 @@ gene_ids = []
 gene_id_map = {}
 prev_gene_id_map = {}
 alias_gene_id_map = {}
-gene_db_map = {}
+# gene_db_map = {}
 
 if args.species == "Mouse":
     file = "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/references/mgi/mgi_entrez_ensembl_gene_list_20240531.tsv"
@@ -232,7 +234,7 @@ if args.species == "Mouse":
         gene_id_map[ncbi] = mgi
 
         index = i + 1
-        gene_db_map[mgi] = index
+        # gene_db_map[mgi] = index
         # gene_db_map[gene_symbol] = index
         # gene_db_map[refseq] = index
         # gene_db_map[ncbi] = index
@@ -277,7 +279,7 @@ else:
             alias_gene_id_map[g] = hugo
 
         index = i + 1
-        gene_db_map[hugo] = index
+        # gene_db_map[hugo] = hugo  # index
         # gene_db_map[gene_symbol] = index
         # gene_db_map[refseq] = index
         # gene_db_map[ncbi] = index
@@ -303,7 +305,7 @@ df_samples = pd.read_csv(
 )
 
 
-sample_ids, sample_id_map, sample_metadata_names, sample_metadata_map = (
+sample_names, sample_id_map, sample_metadata_names, sample_metadata_map = (
     load_sample_data(df_samples)
 )
 
@@ -331,7 +333,9 @@ dataset = {
 # Write sql
 #
 
-with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w") as f:
+with open(
+    f"../data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w"
+) as f:
     print("BEGIN TRANSACTION;", file=f)
 
     print(
@@ -343,16 +347,12 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
 
     print("BEGIN TRANSACTION;", file=f)
 
-    sample_id_map = {}
-    for i, name in enumerate(sample_ids):
-        id = uuid.uuid7()
-
+    for i, sample_name in enumerate(sample_names):
+        id = sample_id_map[sample_name]
         print(
-            f"INSERT INTO samples (id, name) VALUES ('{id}', '{name}');",
+            f"INSERT INTO samples (id, name) VALUES ('{id}', '{sample_name}');",
             file=f,
         )
-
-        sample_id_map[name] = id
 
     print("COMMIT;", file=f)
 
@@ -399,7 +399,7 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
             color = sample_metadata_map[metadata_name][value]["color"]
 
             print(
-                f"INSERT INTO metadata (id, metadata_type_id, value, color) VALUES ('{id}', {metadata_type_id}, '{value}', '{color}');",
+                f"INSERT INTO metadata (id, metadata_type_id, value, color) VALUES ('{id}', '{metadata_type_id}', '{value}', '{color}');",
                 file=f,
             )
 
@@ -412,9 +412,13 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
     for mi, metadata_name in enumerate(sample_metadata_names):
         for value in sorted(sample_metadata_map[metadata_name]):
             metadata_id = metadata_map[metadata_name][value]
-            for name in sorted(sample_metadata_map[metadata_name][value]["samples"]):
+            for sample_id in sorted(
+                sample_metadata_map[metadata_name][value]["samples"]
+            ):
+                id = uuid.uuid7()
+
                 print(
-                    f"INSERT INTO sample_metadata (sample_id, metadata_id) VALUES ({name}, {metadata_id});",
+                    f"INSERT INTO sample_metadata (id, sample_id, metadata_id) VALUES ('{id}', '{sample_id}', '{metadata_id}');",
                     file=f,
                 )
 
@@ -424,7 +428,7 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
         rma_file = filetypes[0]["file"]
 
         load_data(
-            sample_ids,
+            sample_names,
             "RMA",
             rma_file,
             dataset_id,
@@ -435,7 +439,7 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
 
         print("BEGIN TRANSACTION;", file=f)
 
-        expr_type_map = {i: expr_type for i, expr_type in enumerate(expr_types)}
+        expr_type_map = {expr_type: uuid.uuid7() for expr_type in expr_types}
 
         for expr_type in expr_types:
             id = uuid.uuid7()
@@ -455,7 +459,7 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
                 for gene_symbol in sorted(exp_map[dataset_id][probe_id]):
                     values = exp_map[dataset_id][probe_id][gene_symbol]["RMA"]
 
-                    gene_id = gene_db_map[gene_symbol]
+                    gene_id = gene_id_map[gene_symbol]
 
                     binary_data = struct.pack("<" + "f" * len(values), *values)
 
@@ -463,8 +467,10 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
 
                     blob_literal = f"X'{hex_data}'"
 
+                    expr_type_id = expr_type_map["RMA"]
+
                     print(
-                        f"INSERT INTO expr (gene_id, probe_id, expr_type_id, data) VALUES ({gene_id}, '{probe_id}', 1, {blob_literal});",
+                        f"INSERT INTO expr (gene_id, probe_id, expr_type_id, data) VALUES ('{gene_id}', '{probe_id}', '{expr_type_id}', {blob_literal});",
                         file=f,
                     )
 
@@ -485,7 +491,7 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
 
             counts_file = ft["file"]
             load_data(
-                sample_ids,
+                sample_names,
                 ft["type"],
                 counts_file,
                 dataset_id,
@@ -533,7 +539,7 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
         for dataset_id in sorted(exp_map):
             for probe_id in sorted(exp_map[dataset_id]):
                 for gene_symbol in sorted(exp_map[dataset_id][probe_id]):
-                    gene_id = gene_db_map[gene_symbol]
+                    gene_id = gene_id_map[gene_symbol]
 
                     for data_type in expr_types:
 
@@ -551,8 +557,10 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
 
                         blob_literal = f"X'{hex_data}'"
 
+                        id = uuid.uuid7()
+
                         print(
-                            f"INSERT INTO expr (gene_id, expr_type_id, data) VALUES ({gene_id}, {expr_type_id}, {blob_literal});",
+                            f"INSERT INTO expr (id, gene_id, expr_type_id, data) VALUES ('{id}', '{gene_id}', '{expr_type_id}', {blob_literal});",
                             file=f,
                         )
 
@@ -567,14 +575,14 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
 
 
 with open(
-    f"../../data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "a"
+    f"../data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "a"
 ) as f:
     print("BEGIN TRANSACTION;", file=f)
 
     for i, id in enumerate(gene_ids):
         gene = official_symbols[id]
 
-        fields = [{"name": "id", "value": i + 1}]
+        fields = []  # {"name": "id", "value": i + 1}]
 
         for key, value in gene.items():
             if value != "":

@@ -1,63 +1,64 @@
-for f in `find data/modules/gex/Human/Microarray | grep sql`
+for f in `find ../data/modules/gex/Human/Microarray | grep sql`
 do
     echo ${f}
     name=`echo ${f} | sed -r 's/.sql//'`
     rm ${name}.db
-    cat scripts/core.sql | sqlite3 ${name}.db
+    cat core.sql | sqlite3 ${name}.db
     cat ${f} | sqlite3 ${name}.db
-    cat scripts/indexes.sql | sqlite3 ${name}.db
+    cat indexes.sql | sqlite3 ${name}.db
 done
 
-for f in `find data/modules/gex/Mouse/Microarray | grep sql`
+ 
+for f in `find ../data/modules/gex/Mouse/Microarray | grep sql`
 do
     name=`echo ${f} | sed -r 's/.sql//'`
     rm ${name}.db
-    cat scripts/core.sql | sqlite3 ${name}.db
+    cat core.sql | sqlite3 ${name}.db
     cat ${f} | sqlite3 ${name}.db
-    cat scripts/indexes.sql | sqlite3 ${name}.db
+    cat indexes.sql | sqlite3 ${name}.db
 done
 
 #exit(0)
 
-for f in `find data/modules/gex/Human/scRNA-seq | grep sql`
+for f in `find ../data/modules/gex/Human/scRNA-seq | grep sql`
 do
     echo ${f}
     name=`echo ${f} | sed -r 's/.sql//'`
     rm ${name}.db
-    cat scripts/core.sql | sqlite3 ${name}.db
+    cat core.sql | sqlite3 ${name}.db
     cat ${f} | sqlite3 ${name}.db
-    cat scripts/indexes.sql | sqlite3 ${name}.db
+    cat indexes.sql | sqlite3 ${name}.db
 done
 
-for f in `find data/modules/gex/Mouse/scRNA-seq | grep sql`
+for f in `find ../data/modules/gex/Mouse/scRNA-seq | grep sql`
 do
     echo ${f}
     name=`echo ${f} | sed -r 's/.sql//'`
     rm ${name}.db
-    cat scripts/core.sql | sqlite3 ${name}.db
+    cat core.sql | sqlite3 ${name}.db
     cat ${f} | sqlite3 ${name}.db
-    cat scripts/indexes.sql | sqlite3 ${name}.db
+    cat indexes.sql | sqlite3 ${name}.db
 done
 
  
 
-for f in `find data/modules/gex/Human/RNA-seq | grep sql`
+for f in `find ../data/modules/gex/Human/RNA-seq | grep sql`
 do
     echo ${f}
     name=`echo ${f} | sed -r 's/.sql//'`
     rm ${name}.db
-    cat scripts/core.sql | sqlite3 ${name}.db
+    cat core.sql | sqlite3 ${name}.db
     cat ${f} | sqlite3 ${name}.db
-    cat scripts/indexes.sql | sqlite3 ${name}.db
+    cat indexes.sql | sqlite3 ${name}.db
 done
 
-for f in `find data/modules/gex/Mouse/RNA-seq | grep sql`
+for f in `find ../data/modules/gex/Mouse/RNA-seq | grep sql`
 do
     name=`echo ${f} | sed -r 's/.sql//'`
     rm ${name}.db
-    cat scripts/core.sql | sqlite3 ${name}.db
+    cat core.sql | sqlite3 ${name}.db
     cat ${f} | sqlite3 ${name}.db
-    cat scripts/indexes.sql | sqlite3 ${name}.db
+    cat indexes.sql | sqlite3 ${name}.db
 done
 
 

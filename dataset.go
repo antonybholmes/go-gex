@@ -64,13 +64,11 @@ type (
 	}
 
 	GexGene struct {
-		Ensembl string `json:"ensembl,omitempty"`
-		Refseq  string `json:"refseq,omitempty"`
-		//Hugo       string `json:"hugo,omitempty"`
-		//Mgi        string `json:"mgi,omitempty"`
+		Ensembl    string `json:"ensembl,omitempty"`
+		Refseq     string `json:"refseq,omitempty"`
 		GeneSymbol string `json:"geneSymbol"`
+		Id         string `json:"id"`
 		Ncbi       int    `json:"ncbi,omitempty"`
-		Id         string `json:"id"` // hugo or mgi
 	}
 
 	SearchResults struct {
@@ -152,10 +150,9 @@ const (
 		genes.ncbi,
 		genes.gene_symbol 
 		FROM genes
-		WHERE genes.gene_symbol LIKE ?1 OR 
-		genes.hugo = ?1 OR 
-		genes.ensembl LIKE ?1 OR 
-		genes.refseq LIKE ?1 
+		WHERE genes.gene_symbol LIKE :id OR
+		genes.ensembl LIKE :id OR 
+		genes.refseq LIKE :id 
 		LIMIT 1`
 
 	// ExprSQL = `SELECT
@@ -176,12 +173,11 @@ const (
 		expr.probe_id,
 		data
 		FROM expr 
-		WHERE expr.gene_id = ?1 AND
-		expr.expr_type_id = ?2`
+		WHERE expr.gene_id = :gene_id AND
+		expr.expr_type_id = :expr_type_id`
 
 	ExprTypesSQL = `SELECT
 		expr_types.id,
-		expr_types.public_id,
 		expr_types.name
 		FROM expr_types
 		ORDER BY expr_types.id`
@@ -337,6 +333,7 @@ func (cache *DatasetCache) Samples() ([]*Sample, error) {
 	defer rows.Close()
 
 	samples := make([]*Sample, 0, DefaultNumSamples)
+	sampleMap := make(map[string]*Sample)
 
 	for rows.Next() {
 		var sample Sample
@@ -346,6 +343,7 @@ func (cache *DatasetCache) Samples() ([]*Sample, error) {
 			&sample.Name)
 
 		if err != nil {
+
 			return nil, err
 		}
 
@@ -356,10 +354,11 @@ func (cache *DatasetCache) Samples() ([]*Sample, error) {
 		sample.Metadata = make([]*NameValueType, 0, 10)
 
 		samples = append(samples, &sample)
+		sampleMap[sample.Id] = &sample
 	}
 
-	var id int
-	var sampleId int
+	var id string
+	var sampleId string
 
 	// add sample alt names to samples
 
@@ -405,12 +404,11 @@ func (cache *DatasetCache) Samples() ([]*Sample, error) {
 		err := rows.Scan(&id, &sampleId, &nv.Name, &nv.Value, &nv.Color)
 
 		if err != nil {
+			log.Error().Msgf("error scanning sample: %v", err)
 			return nil, err
 		}
 
-		index := sampleId - 1
-
-		samples[index].Metadata = append(samples[index].Metadata, &nv)
+		sampleMap[sampleId].Metadata = append(sampleMap[sampleId].Metadata, &nv)
 	}
 
 	return samples, nil
@@ -432,7 +430,7 @@ func (cache *DatasetCache) FindGenes(genes []string) ([]*GexGene, error) {
 
 	for _, g := range genes {
 		var gene GexGene
-		err := db.QueryRow(GeneSQL, g).Scan(
+		err := db.QueryRow(GeneSQL, sql.Named("id", g)).Scan(
 			&gene.Id,
 			&gene.Ensembl,
 			&gene.Refseq,
@@ -442,7 +440,7 @@ func (cache *DatasetCache) FindGenes(genes []string) ([]*GexGene, error) {
 		if err != nil {
 			// log that we couldn't find a gene, but continue
 			// anyway to find as many as possible
-			log.Info().Msgf("gene not found: %s", g)
+			log.Error().Msgf("gene not found: %s: %v", g, err)
 
 			//return nil, err
 			continue
@@ -557,6 +555,8 @@ func (cache *DatasetCache) Expr(exprType *ExprType, genes []*GexGene) (*SearchRe
 		return nil, err
 	}
 
+	log.Debug().Msgf("finding expr values for %d genes", len(genes))
+
 	db, err := sql.Open(sys.Sqlite3DB, cache.db)
 
 	if err != nil {
@@ -570,21 +570,22 @@ func (cache *DatasetCache) Expr(exprType *ExprType, genes []*GexGene) (*SearchRe
 		ExprType: exprType,
 		Features: make([]*ResultFeature, 0, len(genes))}
 
-	var id int
-	var geneId int
+	var id string
+	var geneId string
 	var probeId sql.NullString
 	var blob []byte
 	var f float32
 
 	for _, gene := range genes {
 
-		err := db.QueryRow(ExprSQL, gene.Id, exprType.Id).Scan(
+		err := db.QueryRow(ExprSQL, sql.Named("gene_id", gene.Id), sql.Named("expr_type_id", exprType.Id)).Scan(
 			&id,
 			&geneId,
 			&probeId,
 			&blob)
 
 		if err != nil {
+			log.Error().Msgf("error querying expr for gene %s: %v", gene.GeneSymbol, err)
 			return nil, err
 		}
 

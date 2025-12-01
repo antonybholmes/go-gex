@@ -38,7 +38,7 @@ const (
 	TechnologiesSQL = `SELECT
 		datasets.platform
 		FROM datasets
-		WHERE datasets.species = ?1 
+		WHERE datasets.species = :species 
 		ORDER BY datasets.platform`
 
 	AllTechnologiesSQL = `SELECT DISTINCT 
@@ -50,14 +50,14 @@ const (
 		datasets.id,
 		datasets.path
 		FROM datasets 
-		WHERE datasets.species = ?1 AND datasets.technology = ?2
+		WHERE datasets.species = :species AND datasets.technology = :technology
 		ORDER BY datasets.id`
 
-	DatasetFromPublicIdSQL = `SELECT 
+	DatasetFromIdSQL = `SELECT 
 		datasets.id,
 		datasets.path
 		FROM datasets 
-		WHERE datasets.public_id = ?1`
+		WHERE datasets.id = :id`
 )
 
 func NewDatasetsCache(dir string) *DatasetsCache {
@@ -126,7 +126,7 @@ func (cache *DatasetsCache) Technologies(species string) ([]string, error) {
 
 	platforms := make([]string, 0, 10)
 
-	rows, err := db.Query(TechnologiesSQL, species)
+	rows, err := db.Query(TechnologiesSQL, sql.Named("species", species))
 
 	if err != nil {
 		return nil, err
@@ -209,7 +209,7 @@ func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Data
 
 	defer db.Close()
 
-	datasetRows, err := db.Query(DatasetsSQL, species, technology)
+	datasetRows, err := db.Query(DatasetsSQL, sql.Named("species", species), sql.Named("technology", technology))
 
 	if err != nil {
 		return nil, err
@@ -217,7 +217,7 @@ func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Data
 
 	defer datasetRows.Close()
 
-	var id int
+	var id string
 	var path string
 
 	datasets := make([]*Dataset, 0, 10)
@@ -261,10 +261,10 @@ func (cache *DatasetsCache) DatasetCacheFromId(datasetId string) (*DatasetCache,
 
 	defer db.Close()
 
-	var id int
+	var id string
 	var path string
 
-	err = db.QueryRow(DatasetFromPublicIdSQL, datasetId).Scan(
+	err = db.QueryRow(DatasetFromIdSQL, sql.Named("id", datasetId)).Scan(
 		&id,
 		&path)
 
@@ -319,6 +319,7 @@ func (cache *DatasetsCache) FindSeqValues(datasetId string,
 	c, err := cache.DatasetCacheFromId(datasetId)
 
 	if err != nil {
+		log.Error().Msgf("error finding dataset cache from id %s: %v", datasetId, err)
 		return nil, err
 	}
 
