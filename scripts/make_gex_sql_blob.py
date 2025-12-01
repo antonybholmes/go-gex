@@ -278,7 +278,6 @@ else:
         for g in [x.strip() for x in df_hugo["Alias symbols"].values[i].split(",")]:
             alias_gene_id_map[g] = hugo
 
-        index = i + 1
         # gene_db_map[hugo] = hugo  # index
         # gene_db_map[gene_symbol] = index
         # gene_db_map[refseq] = index
@@ -318,10 +317,10 @@ sample_names, sample_id_map, sample_metadata_names, sample_metadata_map = (
 
 dataset_name = args.name
 file_id = get_file_id(dataset_name)
-dataset_id = uuid.uuid7()
+
 # f"{args.technology.lower()}:{uuid.uuid7()}"  # generate("0123456789abcdefghijklmnopqrstuvwxyz", 12)
 dataset = {
-    "dataset_id": dataset_id,
+    "dataset_id": uuid.uuid7(),
     "name": dataset_name,
     "institution": args.institution,
     "technology": args.technology,
