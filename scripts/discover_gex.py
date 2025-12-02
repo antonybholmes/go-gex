@@ -58,13 +58,38 @@ for root, dirs, files in os.walk(dir):
 
             conn.close()
 
-with open(os.path.join(dir, "gex.sql"), "w") as f:
-    print("BEGIN TRANSACTION;", file=f)
-    for row in data:
-        values = ", ".join([f"'{v}'" for v in row])
-        print(
-            f"INSERT INTO datasets (id, species, technology, platform, institution, name, description, path) VALUES ({values});",
-            file=f,
-        )
+conn = sqlite3.connect(os.path.join(dir, "gex.db"))
+cursor = conn.cursor()
 
-    print("COMMIT;", file=f)
+cursor.execute("PRAGMA journal_mode = WAL;")
+cursor.execute("PRAGMA foreign_keys = ON;")
+
+cursor.execute("BEGIN TRANSACTION;")
+
+cursor.execute("DROP TABLE IF EXISTS datasets;")
+cursor.execute(
+    """ CREATE TABLE datasets (
+	id TEXT PRIMARY KEY ASC,
+	species TEXT NOT NULL,
+	technology TEXT NOT NULL,
+	platform TEXT NOT NULL,
+	institution TEXT NOT NULL,
+	name TEXT NOT NULL UNIQUE,
+	path TEXT NOT NULL,
+	description TEXT NOT NULL DEFAULT '');
+    """
+)
+
+cursor.execute("COMMIT;")
+
+cursor.execute("BEGIN TRANSACTION;")
+for row in data:
+    values = ", ".join([f"'{v}'" for v in row])
+    cursor.execute(
+        f"INSERT INTO datasets (id, species, technology, platform, institution, name, description, path) VALUES ({values});",
+    )
+
+cursor.execute("COMMIT;")
+
+conn.commit()
+conn.close()
