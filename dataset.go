@@ -30,11 +30,12 @@ type (
 		ExprTypes   []*ExprType `json:"exprTypes"`
 	}
 
-	DatasetCache struct {
+	DatasetDB struct {
 		// directory where the sqlite db files are stored
 		dir string
-		// full path to the sqlite db file
-		db string
+		// full path to the sqlite path file
+		path string
+		db   *sql.DB
 	}
 
 	Idtype struct {
@@ -192,22 +193,21 @@ var (
 	ExprTypeRMA = &ExprType{Id: sys.BlankUUID, Name: GexTypeRMA}
 )
 
-func NewDatasetCache(dir string, path string) *DatasetCache {
+func NewDatasetDB(dir string, path string) *DatasetDB {
+	path = filepath.Join(dir, path)
 
-	return &DatasetCache{dir: dir, db: filepath.Join(dir, path)}
+	return &DatasetDB{dir: dir, path: path, db: sys.Must(sql.Open(sys.Sqlite3DB, path))}
 }
 
-func (cache *DatasetCache) Dataset() (*Dataset, error) {
+func (dsdb *DatasetDB) Close() error {
+	return dsdb.db.Close()
+}
 
-	db, err := sql.Open(sys.Sqlite3DB, cache.db)
-
-	if err != nil {
-		return nil, err
-	}
+func (dsdb *DatasetDB) Dataset() (*Dataset, error) {
 
 	var dataset Dataset
 
-	err = db.QueryRow(DatasetSQL).Scan(
+	err := dsdb.db.QueryRow(DatasetSQL).Scan(
 		&dataset.Id,
 		&dataset.Species,
 		&dataset.Technology,
@@ -220,13 +220,13 @@ func (cache *DatasetCache) Dataset() (*Dataset, error) {
 		return nil, err
 	}
 
-	dataset.Samples, err = cache.Samples()
+	dataset.Samples, err = dsdb.Samples()
 
 	if err != nil {
 		return nil, err
 	}
 
-	dataset.ExprTypes, err = cache.ExprTypes()
+	dataset.ExprTypes, err = dsdb.ExprTypes()
 
 	if err != nil {
 		return nil, err
@@ -235,14 +235,9 @@ func (cache *DatasetCache) Dataset() (*Dataset, error) {
 	return &dataset, nil
 }
 
-func (cache *DatasetCache) ExprTypes() ([]*ExprType, error) {
-	db, err := sql.Open(sys.Sqlite3DB, cache.db)
+func (dsdb *DatasetDB) ExprTypes() ([]*ExprType, error) {
 
-	if err != nil {
-		return nil, err
-	}
-
-	rows, err := db.Query(ExprTypesSQL)
+	rows, err := dsdb.db.Query(ExprTypesSQL)
 
 	if err != nil {
 		return nil, err
@@ -266,19 +261,12 @@ func (cache *DatasetCache) ExprTypes() ([]*ExprType, error) {
 		exprTypes = append(exprTypes, &exprType)
 	}
 
-	db.Close()
-
 	return exprTypes, nil
 }
 
-func (cache *DatasetCache) Metadata() ([]*Metadata, error) {
-	db, err := sql.Open(sys.Sqlite3DB, cache.db)
+func (dsdb *DatasetDB) Metadata() ([]*Metadata, error) {
 
-	if err != nil {
-		return nil, err
-	}
-
-	rows, err := db.Query(MetadataSQL)
+	rows, err := dsdb.db.Query(MetadataSQL)
 
 	if err != nil {
 		return nil, err
@@ -305,26 +293,16 @@ func (cache *DatasetCache) Metadata() ([]*Metadata, error) {
 		metadata = append(metadata, &m)
 	}
 
-	db.Close()
-
 	return metadata, nil
 }
 
-func (cache *DatasetCache) Dir() string {
-	return cache.dir
+func (dsdb *DatasetDB) Dir() string {
+	return dsdb.dir
 }
 
-func (cache *DatasetCache) Samples() ([]*Sample, error) {
+func (dsdb *DatasetDB) Samples() ([]*Sample, error) {
 
-	db, err := sql.Open(sys.Sqlite3DB, cache.db)
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer db.Close()
-
-	rows, err := db.Query(SamplesSQL)
+	rows, err := dsdb.db.Query(SamplesSQL)
 
 	if err != nil {
 		return nil, err
@@ -390,7 +368,7 @@ func (cache *DatasetCache) Samples() ([]*Sample, error) {
 
 	// add sample metadata to samples
 
-	rows, err = db.Query(SampleMetadataSQL)
+	rows, err = dsdb.db.Query(SampleMetadataSQL)
 
 	if err != nil {
 		return nil, err
@@ -416,21 +394,13 @@ func (cache *DatasetCache) Samples() ([]*Sample, error) {
 
 // FindGenes looks up genes by their gene symbol, hugo id, ensembl id or refseq id
 // since expr values are stored by gene id
-func (cache *DatasetCache) FindGenes(genes []string) ([]*GexGene, error) {
-
-	db, err := sql.Open(sys.Sqlite3DB, cache.db)
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer db.Close()
+func (dsdb *DatasetDB) FindGenes(genes []string) ([]*GexGene, error) {
 
 	ret := make([]*GexGene, 0, len(genes))
 
 	for _, g := range genes {
 		var gene GexGene
-		err := db.QueryRow(GeneSQL, sql.Named("id", g)).Scan(
+		err := dsdb.db.QueryRow(GeneSQL, sql.Named("id", g)).Scan(
 			&gene.Id,
 			&gene.Ensembl,
 			&gene.Refseq,
@@ -452,15 +422,15 @@ func (cache *DatasetCache) FindGenes(genes []string) ([]*GexGene, error) {
 	return ret, nil
 }
 
-func (cache *DatasetCache) FindSeqValues(exprType *ExprType, geneIds []string) (*SearchResults, error) {
+func (dsdb *DatasetDB) FindSeqValues(exprType *ExprType, geneIds []string) (*SearchResults, error) {
 
-	genes, err := cache.FindGenes(geneIds)
+	genes, err := dsdb.FindGenes(geneIds)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return cache.Expr(exprType, genes)
+	return dsdb.Expr(exprType, genes)
 }
 
 // func (cache *DatasetCache) Expr(exprType *ExprType, genes []*GexGene) (*SearchResults, error) {
@@ -541,15 +511,15 @@ func (cache *DatasetCache) FindSeqValues(exprType *ExprType, geneIds []string) (
 // }
 
 // using binary blobs for expression values
-func (cache *DatasetCache) Expr(exprType *ExprType, genes []*GexGene) (*SearchResults, error) {
+func (dsdb *DatasetDB) Expr(exprType *ExprType, genes []*GexGene) (*SearchResults, error) {
 
-	dataset, err := cache.Dataset()
+	dataset, err := dsdb.Dataset()
 
 	if err != nil {
 		return nil, err
 	}
 
-	samples, err := cache.Samples()
+	samples, err := dsdb.Samples()
 
 	if err != nil {
 		return nil, err
@@ -557,7 +527,7 @@ func (cache *DatasetCache) Expr(exprType *ExprType, genes []*GexGene) (*SearchRe
 
 	log.Debug().Msgf("finding expr values for %d genes", len(genes))
 
-	db, err := sql.Open(sys.Sqlite3DB, cache.db)
+	db, err := sql.Open(sys.Sqlite3DB, dsdb.path)
 
 	if err != nil {
 		return nil, err
@@ -618,13 +588,13 @@ func (cache *DatasetCache) Expr(exprType *ExprType, genes []*GexGene) (*SearchRe
 	return &ret, nil
 }
 
-func (cache *DatasetCache) FindMicroarrayValues(geneIds []string) (*SearchResults, error) {
+func (dsdb *DatasetDB) FindMicroarrayValues(geneIds []string) (*SearchResults, error) {
 
-	genes, err := cache.FindGenes(geneIds)
+	genes, err := dsdb.FindGenes(geneIds)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return cache.Expr(ExprTypeRMA, genes)
+	return dsdb.Expr(ExprTypeRMA, genes)
 }

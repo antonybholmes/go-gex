@@ -4,7 +4,8 @@ import (
 	"errors"
 
 	"github.com/antonybholmes/go-gex"
-	"github.com/antonybholmes/go-gex/gexdbcache"
+	"github.com/antonybholmes/go-gex/gexdb"
+
 	"github.com/antonybholmes/go-web"
 	"github.com/gin-gonic/gin"
 )
@@ -32,7 +33,7 @@ func parseParamsFromPost(c *gin.Context) (*GexParams, error) {
 
 func SpeciesRoute(c *gin.Context) {
 
-	types, err := gexdbcache.Species()
+	types, err := gexdb.Species()
 
 	if err != nil {
 		c.Error(err)
@@ -44,7 +45,7 @@ func SpeciesRoute(c *gin.Context) {
 
 func TechnologiesRoute(c *gin.Context) {
 
-	technologies := gexdbcache.Technologies() //gexdbcache.Technologies()
+	technologies := gexdb.Technologies() //gexdbcache.Technologies()
 
 	web.MakeDataResp(c, "", technologies)
 }
@@ -58,7 +59,7 @@ func ExprTypesRoute(c *gin.Context) {
 		return
 	}
 
-	exprTypes, err := gexdbcache.ExprTypes(params.Datasets)
+	exprTypes, err := gexdb.ExprTypes(params.Datasets)
 
 	if err != nil {
 		c.Error(err)
@@ -74,7 +75,7 @@ func GexDatasetsRoute(c *gin.Context) {
 
 	technology := c.Param("technology")
 
-	datasets, err := gexdbcache.Datasets(species, technology)
+	datasets, err := gexdb.Datasets(species, technology)
 
 	if err != nil {
 		c.Error(err)
@@ -96,7 +97,7 @@ func GexGeneExprRoute(c *gin.Context) {
 	// they must all be of the same type so that we do not
 	// mix microarray and rna-seq searches together for example
 	if params.ExprType == nil {
-		web.BadReqResp(c, errors.New("exprType is required"))
+		web.BadReqResp(c, errors.New("expr type is required"))
 		return
 	}
 
@@ -109,7 +110,7 @@ func GexGeneExprRoute(c *gin.Context) {
 	if params.ExprType.Name == "Microarray" {
 		// microarray
 		for _, datasetId := range params.Datasets {
-			ret, err := gexdbcache.FindMicroarrayValues(datasetId, params.Genes)
+			ret, err := gexdb.FindMicroarrayValues(datasetId, params.Genes)
 
 			if err != nil {
 				c.Error(err)
@@ -120,7 +121,7 @@ func GexGeneExprRoute(c *gin.Context) {
 		}
 	} else {
 		for _, datasetId := range params.Datasets {
-			ret, err := gexdbcache.FindSeqValues(datasetId, params.ExprType, params.Genes)
+			ret, err := gexdb.FindSeqValues(datasetId, params.ExprType, params.Genes)
 
 			if err != nil {
 				c.Error(err)

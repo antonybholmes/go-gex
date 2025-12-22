@@ -1,4 +1,4 @@
-package gexdbcache
+package gexdb
 
 import (
 	"sync"
@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	instance *gex.DatasetsCache
+	instance *gex.GexDB
 	once     sync.Once
 
 	technologies = []gex.Technology{
@@ -24,15 +24,15 @@ func Technologies() []gex.Technology {
 	return technologies
 }
 
-func InitCache(dir string) (*gex.DatasetsCache, error) {
+func InitGexDB(dir string) (*gex.GexDB, error) {
 	once.Do(func() {
-		instance = gex.NewDatasetsCache(dir)
+		instance = gex.NewGexDB(dir)
 	})
 
 	return instance, nil
 }
 
-func GetInstance() *gex.DatasetsCache {
+func GetInstance() *gex.GexDB {
 	return instance
 }
 

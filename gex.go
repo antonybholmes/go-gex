@@ -16,9 +16,10 @@ type (
 		ExprTypes []ExprType `json:"exprTypes"`
 	}
 
-	DatasetsCache struct {
+	GexDB struct {
 		dir  string
 		path string
+		db   *sql.DB
 	}
 )
 
@@ -60,7 +61,7 @@ const (
 		WHERE datasets.id = :id`
 )
 
-func NewDatasetsCache(dir string) *DatasetsCache {
+func NewGexDB(dir string) *GexDB {
 
 	path := filepath.Join(dir, "gex.db")
 
@@ -72,25 +73,22 @@ func NewDatasetsCache(dir string) *DatasetsCache {
 
 	// defer db.Close()
 
-	return &DatasetsCache{dir: dir, path: path}
+	return &GexDB{dir: dir, path: path, db: sys.Must(sql.Open(sys.Sqlite3DB, path))}
 }
 
-func (cache *DatasetsCache) Dir() string {
-	return cache.dir
+func (gdb *GexDB) Close() error {
+	return gdb.db.Close()
 }
 
-func (cache *DatasetsCache) Species() ([]string, error) {
-	db, err := sql.Open(sys.Sqlite3DB, cache.path)
+func (gdb *GexDB) Dir() string {
+	return gdb.dir
+}
 
-	if err != nil {
-		return nil, err
-	}
-
-	defer db.Close()
+func (gdb *GexDB) Species() ([]string, error) {
 
 	species := make([]string, 0, 10)
 
-	rows, err := db.Query(SpeciesSql)
+	rows, err := gdb.db.Query(SpeciesSql)
 
 	if err != nil {
 		return nil, err
@@ -114,19 +112,11 @@ func (cache *DatasetsCache) Species() ([]string, error) {
 	return species, nil
 }
 
-func (cache *DatasetsCache) Technologies(species string) ([]string, error) {
-	db, err := sql.Open(sys.Sqlite3DB, cache.path)
-
-	if err != nil {
-
-		return nil, err
-	}
-
-	defer db.Close()
+func (gdb *GexDB) Technologies(species string) ([]string, error) {
 
 	platforms := make([]string, 0, 10)
 
-	rows, err := db.Query(TechnologiesSQL, sql.Named("species", species))
+	rows, err := gdb.db.Query(TechnologiesSQL, sql.Named("species", species))
 
 	if err != nil {
 		return nil, err
@@ -150,19 +140,11 @@ func (cache *DatasetsCache) Technologies(species string) ([]string, error) {
 	return platforms, nil
 }
 
-func (cache *DatasetsCache) AllTechnologies() (map[string]map[string][]string, error) {
-	db, err := sql.Open(sys.Sqlite3DB, cache.path)
-
-	if err != nil {
-
-		return nil, err
-	}
-
-	defer db.Close()
+func (gdb *GexDB) AllTechnologies() (map[string]map[string][]string, error) {
 
 	technologies := make(map[string]map[string][]string)
 
-	rows, err := db.Query(AllTechnologiesSQL)
+	rows, err := gdb.db.Query(AllTechnologiesSQL)
 
 	if err != nil {
 		return nil, err
@@ -199,17 +181,9 @@ func (cache *DatasetsCache) AllTechnologies() (map[string]map[string][]string, e
 	return technologies, nil
 }
 
-func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Dataset, error) {
+func (gdb *GexDB) Datasets(species string, technology string) ([]*Dataset, error) {
 
-	db, err := sql.Open(sys.Sqlite3DB, cache.path)
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer db.Close()
-
-	datasetRows, err := db.Query(DatasetsSQL, sql.Named("species", species), sql.Named("technology", technology))
+	datasetRows, err := gdb.db.Query(DatasetsSQL, sql.Named("species", species), sql.Named("technology", technology))
 
 	if err != nil {
 		return nil, err
@@ -236,11 +210,13 @@ func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Data
 		// so use that as an estimate
 		//dataset.Samples = make([]*Sample, 0, DatasetSize)
 
-		log.Debug().Msgf("db %s", filepath.Join(cache.dir, path))
+		log.Debug().Msgf("db %s", filepath.Join(gdb.dir, path))
 
-		datasetCache := NewDatasetCache(cache.dir, path)
+		dsdb := NewDatasetDB(gdb.dir, path)
 
-		dataset, err := datasetCache.Dataset()
+		defer dsdb.Close()
+
+		dataset, err := dsdb.Dataset()
 
 		if err != nil {
 			return nil, err
@@ -252,19 +228,12 @@ func (cache *DatasetsCache) Datasets(species string, technology string) ([]*Data
 	return datasets, nil
 }
 
-func (cache *DatasetsCache) DatasetCacheFromId(datasetId string) (*DatasetCache, error) {
-	db, err := sql.Open(sys.Sqlite3DB, cache.path)
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer db.Close()
+func (gdb *GexDB) DatasetCacheFromId(datasetId string) (*DatasetDB, error) {
 
 	var id string
 	var path string
 
-	err = db.QueryRow(DatasetFromIdSQL, sql.Named("id", datasetId)).Scan(
+	err := gdb.db.QueryRow(DatasetFromIdSQL, sql.Named("id", datasetId)).Scan(
 		&id,
 		&path)
 
@@ -272,23 +241,25 @@ func (cache *DatasetsCache) DatasetCacheFromId(datasetId string) (*DatasetCache,
 		return nil, err
 	}
 
-	datasetCache := NewDatasetCache(cache.dir, path)
+	datasetCache := NewDatasetDB(gdb.dir, path)
 
 	return datasetCache, nil
 }
 
-func (cache *DatasetsCache) ExprTypes(datasetIds []string) ([]*ExprType, error) {
+func (gdb *GexDB) ExprTypes(datasetIds []string) ([]*ExprType, error) {
 
 	allExprTypes := make(map[string]*ExprType)
 
 	for _, datasetId := range datasetIds {
-		c, err := cache.DatasetCacheFromId(datasetId)
+		dsdb, err := gdb.DatasetCacheFromId(datasetId)
 
 		if err != nil {
 			return nil, err
 		}
 
-		exprTypes, err := c.ExprTypes()
+		defer dsdb.Close()
+
+		exprTypes, err := dsdb.ExprTypes()
 
 		if err != nil {
 			return nil, err
@@ -312,18 +283,20 @@ func (cache *DatasetsCache) ExprTypes(datasetIds []string) ([]*ExprType, error) 
 	return ret, nil
 }
 
-func (cache *DatasetsCache) FindSeqValues(datasetId string,
+func (gdb *GexDB) FindSeqValues(datasetId string,
 	exprType *ExprType,
 	geneIds []string) (*SearchResults, error) {
 
-	c, err := cache.DatasetCacheFromId(datasetId)
+	dsdb, err := gdb.DatasetCacheFromId(datasetId)
 
 	if err != nil {
 		log.Error().Msgf("error finding dataset cache from id %s: %v", datasetId, err)
 		return nil, err
 	}
 
-	res, err := c.FindSeqValues(exprType, geneIds)
+	defer dsdb.Close()
+
+	res, err := dsdb.FindSeqValues(exprType, geneIds)
 
 	if err != nil {
 		return nil, err
@@ -332,16 +305,18 @@ func (cache *DatasetsCache) FindSeqValues(datasetId string,
 	return res, nil
 }
 
-func (cache *DatasetsCache) FindMicroarrayValues(datasetId string,
+func (gdb *GexDB) FindMicroarrayValues(datasetId string,
 	geneIds []string) (*SearchResults, error) {
 
-	c, err := cache.DatasetCacheFromId(datasetId)
+	dsdb, err := gdb.DatasetCacheFromId(datasetId)
 
 	if err != nil {
 		return nil, err
 	}
 
-	res, err := c.FindMicroarrayValues(geneIds)
+	defer dsdb.Close()
+
+	res, err := dsdb.FindMicroarrayValues(geneIds)
 
 	if err != nil {
 		return nil, err
