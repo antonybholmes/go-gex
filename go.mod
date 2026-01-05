@@ -30,7 +30,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.57.1 // indirect
-	github.com/richardlehane/mscfb v1.0.4 // indirect
+	github.com/richardlehane/mscfb v1.0.5 // indirect
 	github.com/richardlehane/msoleps v1.0.4 // indirect
 	github.com/tiendc/go-deepcopy v1.7.2 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
@@ -48,7 +48,7 @@ require (
 )
 
 require (
-	github.com/antonybholmes/go-sys v0.0.0-20251215211105-61a3d71011f7
+	github.com/antonybholmes/go-sys v0.0.0-20251221180058-882857878f72
 	github.com/antonybholmes/go-web v0.0.0-20251215211100-5555b69aa3c0
 	github.com/gin-gonic/gin v1.11.0
 )
