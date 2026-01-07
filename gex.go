@@ -17,9 +17,9 @@ type (
 	}
 
 	GexDB struct {
+		db   *sql.DB
 		dir  string
 		path string
-		db   *sql.DB
 	}
 )
 

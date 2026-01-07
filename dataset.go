@@ -31,11 +31,9 @@ type (
 	}
 
 	DatasetDB struct {
-		// directory where the sqlite db files are stored
-		dir string
-		// full path to the sqlite path file
-		path string
 		db   *sql.DB
+		dir  string
+		path string
 	}
 
 	Idtype struct {
