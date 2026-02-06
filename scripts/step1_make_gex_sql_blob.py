@@ -1,16 +1,16 @@
+import argparse
 import collections
+import os
 import re
 import sqlite3
 import struct
 import sys
-import pandas as pd
+
 import numpy as np
-import os
+import pandas as pd
 
 # from nanoid import generate
 import uuid_utils as uuid
-import argparse
-
 
 DATA_TYPES = ["Counts", "TPM", "VST"]
 
@@ -24,16 +24,18 @@ def load_sample_data(df: pd.DataFrame):  # , num_id_cols: int = 1):
     # id_names = df.columns.values[0:num_id_cols]
     sample_metadata_names = df.columns.values  # [num_id_cols:]
 
-    sample_metadata_map = collections.defaultdict(lambda: collections.defaultdict(str))
+    sample_metadata_map = collections.defaultdict(lambda: collections.defaultdict(dict))
 
     sample_names = df.iloc[:, 0].values
-    sample_id_map = {n: uuid.uuid7() for n in sample_names}
+    sample_id_map = {
+        n: {"uuid": uuid.uuid7(), "index": i + 1} for i, n in enumerate(sample_names)
+    }
 
     for i, row in df.iterrows():
         values = row.astype(str).values
 
         sample_name = sample_names[i]
-        id = sample_id_map[sample_name]
+        id = sample_id_map[sample_name]["uuid"]
 
         # ids = values[0:num_id_cols]
 
@@ -62,18 +64,22 @@ def load_sample_data(df: pd.DataFrame):  # , num_id_cols: int = 1):
             if value != "":
                 color = ""
 
+                # we can color ABC/GCB types differently if we want
                 if "|" in value:
                     value, color = value.split("|")
                     value = value.strip()
                     color = color.strip()
 
-                if value not in sample_metadata_map[metadata_name]:
-                    sample_metadata_map[metadata_name][value] = {
-                        "color": color,
-                        "samples": [],
-                    }
+                # if value not in sample_metadata_map[metadata_name]:
+                #     sample_metadata_map[metadata_name][value] = {
+                #         "color": color,
+                #         "samples": [],
+                #     }
 
-                sample_metadata_map[metadata_name][value]["samples"].append(id)
+                sample_metadata_map[id][metadata_name] = {
+                    "value": value,
+                    "color": color,
+                }
 
     # print(sample_names)
 
@@ -223,6 +229,7 @@ if args.species == "Mouse":
         ncbi = df_mgi["entrez"].values[i].replace(" ", "")
 
         official_symbols[mgi] = {
+            "index": i + 1,
             "id": mgi,
             "gene_symbol": gene_symbol,
             "ensembl": ensembl,
@@ -261,6 +268,7 @@ else:
         ncbi = df_hugo["NCBI Gene ID"].values[i].replace(" ", "")
 
         official_symbols[hugo] = {
+            "index": i + 1,
             "id": hugo,
             "gene_symbol": gene_symbol,
             "ensembl": ensembl,
@@ -357,6 +365,7 @@ cursor.execute(
     f"""
     CREATE TABLE genes (
         id TEXT PRIMARY KEY ASC,
+        uuid TEXT NOT NULL UNIQUE,
         ensembl TEXT NOT NULL DEFAULT '',
         refseq TEXT NOT NULL DEFAULT '',
         ncbi INTEGER NOT NULL DEFAULT 0,
@@ -367,7 +376,7 @@ cursor.execute(
 cursor.execute(
     f"""
     CREATE TABLE dataset (
-        id TEXT PRIMARY KEY ASC,
+        id INTEGER PRIMARY KEY,
         species TEXT NOT NULL,
         technology TEXT NOT NULL,
         platform TEXT NOT NULL,
@@ -380,7 +389,8 @@ cursor.execute(
 cursor.execute(
     f"""
     CREATE TABLE samples (
-        id TEXT PRIMARY KEY ASC,
+        id INTEGER PRIMARY KEY,
+        uuid TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL UNIQUE,
         description TEXT NOT NULL DEFAULT '');
     """,
@@ -389,7 +399,8 @@ cursor.execute(
 cursor.execute(
     f"""
     CREATE TABLE metadata_types (
-        id TEXT PRIMARY KEY ASC,
+        id INTEGER PRIMARY KEY,
+        uuid TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL,
         description TEXT NOT NULL DEFAULT '',
         UNIQUE(name));
@@ -399,23 +410,22 @@ cursor.execute(
 cursor.execute(
     f"""
     CREATE TABLE metadata (
-        id TEXT PRIMARY KEY ASC,
-        metadata_type_id TEXT NOT NULL,
-        value TEXT NOT NULL,
+        id INTEGER PRIMARY KEY,
+        uuid TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL UNIQUE,
         description TEXT NOT NULL DEFAULT '',
-        color TEXT NOT NULL DEFAULT '',
-        UNIQUE(metadata_type_id, value, color),
-        FOREIGN KEY(metadata_type_id) REFERENCES metadata_types(id));
+        color TEXT NOT NULL DEFAULT '');
     """,
 )
 
 cursor.execute(
     f"""
     CREATE TABLE sample_metadata (
-        id TEXT PRIMARY KEY ASC,
-        sample_id TEXT NOT NULL,
-        metadata_id TEXT NOT NULL,
-        UNIQUE(sample_id, metadata_id),
+        sample_id INTEGER NOT NULL,
+        metadata_id INTEGER NOT NULL,
+        value TEXT NOT NULL DEFAULT '',
+        description TEXT NOT NULL DEFAULT '',
+        PRIMARY KEY(sample_id, metadata_id),
         FOREIGN KEY(sample_id) REFERENCES samples(id),
         FOREIGN KEY(metadata_id) REFERENCES metadata(id));
     """,
@@ -424,17 +434,19 @@ cursor.execute(
 cursor.execute(
     f"""
     CREATE TABLE expr_types (
-        id TEXT PRIMARY KEY ASC,
+        id INTEGER PRIMARY KEY,
+        uuid TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL UNIQUE,
         description TEXT NOT NULL DEFAULT ''
     );
     """,
 )
 
+# the blob will store float32 values for all samples for a given gene/probe
 cursor.execute(
     f"""
     CREATE TABLE expr (
-        id TEXT PRIMARY KEY ASC,
+        id INTEGER PRIMARY KEY,
         gene_id TEXT NOT NULL,
         probe_id TEXT NOT NULL DEFAULT '',
         expr_type_id TEXT NOT NULL,
@@ -450,7 +462,7 @@ cursor.execute("COMMIT;")
 cursor.execute("BEGIN TRANSACTION;")
 
 cursor.execute(
-    f"INSERT INTO dataset (id, name, species, institution, technology, platform) VALUES ('{dataset['dataset_id']}', '{dataset['name']}', '{dataset['species']}', '{dataset['institution']}', '{dataset['technology']}', '{dataset['platform']}');",
+    f"INSERT INTO dataset (id, uuid, name, species, institution, technology, platform) VALUES (1, '{dataset['dataset_id']}', '{dataset['name']}', '{dataset['species']}', '{dataset['institution']}', '{dataset['technology']}', '{dataset['platform']}');",
 )
 
 cursor.execute("COMMIT;")
@@ -506,7 +518,7 @@ for metadata_name in sample_metadata_names:
     id = uuid.uuid7()
 
     cursor.execute(
-        f"INSERT INTO metadata_types (id, name ) VALUES ('{id}', '{metadata_name}');",
+        f"INSERT INTO metadata_types (id, name) VALUES ('{id}', '{metadata_name}');",
     )
 
     metadata_type_map[metadata_name] = id
