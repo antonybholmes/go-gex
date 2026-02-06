@@ -1,0 +1,166 @@
+[
+  {
+    "genome": "Human",
+    "technology": "Microarray",
+    "platform": "HG-U133_Plus_2",
+    "institution": "Harvard DFCI",
+    "name": "Harvard DFCI Shipp DLBCL",
+    "idColCount": 2,
+    "phenotypes": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/microarray/data/human/other_labs/dlbcl_harvard_shipp/dlbcl/phenotypes_match_rma.txt",
+    "data": [
+      {
+        "type": "RMA",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/microarray/data/human/other_labs/dlbcl_harvard_shipp/dlbcl/shipp_dlbcl_rma_approved.tsv"
+      }
+    ]
+  },
+  {
+    "genome": "Human",
+    "technology": "Microarray",
+    "platform": "HG-U133_Plus_2",
+    "institution": "Columbia",
+    "name": "RDF DLBCL",
+    "idColCount": 2,
+    "phenotypes": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/microarray/data/human/rdf/hg-u133_plus2/dlbcl/phenotypes.tsv",
+    "data": [
+      {
+        "type": "RMA",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/microarray/data/human/rdf/hg-u133_plus2/dlbcl/dlbcl_rma_approved.tsv"
+      }
+    ]
+  },
+  {
+    "genome": "Human",
+    "technology": "scRNA-seq",
+    "platform": "",
+    "institution": "Columbia",
+    "name": "RDF Frontiers B-cells",
+    "idColCount": 1,
+    "phenotypes": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/scrna/data/human/rdf/katia/5p/analysis/RK01_02_03_04_05_06_07/analysis_vdj_cgene/no_ighd/no_cc/mast/phenotypes_ordered.txt",
+    "data": [
+      {
+        "type": "log2(CPM+1)",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/scrna/data/human/rdf/katia/5p/analysis/RK01_02_03_04_05_06_07/analysis_vdj_cgene/no_ighd/no_cc/mast/mast_all_RK01-07_for_heatmaps_avg_tpm_log2_simple.txt"
+      },
+      {
+        "type": "log2(FC)",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/scrna/data/human/rdf/katia/5p/analysis/RK01_02_03_04_05_06_07/analysis_vdj_cgene/no_ighd/no_cc/mast/mast_all_RK01_02_03_04_05_06_07_log2fc_simple.txt"
+      }
+    ]
+  },
+  {
+    "genome": "Human",
+    "technology": "RNA-seq",
+    "platform": "",
+    "institution": "Columbia",
+    "name": "RDF Frontiers B-cells",
+    "idColCount": 1,
+    "phenotypes": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/dlbcl_cell_lines_elodie_29/phenotypes.txt",
+    "data": [
+      {
+        "type": "Counts",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/dlbcl_cell_lines_elodie_29/counts_grch37v29_20221014_simple.tsv"
+      },
+      {
+        "type": "TPM",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/dlbcl_cell_lines_elodie_29/tpm_grch37v29_20221014_simple.tsv"
+      },
+      {
+        "type": "VST",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/dlbcl_cell_lines_elodie_29/vst_grch37v29_20221014_simple.tsv"
+      }
+    ]
+  },
+  {
+    "genome": "Human",
+    "technology": "RNA-seq",
+    "platform": "",
+    "institution": "BCCA",
+    "name": "BCCA Morin DLBCL 230",
+    "idColCount": 1,
+    "phenotypes": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/other_labs/BC_morin/dlbcl_ega_EGAD00001003783/324/grch37/analysis/phenotypes_230_renamed.txt",
+    "data": [
+      {
+        "type": "Counts",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/other_labs/BC_morin/dlbcl_ega_EGAD00001003783/324/grch37/analysis/counts_dup_grch37_20190507_renamed_230.tsv"
+      },
+      {
+        "type": "TPM",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/other_labs/BC_morin/dlbcl_ega_EGAD00001003783/324/grch37/analysis/tpm_grch37_20190508_renamed_230.tsv"
+      },
+      {
+        "type": "VST",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/other_labs/BC_morin/dlbcl_ega_EGAD00001003783/324/grch37/analysis/vst_grch37_20190507_renamed_230.tsv"
+      }
+    ]
+  },
+  {
+    "genome": "Human",
+    "technology": "RNA-seq",
+    "platform": "",
+    "institution": "Columbia",
+    "name": "RDF N/GC/M/DZ/LZ",
+    "idColCount": 1,
+    "phenotypes": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/phenotypes.tsv",
+    "data": [
+      {
+        "type": "Counts",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/n_gc_m_lz_dz_counts_restricted_gencode_grch38_20180724_simple.tsv"
+      },
+      {
+        "type": "TPM",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/n_gc_m_lz_dz_tpm_restricted_gencode_grch38_20180724_simple.tsv"
+      },
+      {
+        "type": "VST",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/vst_n_gc_m_lz_dz_restricted_gencode_grch38_20180724.txt"
+      }
+    ]
+  },
+  {
+    "genome": "Human",
+    "technology": "RNA-seq",
+    "platform": "",
+    "institution": "NCI",
+    "name": "NCI Staudt DLBCL 481",
+    "idColCount": 1,
+    "phenotypes": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/other_labs/nci_staudt/dlbcl/transcriptome/grch38/phenotypes.txt",
+    "data": [
+      {
+        "type": "Counts",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/other_labs/nci_staudt/dlbcl/transcriptome/grch38/counts_grch38_20190807_renamed.txt"
+      },
+      {
+        "type": "TPM",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/other_labs/nci_staudt/dlbcl/transcriptome/grch38/tpm_grch38_20190807_renamed.txt"
+      },
+      {
+        "type": "VST",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/other_labs/nci_staudt/dlbcl/transcriptome/grch38/vst_counts_grch38_20190807_renamed.txt"
+      }
+    ]
+  },
+  {
+    "genome": "Mouse",
+    "technology": "RNA-seq",
+    "platform": "",
+    "institution": "Osaka",
+    "name": "Kurosaki Bach2 high low",
+    "idColCount": 1,
+    "phenotypes": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/mouse/other_labs/kurosaki/bach2_high_low/analysis/phenotypes.tsv",
+    "data": [
+      {
+        "type": "Counts",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/mouse/other_labs/kurosaki/bach2_high_low/analysis/counts_grcm38_20241128_simple_cleaned.tsv"
+      },
+      {
+        "type": "TPM",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/mouse/other_labs/kurosaki/bach2_high_low/analysis/tpm_grcm38_20241128_simple_cleaned.tsv"
+      },
+      {
+        "type": "VST",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/mouse/other_labs/kurosaki/bach2_high_low/analysis/vst_grcm38_20241128_simple_cleaned.tsv"
+      }
+    ]
+  }
+]

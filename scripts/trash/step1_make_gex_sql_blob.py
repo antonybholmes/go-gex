@@ -195,7 +195,7 @@ parser.add_argument(
 parser.add_argument(
     "--platform", type=str, help="Sequencing platform, e.g. HG-U133_Plus_2", default=""
 )
-parser.add_argument("--species", type=str, help="Species, e.g. Human", default="Human")
+parser.add_argument("--genome", type=str, help="Species, e.g. Human", default="Human")
 
 # Parse the command line arguments
 args = parser.parse_args()
@@ -336,13 +336,13 @@ dataset = {
     "institution": args.institution,
     "technology": args.technology,
     "platform": args.platform,
-    "species": args.species,
+    "genome": args.genome,
 }
 
 #
 # Write sql
 #
-db = f"../data/modules/gex/{args.species}/{args.technology}/{file_id}.db"
+db = f"../data/modules/gex/{args.genome}/{args.technology}/{file_id}.db"
 
 print(f"Writing to {db}")
 
