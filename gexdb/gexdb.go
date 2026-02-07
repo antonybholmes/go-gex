@@ -12,11 +12,11 @@ var (
 	once     sync.Once
 
 	technologies = []gex.Technology{
-		{Id: sys.BlankUUID, Name: "RNA-seq", ExprTypes: []gex.ExprType{
+		{PublicId: sys.BlankUUID, Name: "RNA-seq", ExprTypes: []gex.ExprType{
 			{Id: sys.BlankUUID, Name: "Counts"},
 			{Id: sys.BlankUUID, Name: "TPM"},
 			{Id: sys.BlankUUID, Name: "VST"}}},
-		{Id: sys.BlankUUID, Name: "Microarray", ExprTypes: []gex.ExprType{{Id: sys.BlankUUID, Name: "RMA"}}},
+		{PublicId: sys.BlankUUID, Name: "Microarray", ExprTypes: []gex.ExprType{{Id: sys.BlankUUID, Name: "RMA"}}},
 	}
 )
 

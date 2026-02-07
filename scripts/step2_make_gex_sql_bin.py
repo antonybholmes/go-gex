@@ -306,7 +306,7 @@ cursor.execute(
     f"""
     CREATE TABLE genomes (
         id INTEGER PRIMARY KEY,
-        uuid TEXT NOT NULL UNIQUE,
+        public_id TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL,
         scientific_name TEXT NOT NULL,
         UNIQUE(name, scientific_name));
@@ -314,10 +314,10 @@ cursor.execute(
 )
 
 cursor.execute(
-    f"INSERT INTO genomes (id, uuid, name, scientific_name) VALUES (1, '{uuid.uuid7()}', 'Human', 'Homo sapiens');"
+    f"INSERT INTO genomes (id, public_id, name, scientific_name) VALUES (1, '{uuid.uuid7()}', 'Human', 'Homo sapiens');"
 )
 cursor.execute(
-    f"INSERT INTO genomes (id, uuid, name, scientific_name) VALUES (2, '{uuid.uuid7()}', 'Mouse', 'Mus musculus');"
+    f"INSERT INTO genomes (id, public_id, name, scientific_name) VALUES (2, '{uuid.uuid7()}', 'Mouse', 'Mus musculus');"
 )
 
 
@@ -325,7 +325,7 @@ cursor.execute(
     f"""
     CREATE TABLE genes (
         id INTEGER PRIMARY KEY,
-        uuid TEXT NOT NULL UNIQUE,
+        public_id TEXT NOT NULL UNIQUE,
         genome_id INTEGER NOT NULL,
         gene_id INTEGER NOT NULL,
         ensembl TEXT NOT NULL DEFAULT '',
@@ -340,7 +340,7 @@ cursor.execute(
     f"""
     CREATE TABLE probes (
         id INTEGER PRIMARY KEY,
-        uuid TEXT NOT NULL UNIQUE,
+        public_id TEXT NOT NULL UNIQUE,
         genome_id INTEGER NOT NULL,
         name TEXT NOT NULL,
         gene_id INTEGER NOT NULL,
@@ -354,27 +354,27 @@ cursor.execute(
     f"""
     CREATE TABLE technology (
         id INTEGER PRIMARY KEY,
-        uuid TEXT NOT NULL UNIQUE,
+        public_id TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL UNIQUE,
         description TEXT NOT NULL DEFAULT '');
     """,
 )
 
 cursor.execute(
-    f"INSERT INTO technology (id, uuid, name, description) VALUES (1, '{uuid.uuid7()}', 'RNA-seq', 'RNA sequencing');"
+    f"INSERT INTO technology (id, public_id, name, description) VALUES (1, '{uuid.uuid7()}', 'RNA-seq', 'RNA sequencing');"
 )
 cursor.execute(
-    f"INSERT INTO technology (id, uuid, name, description) VALUES (2, '{uuid.uuid7()}', 'Microarray', 'Microarray sequencing');"
+    f"INSERT INTO technology (id, public_id, name, description) VALUES (2, '{uuid.uuid7()}', 'Microarray', 'Microarray sequencing');"
 )
 cursor.execute(
-    f"INSERT INTO technology (id, uuid, name, description) VALUES (3, '{uuid.uuid7()}', 'scRNA-seq', 'Single-cell RNA sequencing');"
+    f"INSERT INTO technology (id, public_id, name, description) VALUES (3, '{uuid.uuid7()}', 'scRNA-seq', 'Single-cell RNA sequencing');"
 )
 
 cursor.execute(
     f"""
     CREATE TABLE datasets (
         id INTEGER PRIMARY KEY,
-        uuid TEXT NOT NULL UNIQUE,
+        public_id TEXT NOT NULL UNIQUE,
         genome_id INTEGER NOT NULL,
         name TEXT NOT NULL,
         technology_id INTEGER NOT NULL,
@@ -389,13 +389,13 @@ cursor.execute(
 cursor.execute(
     f""" CREATE TABLE permissions (
 	id INTEGER PRIMARY KEY ASC,
-    uuid TEXT NOT NULL UNIQUE,
+    public_id TEXT NOT NULL UNIQUE,
 	name TEXT NOT NULL);
 """
 )
 
 cursor.execute(
-    f"INSERT INTO permissions (id, uuid, name) VALUES (1, '{rdfViewId}', 'rdf:view');"
+    f"INSERT INTO permissions (id, public_id, name) VALUES (1, '{rdfViewId}', 'rdf:view');"
 )
 
 
@@ -413,7 +413,7 @@ cursor.execute(
     f"""
     CREATE TABLE samples (
         id INTEGER PRIMARY KEY,
-        uuid TEXT NOT NULL UNIQUE,
+        public_id TEXT NOT NULL UNIQUE,
         dataset_id INTEGER NOT NULL,
         name TEXT NOT NULL UNIQUE,
         description TEXT NOT NULL DEFAULT '',
@@ -426,7 +426,7 @@ cursor.execute(
     f"""
     CREATE TABLE metadata (
         id INTEGER PRIMARY KEY,
-        uuid TEXT NOT NULL UNIQUE,
+        public_id TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL UNIQUE,
         color TEXT NOT NULL DEFAULT '',
         description TEXT NOT NULL DEFAULT '');
@@ -451,7 +451,7 @@ cursor.execute(
     f"""
     CREATE TABLE expression_types (
         id INTEGER PRIMARY KEY,
-        uuid TEXT NOT NULL UNIQUE,
+        public_id TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL UNIQUE);
     """,
 )
@@ -460,7 +460,7 @@ cursor.execute(
     f"""
     CREATE TABLE files (
         id INTEGER PRIMARY KEY,
-        uuid TEXT NOT NULL UNIQUE,
+        public_id TEXT NOT NULL UNIQUE,
         url TEXT NOT NULL UNIQUE);
     """,
 )
@@ -501,7 +501,7 @@ for si, s in enumerate(genomes):
         d = official_symbols[s][id]
 
         cursor.execute(
-            f"INSERT INTO genes (id, uuid, genome_id, gene_id, ensembl, refseq, ncbi, gene_symbol) VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
+            f"INSERT INTO genes (id, public_id, genome_id, gene_id, ensembl, refseq, ncbi, gene_symbol) VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
             (
                 d["index"],
                 str(uuid.uuid7()),
@@ -535,13 +535,13 @@ for di, dataset in enumerate(datasets):
     if dataset["technology"] not in technology_map:
         technology_map[dataset["technology"]] = len(technology_map) + 1
         cursor.execute(
-            f"INSERT INTO technology (id, uuid, name) VALUES ({technology_map[dataset['technology']]}, '{str(uuid.uuid7())}', '{dataset['technology']}');"
+            f"INSERT INTO technology (id, public_id, name) VALUES ({technology_map[dataset['technology']]}, '{str(uuid.uuid7())}', '{dataset['technology']}');"
         )
 
     technology_id = technology_map[dataset["technology"]]
 
     cursor.execute(
-        f"INSERT INTO datasets (id, uuid, genome_id, name, technology_id, platform, institution) VALUES ({dataset_index}, '{dataset_id}', {genome_id}, '{dataset['name']}', {technology_id}, '{dataset['platform']}', '{dataset['institution']}');",
+        f"INSERT INTO datasets (id, public_id, genome_id, name, technology_id, platform, institution) VALUES ({dataset_index}, '{dataset_id}', {genome_id}, '{dataset['name']}', {technology_id}, '{dataset['platform']}', '{dataset['institution']}');",
     )
 
     cursor.execute(
@@ -561,7 +561,7 @@ for di, dataset in enumerate(datasets):
         id = str(uuid.uuid7())
 
         cursor.execute(
-            f"INSERT INTO samples (id, uuid, dataset_id, name) VALUES ('{sample_index}', '{id}', '{dataset_index}', '{sample_name}');",
+            f"INSERT INTO samples (id, public_id, dataset_id, name) VALUES ('{sample_index}', '{id}', '{dataset_index}', '{sample_name}');",
         )
 
         #
@@ -574,7 +574,7 @@ for di, dataset in enumerate(datasets):
                 metadata_map[m] = id
 
                 cursor.execute(
-                    f"""INSERT INTO metadata (id, uuid, name, color) VALUES ({id}, '{str(uuid.uuid7())}', '{m}', '{sample_metadata_map[sample_name][m]["color"]}');
+                    f"""INSERT INTO metadata (id, public_id, name, color) VALUES ({id}, '{str(uuid.uuid7())}', '{m}', '{sample_metadata_map[sample_name][m]["color"]}');
                     """
                 )
 
@@ -624,14 +624,14 @@ for di, dataset in enumerate(datasets):
         if expr_type not in expr_types:
             expr_types[expr_type] = len(expr_types) + 1
             cursor.execute(
-                f"""INSERT INTO expression_types (id, uuid, name) VALUES ({expr_types[expr_type]}, '{str(uuid.uuid7())}', '{expr_type}');"""
+                f"""INSERT INTO expression_types (id, public_id, name) VALUES ({expr_types[expr_type]}, '{str(uuid.uuid7())}', '{expr_type}');"""
             )
         expr_type_id = expr_types[expr_type]
 
         if path not in file_map:
             file_map[path] = len(file_map) + 1
             cursor.execute(
-                f"""INSERT INTO files (id, uuid, url) VALUES ({file_map[path]}, '{str(uuid.uuid7())}', '{path}');"""
+                f"""INSERT INTO files (id, public_id, url) VALUES ({file_map[path]}, '{str(uuid.uuid7())}', '{path}');"""
             )
         file_id = file_map[path]
 
@@ -660,7 +660,7 @@ for di, dataset in enumerate(datasets):
                 gene_id = official_symbols[genome][exp_map[probe]["gene"]]["index"]
 
                 cursor.execute(
-                    f"""INSERT INTO probes (id, uuid, genome_id, gene_id, name) VALUES ({probe_index}, '{str(uuid.uuid7())}', {genome_id}, {gene_id}, '{probe}');
+                    f"""INSERT INTO probes (id, public_id, genome_id, gene_id, name) VALUES ({probe_index}, '{str(uuid.uuid7())}', {genome_id}, {gene_id}, '{probe}');
                 """
                 )
                 probe_map[genome][probe] = probe_index

@@ -18,7 +18,7 @@ import (
 
 type (
 	GexGene struct {
-		Id         string `json:"id"`
+		PublicId   string `db:"public_id" json:"id"`
 		Ensembl    string `json:"ensembl,omitempty"`
 		Refseq     string `json:"refseq,omitempty"`
 		GeneSymbol string `json:"geneSymbol"`
@@ -26,20 +26,20 @@ type (
 	}
 
 	Probe struct {
-		Key  int      `json:"-"`
-		Id   string   `json:"id"`
-		Name string   `json:"name"`
-		Gene *GexGene `json:"gene,omitempty"`
+		Id       int      `json:"-"`
+		PublicId string   `db:"public_id" json:"id"`
+		Name     string   `json:"name"`
+		Gene     *GexGene `json:"gene,omitempty"`
 	}
 
 	Genome struct {
-		Id   string `json:"id"`
-		Name string `json:"name"`
+		PublicId string `db:"public_id" json:"id"`
+		Name     string `json:"name"`
 	}
 
 	Technology struct {
+		PublicId  string     `db:"public_id" json:"id"`
 		Name      string     `json:"name"`
-		Id        string     `json:"id"`
 		ExprTypes []ExprType `json:"exprTypes"`
 	}
 
@@ -197,7 +197,7 @@ func (gdb *GexDB) Genomes() ([]*Genome, error) {
 		var genome Genome
 
 		err := rows.Scan(
-			&genome.Id,
+			&genome.PublicId,
 			&genome.Name)
 
 		if err != nil {
@@ -401,7 +401,7 @@ func (gdb *GexDB) FindGenes(genes []string) ([]*GexGene, error) {
 	for _, g := range genes {
 		var gene GexGene
 		err := gdb.db.QueryRow(GeneSQL, sql.Named("id", g)).Scan(
-			&gene.Id,
+			&gene.PublicId,
 			&gene.Ensembl,
 			&gene.Refseq,
 			&gene.Ncbi,
@@ -433,10 +433,10 @@ func (gdb *GexDB) FindProbes(genes []string) ([]*Probe, error) {
 		probe.Gene = &GexGene{}
 
 		err := gdb.db.QueryRow(ProbesSQL, sql.Named("id", g)).Scan(
-			&probe.Key,
 			&probe.Id,
+			&probe.PublicId,
 			&probe.Name,
-			&probe.Gene.Id,
+			&probe.Gene.PublicId,
 			&probe.Gene.Ensembl,
 			&probe.Gene.Refseq,
 			&probe.Gene.Ncbi,
@@ -625,7 +625,7 @@ func MakeInProbesSql(query string, probes []*Probe, namedArgs *[]any) string {
 	for i, probe := range probes {
 		ph := fmt.Sprintf("p%d", i+1)
 		inPlaceholders[i] = ":" + ph
-		*namedArgs = append(*namedArgs, sql.Named(ph, probe.Key))
+		*namedArgs = append(*namedArgs, sql.Named(ph, probe.Id))
 	}
 
 	clause := "e.probe_id IN (" + strings.Join(inPlaceholders, ",") + ")"
