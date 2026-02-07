@@ -5,13 +5,14 @@ import (
 
 	"github.com/antonybholmes/go-gex"
 	"github.com/antonybholmes/go-gex/gexdb"
-
 	"github.com/antonybholmes/go-web"
+	"github.com/antonybholmes/go-web/auth"
+	"github.com/antonybholmes/go-web/middleware"
 	"github.com/gin-gonic/gin"
 )
 
 type GexParams struct {
-	Species    string        `json:"species"`
+	Genomes    string        `json:"genomes"`
 	Technology string        `json:"technology"`
 	ExprType   *gex.ExprType `json:"exprType"` // use pointer so we can check for nil
 	Genes      []string      `json:"genes"`
@@ -31,9 +32,9 @@ func parseParamsFromPost(c *gin.Context) (*GexParams, error) {
 	return &params, nil
 }
 
-func SpeciesRoute(c *gin.Context) {
+func GenomesRoute(c *gin.Context) {
 
-	types, err := gexdb.Species()
+	types, err := gexdb.Genomes()
 
 	if err != nil {
 		c.Error(err)
@@ -51,38 +52,41 @@ func TechnologiesRoute(c *gin.Context) {
 }
 
 func ExprTypesRoute(c *gin.Context) {
+	middleware.JwtUserWithPermissionsRoute(c, func(c *gin.Context, isAdmin bool, user *auth.AuthUserJwtClaims) {
 
-	params, err := parseParamsFromPost(c)
+		params, err := parseParamsFromPost(c)
 
-	if err != nil {
-		c.Error(err)
-		return
-	}
+		if err != nil {
+			c.Error(err)
+			return
+		}
 
-	exprTypes, err := gexdb.ExprTypes(params.Datasets)
+		exprTypes, err := gexdb.ExprTypes(params.Datasets, isAdmin, user.Permissions)
 
-	if err != nil {
-		c.Error(err)
-		return
-	}
+		if err != nil {
+			c.Error(err)
+			return
+		}
 
-	web.MakeDataResp(c, "", exprTypes)
+		web.MakeDataResp(c, "", exprTypes)
+	})
 }
 
 func GexDatasetsRoute(c *gin.Context) {
+	middleware.JwtUserWithPermissionsRoute(c, func(c *gin.Context, isAdmin bool, user *auth.AuthUserJwtClaims) {
 
-	species := c.Param("species")
+		genome := c.Param("genome")
+		technology := c.Param("technology")
 
-	technology := c.Param("technology")
+		datasets, err := gexdb.Datasets(genome, technology, isAdmin, user.Permissions)
 
-	datasets, err := gexdb.Datasets(species, technology)
+		if err != nil {
+			c.Error(err)
+			return
+		}
 
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	web.MakeDataResp(c, "", datasets)
+		web.MakeDataResp(c, "", datasets)
+	})
 }
 
 func GexGeneExprRoute(c *gin.Context) {

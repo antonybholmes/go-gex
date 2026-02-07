@@ -40,20 +40,20 @@ func Dir() string {
 	return instance.Dir()
 }
 
-func Species() ([]string, error) {
-	return instance.Species()
+func Genomes() ([]*gex.Genome, error) {
+	return instance.Genomes()
 }
 
 // func Platforms(species string) ([]string, error) {
 // 	return instance.Plaforms(species)
 // }
 
-func ExprTypes(datasetIds []string) ([]*gex.ExprType, error) {
-	return instance.ExprTypes(datasetIds)
+func ExprTypes(datasets []string, isAdmin bool, permissions []string) ([]*gex.ExprType, error) {
+	return instance.ExprTypes(datasets, isAdmin, permissions)
 }
 
-func Datasets(species string, technology string) ([]*gex.Dataset, error) {
-	return instance.Datasets(species, technology)
+func Datasets(species string, technology string, isAdmin bool, permissions []string) ([]*gex.Dataset, error) {
+	return instance.Datasets(species, technology, permissions, isAdmin)
 }
 
 func AllTechnologies() (map[string]map[string][]string, error) {

@@ -19,10 +19,6 @@ DATA_TYPES = ["Counts", "TPM", "VST"]
 DIR = "../data/modules/gex"
 
 
-def get_file_id(name: str) -> str:
-    return re.sub(r"[\/ ]+", "_", name.lower())
-
-
 def load_sample_data(df: pd.DataFrame):  # , num_id_cols: int = 1):
 
     # id_names = df.columns.values[0:num_id_cols]
@@ -356,16 +352,37 @@ cursor.execute(
 
 cursor.execute(
     f"""
+    CREATE TABLE technology (
+        id INTEGER PRIMARY KEY,
+        uuid TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL UNIQUE,
+        description TEXT NOT NULL DEFAULT '');
+    """,
+)
+
+cursor.execute(
+    f"INSERT INTO technology (id, uuid, name, description) VALUES (1, '{uuid.uuid7()}', 'RNA-seq', 'RNA sequencing');"
+)
+cursor.execute(
+    f"INSERT INTO technology (id, uuid, name, description) VALUES (2, '{uuid.uuid7()}', 'Microarray', 'Microarray sequencing');"
+)
+cursor.execute(
+    f"INSERT INTO technology (id, uuid, name, description) VALUES (3, '{uuid.uuid7()}', 'scRNA-seq', 'Single-cell RNA sequencing');"
+)
+
+cursor.execute(
+    f"""
     CREATE TABLE datasets (
         id INTEGER PRIMARY KEY,
         uuid TEXT NOT NULL UNIQUE,
         genome_id INTEGER NOT NULL,
         name TEXT NOT NULL,
-        technology TEXT NOT NULL,
+        technology_id INTEGER NOT NULL,
         platform TEXT NOT NULL,
         institution TEXT NOT NULL,
         description TEXT NOT NULL DEFAULT '',
-        FOREIGN KEY(genome_id) REFERENCES genomes(id));
+        FOREIGN KEY(genome_id) REFERENCES genomes(id),
+        FOREIGN KEY(technology_id) REFERENCES technology(id));
     """,
 )
 
@@ -439,6 +456,16 @@ cursor.execute(
     """,
 )
 
+cursor.execute(
+    f"""
+    CREATE TABLE files (
+        id INTEGER PRIMARY KEY,
+        uuid TEXT NOT NULL UNIQUE,
+        url TEXT NOT NULL UNIQUE);
+    """,
+)
+
+
 # the blob will store float32 values for all samples for a given gene/probe
 cursor.execute(
     f"""
@@ -450,11 +477,12 @@ cursor.execute(
         dtype TEXT NOT NULL DEFAULT 'float32',
         offset INTEGER NOT NULL,
         length INTEGER NOT NULL,
-        url TEXT NOT NULL,
+        file_id INTEGER NOT NULL,
         version INTEGER NOT NULL DEFAULT 1,
         FOREIGN KEY(dataset_id) REFERENCES datasets(id),
+        FOREIGN KEY(expression_type_id) REFERENCES expression_types(id),
         FOREIGN KEY(probe_id) REFERENCES probes(id),
-        FOREIGN KEY(expression_type_id) REFERENCES expression_types(id));
+        FOREIGN KEY(file_id) REFERENCES files(id));
     """,
 )
 
@@ -495,6 +523,8 @@ sample_index = 1
 probe_index = 1
 probe_map = {"human": {}, "mouse": {}}
 expr_types = {}
+file_map = {}
+technology_map = {"RNA-seq": 1, "Microarray": 2, "scRNA-seq": 3}
 
 for di, dataset in enumerate(datasets):
     dataset_index = di + 1
@@ -502,8 +532,16 @@ for di, dataset in enumerate(datasets):
     genome = dataset["genome"].lower()
     genome_id = genome_map[dataset["genome"]]
 
+    if dataset["technology"] not in technology_map:
+        technology_map[dataset["technology"]] = len(technology_map) + 1
+        cursor.execute(
+            f"INSERT INTO technology (id, uuid, name) VALUES ({technology_map[dataset['technology']]}, '{str(uuid.uuid7())}', '{dataset['technology']}');"
+        )
+
+    technology_id = technology_map[dataset["technology"]]
+
     cursor.execute(
-        f"INSERT INTO datasets (id, uuid, genome_id, name, technology, platform, institution) VALUES ({dataset_index}, '{dataset_id}', {genome_id}, '{dataset['name']}', '{dataset['technology']}', '{dataset['platform']}', '{dataset['institution']}');",
+        f"INSERT INTO datasets (id, uuid, genome_id, name, technology_id, platform, institution) VALUES ({dataset_index}, '{dataset_id}', {genome_id}, '{dataset['name']}', {technology_id}, '{dataset['platform']}', '{dataset['institution']}');",
     )
 
     cursor.execute(
@@ -518,8 +556,6 @@ for di, dataset in enumerate(datasets):
     )
 
     sample_names, sample_id_map, sample_metadata_map = load_sample_data(df_samples)
-
-    file_id = get_file_id(dataset["name"])
 
     for sample_name in sample_names:
         id = str(uuid.uuid7())
@@ -565,7 +601,19 @@ for di, dataset in enumerate(datasets):
 
         dir = f"{dataset['genome'].lower()}/{dataset['technology'].lower()}/{exp_name}"
         full_dir = os.path.join(DIR, dir)
-        path = f"{dir}/{file['type'].lower()}.bin"
+
+        file_type = (
+            file["type"]
+            .lower()
+            .replace(" ", "_")
+            .replace("/", "_")
+            .replace(".", "_")
+            .replace("(", "")
+            .replace(")", "")
+            .replace("+", "_")
+        )
+
+        path = f"{dir}/{file_type}.bin"
 
         full_path = os.path.join(DIR, path)
 
@@ -578,7 +626,14 @@ for di, dataset in enumerate(datasets):
             cursor.execute(
                 f"""INSERT INTO expression_types (id, uuid, name) VALUES ({expr_types[expr_type]}, '{str(uuid.uuid7())}', '{expr_type}');"""
             )
-            print(expr_types[expr_type], "inserting expression type")
+        expr_type_id = expr_types[expr_type]
+
+        if path not in file_map:
+            file_map[path] = len(file_map) + 1
+            cursor.execute(
+                f"""INSERT INTO files (id, uuid, url) VALUES ({file_map[path]}, '{str(uuid.uuid7())}', '{path}');"""
+            )
+        file_id = file_map[path]
 
         with open(full_path, "rb") as fin:
 
@@ -613,15 +668,14 @@ for di, dataset in enumerate(datasets):
 
             probe_id = probe_map[genome][probe]
 
-            expr_type_id = expr_types[expr_type]
-
             # print(
             #     f"""INSERT INTO expression (dataset_id, probe_id, expression_type_id, offset, length, url, version) VALUES ({dataset_index}, {probe_id}, {expr_type_id}, {offset}, {l}, '{path}', 1);
             #     """
             # )
 
             cursor.execute(
-                f"""INSERT INTO expression (dataset_id, probe_id, expression_type_id, offset, length, url, version) VALUES ({dataset_index}, {probe_id}, {expr_type_id}, {offset}, {l}, '{path}', 1);
+                f"""
+                INSERT INTO expression (dataset_id, probe_id, expression_type_id, offset, length, file_id, version) VALUES ({dataset_index}, {probe_id}, {expr_type_id}, {offset}, {l}, {file_id}, 1);
                 """
             )
 

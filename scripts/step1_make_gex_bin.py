@@ -40,7 +40,19 @@ for dataset in datasets:
     for file in dataset["data"]:
         dir = f"{dataset['genome'].lower()}/{dataset['technology'].lower()}/{id}"
         full_dir = os.path.join(DIR, dir)
-        path = f"{dir}/{file['type'].lower()}.bin"
+
+        file_type = (
+            file["type"]
+            .lower()
+            .replace(" ", "_")
+            .replace("/", "_")
+            .replace(".", "_")
+            .replace("(", "")
+            .replace(")", "")
+            .replace("+", "_")
+        )
+
+        path = f"{dir}/{file_type}.bin"
 
         full_path = os.path.join(DIR, path)
 

@@ -1,9 +1,7 @@
 package gex
 
 import (
-	"bytes"
 	"database/sql"
-	"encoding/binary"
 	"path/filepath"
 
 	"github.com/antonybholmes/go-sys/log"
@@ -20,7 +18,7 @@ type (
 	Dataset struct {
 		Id         string `json:"id"`
 		Name       string `json:"name"`
-		Species    string `json:"species"`
+		Genome     string `json:"genome"`
 		Technology string `json:"technology"`
 		Platform   string `json:"platform"`
 
@@ -62,14 +60,6 @@ type (
 		Metadata []*NameValueType `json:"metadata"`
 	}
 
-	GexGene struct {
-		Ensembl    string `json:"ensembl,omitempty"`
-		Refseq     string `json:"refseq,omitempty"`
-		GeneSymbol string `json:"geneSymbol"`
-		Id         string `json:"id"`
-		Ncbi       int    `json:"ncbi,omitempty"`
-	}
-
 	SearchResults struct {
 		// we use the simpler value type for platform in search
 		// results so that the value types are not repeated in
@@ -97,15 +87,15 @@ type (
 const (
 	DefaultNumSamples = 500
 
-	DatasetSQL = `SELECT 
-		dataset.id,
-		dataset.species,
-		dataset.technology,
-		dataset.platform,
-		dataset.institution,
-		dataset.name,
-		dataset.description
-		FROM dataset`
+	// DatasetSQL = `SELECT
+	// 	dataset.id,
+	// 	dataset.species,
+	// 	dataset.technology,
+	// 	dataset.platform,
+	// 	dataset.institution,
+	// 	dataset.name,
+	// 	dataset.description
+	// 	FROM dataset`
 
 	SamplesSQL = `SELECT
 		samples.id,
@@ -142,18 +132,6 @@ const (
 		JOIN metadata_types ON metadata.metadata_type_id = metadata_types.id
 		ORDER by sample_metadata.sample_id, metadata_types.id, metadata.id`
 
-	GeneSQL = `SELECT 
-		genes.id, 
-		genes.ensembl,
-		genes.refseq,
-		genes.ncbi,
-		genes.gene_symbol 
-		FROM genes
-		WHERE genes.gene_symbol LIKE :id OR
-		genes.ensembl LIKE :id OR 
-		genes.refseq LIKE :id 
-		LIMIT 1`
-
 	// ExprSQL = `SELECT
 	// 	expr.id,
 	// 	expr.sample_id,
@@ -167,24 +145,14 @@ const (
 
 	// for expr values stored as binary blobs
 	ExprSQL = `SELECT
-		expr.id,
-		expr.gene_id,
-		expr.probe_id,
-		data
-		FROM expr 
-		WHERE expr.gene_id = :gene_id AND
-		expr.expr_type_id = :expr_type_id`
-
-	ExprTypesSQL = `SELECT
-		expr_types.id,
-		expr_types.name
-		FROM expr_types
-		ORDER BY expr_types.id`
-
-	GexTypeCounts string = "Counts"
-	GexTypeTPM    string = "TPM"
-	GexTypeVST    string = "VST"
-	GexTypeRMA    string = "RMA"
+		p.uuid,
+		f.url,
+		e.offset,
+		e.length
+		FROM expression e
+		JOIN probes p ON e.probe_id = p.id
+		JOIN files f ON e.file_id = f.id
+		WHERE <<PROBES>>`
 )
 
 var (
@@ -197,74 +165,74 @@ func NewDatasetDB(dir string, path string) *DatasetDB {
 	return &DatasetDB{dir: dir, path: path, db: sys.Must(sql.Open(sys.Sqlite3DB, path))}
 }
 
-func (dsdb *DatasetDB) Close() error {
-	return dsdb.db.Close()
+func (gdb *DatasetDB) Close() error {
+	return gdb.db.Close()
 }
 
-func (dsdb *DatasetDB) Dataset() (*Dataset, error) {
+// func (dsdb *DatasetDB) Dataset() (*Dataset, error) {
 
-	var dataset Dataset
+// 	var dataset Dataset
 
-	err := dsdb.db.QueryRow(DatasetSQL).Scan(
-		&dataset.Id,
-		&dataset.Species,
-		&dataset.Technology,
-		&dataset.Platform,
-		&dataset.Institution,
-		&dataset.Name,
-		&dataset.Description)
+// 	err := dsdb.db.QueryRow(DatasetSQL).Scan(
+// 		&dataset.Id,
+// 		&dataset.Species,
+// 		&dataset.Technology,
+// 		&dataset.Platform,
+// 		&dataset.Institution,
+// 		&dataset.Name,
+// 		&dataset.Description)
 
-	if err != nil {
-		return nil, err
-	}
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	dataset.Samples, err = dsdb.Samples()
+// 	dataset.Samples, err = dsdb.Samples()
 
-	if err != nil {
-		return nil, err
-	}
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	dataset.ExprTypes, err = dsdb.ExprTypes()
+// 	dataset.ExprTypes, err = dsdb.ExprTypes()
 
-	if err != nil {
-		return nil, err
-	}
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	return &dataset, nil
-}
+// 	return &dataset, nil
+// }
 
-func (dsdb *DatasetDB) ExprTypes() ([]*ExprType, error) {
+// func (dsdb *DatasetDB) ExprTypes() ([]*ExprType, error) {
 
-	rows, err := dsdb.db.Query(ExprTypesSQL)
+// 	rows, err := dsdb.db.Query(ExprTypesSQL)
 
-	if err != nil {
-		return nil, err
-	}
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	defer rows.Close()
+// 	defer rows.Close()
 
-	exprTypes := make([]*ExprType, 0, 5)
+// 	exprTypes := make([]*ExprType, 0, 5)
 
-	for rows.Next() {
-		var exprType ExprType
+// 	for rows.Next() {
+// 		var exprType ExprType
 
-		err := rows.Scan(
-			&exprType.Id,
-			&exprType.Name)
+// 		err := rows.Scan(
+// 			&exprType.Id,
+// 			&exprType.Name)
 
-		if err != nil {
-			return nil, err
-		}
+// 		if err != nil {
+// 			return nil, err
+// 		}
 
-		exprTypes = append(exprTypes, &exprType)
-	}
+// 		exprTypes = append(exprTypes, &exprType)
+// 	}
 
-	return exprTypes, nil
-}
+// 	return exprTypes, nil
+// }
 
-func (dsdb *DatasetDB) Metadata() ([]*Metadata, error) {
+func (gdb *DatasetDB) Metadata() ([]*Metadata, error) {
 
-	rows, err := dsdb.db.Query(MetadataSQL)
+	rows, err := gdb.db.Query(MetadataSQL)
 
 	if err != nil {
 		return nil, err
@@ -294,13 +262,13 @@ func (dsdb *DatasetDB) Metadata() ([]*Metadata, error) {
 	return metadata, nil
 }
 
-func (dsdb *DatasetDB) Dir() string {
-	return dsdb.dir
+func (gdb *DatasetDB) Dir() string {
+	return gdb.dir
 }
 
-func (dsdb *DatasetDB) Samples() ([]*Sample, error) {
+func (gdb *DatasetDB) Samples() ([]*Sample, error) {
 
-	rows, err := dsdb.db.Query(SamplesSQL)
+	rows, err := gdb.db.Query(SamplesSQL)
 
 	if err != nil {
 		return nil, err
@@ -366,7 +334,7 @@ func (dsdb *DatasetDB) Samples() ([]*Sample, error) {
 
 	// add sample metadata to samples
 
-	rows, err = dsdb.db.Query(SampleMetadataSQL)
+	rows, err = gdb.db.Query(SampleMetadataSQL)
 
 	if err != nil {
 		return nil, err
@@ -392,44 +360,6 @@ func (dsdb *DatasetDB) Samples() ([]*Sample, error) {
 
 // FindGenes looks up genes by their gene symbol, hugo id, ensembl id or refseq id
 // since expr values are stored by gene id
-func (dsdb *DatasetDB) FindGenes(genes []string) ([]*GexGene, error) {
-
-	ret := make([]*GexGene, 0, len(genes))
-
-	for _, g := range genes {
-		var gene GexGene
-		err := dsdb.db.QueryRow(GeneSQL, sql.Named("id", g)).Scan(
-			&gene.Id,
-			&gene.Ensembl,
-			&gene.Refseq,
-			&gene.Ncbi,
-			&gene.GeneSymbol)
-
-		if err != nil {
-			// log that we couldn't find a gene, but continue
-			// anyway to find as many as possible
-			log.Error().Msgf("gene not found: %s: %v", g, err)
-
-			//return nil, err
-			continue
-		}
-
-		ret = append(ret, &gene)
-	}
-
-	return ret, nil
-}
-
-func (dsdb *DatasetDB) FindSeqValues(exprType *ExprType, geneIds []string) (*SearchResults, error) {
-
-	genes, err := dsdb.FindGenes(geneIds)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return dsdb.Expr(exprType, genes)
-}
 
 // func (cache *DatasetCache) Expr(exprType *ExprType, genes []*GexGene) (*SearchResults, error) {
 
@@ -507,92 +437,3 @@ func (dsdb *DatasetDB) FindSeqValues(exprType *ExprType, geneIds []string) (*Sea
 
 // 	return &ret, nil
 // }
-
-// using binary blobs for expression values
-func (dsdb *DatasetDB) Expr(exprType *ExprType, genes []*GexGene) (*SearchResults, error) {
-
-	dataset, err := dsdb.Dataset()
-
-	if err != nil {
-		return nil, err
-	}
-
-	samples, err := dsdb.Samples()
-
-	if err != nil {
-		return nil, err
-	}
-
-	log.Debug().Msgf("finding expr values for %d genes", len(genes))
-
-	db, err := sql.Open(sys.Sqlite3DB, dsdb.path)
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer db.Close()
-
-	ret := SearchResults{
-		Dataset:  dataset.Id,
-		ExprType: exprType,
-		Features: make([]*ResultFeature, 0, len(genes))}
-
-	var id string
-	var geneId string
-	var probeId sql.NullString
-	var blob []byte
-	var f float32
-
-	for _, gene := range genes {
-
-		err := db.QueryRow(ExprSQL, sql.Named("gene_id", gene.Id), sql.Named("expr_type_id", exprType.Id)).Scan(
-			&id,
-			&geneId,
-			&probeId,
-			&blob)
-
-		if err != nil {
-			log.Error().Msgf("error querying expr for gene %s: %v", gene.GeneSymbol, err)
-			return nil, err
-		}
-
-		buf := bytes.NewReader(blob)
-
-		// to store expression values for each sample
-		// Samples are expected to be in the same order as the values
-		// in the blob
-		var values = make([]float32, 0, len(samples))
-
-		//for buf.Len() > 0 {
-		for range samples {
-			if err := binary.Read(buf, binary.LittleEndian, &f); err != nil {
-				return nil, err
-			}
-			values = append(values, f)
-		}
-
-		feature := ResultFeature{Gene: gene, Expr: values}
-
-		if probeId.Valid {
-			feature.ProbeId = &probeId.String
-		}
-
-		log.Debug().Msgf("got %d values for gene %s", len(values), gene.GeneSymbol)
-
-		ret.Features = append(ret.Features, &feature)
-	}
-
-	return &ret, nil
-}
-
-func (dsdb *DatasetDB) FindMicroarrayValues(geneIds []string) (*SearchResults, error) {
-
-	genes, err := dsdb.FindGenes(geneIds)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return dsdb.Expr(ExprTypeRMA, genes)
-}
