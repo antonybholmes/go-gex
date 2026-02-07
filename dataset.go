@@ -144,15 +144,7 @@ const (
 	// 	ORDER BY expr.sample_id`
 
 	// for expr values stored as binary blobs
-	ExprSQL = `SELECT
-		p.uuid,
-		f.url,
-		e.offset,
-		e.length
-		FROM expression e
-		JOIN probes p ON e.probe_id = p.id
-		JOIN files f ON e.file_id = f.id
-		WHERE <<PROBES>>`
+
 )
 
 var (
