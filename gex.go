@@ -93,14 +93,18 @@ type (
 	}
 
 	GexDB struct {
-		db   *sql.DB
-		dir  string
-		path string
+		db  *sql.DB
+		dir string
 	}
 )
 
 const (
 	DefaultNumSamples = 500
+
+	GexTypeCounts = "Counts"
+	GexTypeTPM    = "TPM"
+	GexTypeVST    = "VST"
+	GexTypeRMA    = "RMA"
 
 	GenesSql = `SELECT 
 		g.public_id, 
@@ -294,16 +298,11 @@ const (
 			AND e.probe_id = :probe
 			AND e.expression_type_id = :expr_type
 			AND d.public_id = :dataset`
-
-	GexTypeCounts string = "Counts"
-	GexTypeTPM    string = "TPM"
-	GexTypeVST    string = "VST"
-	GexTypeRMA    string = "RMA"
 )
 
 func NewGexDB(dir string) *GexDB {
 
-	path := filepath.Join(dir, "gex.db")
+	path := filepath.Join(dir, "gex.db"+sys.SqliteROSuffix)
 
 	// db, err := sql.Open("sqlite3", path)
 
@@ -313,7 +312,7 @@ func NewGexDB(dir string) *GexDB {
 
 	// defer db.Close()
 
-	return &GexDB{dir: dir, path: path, db: sys.Must(sql.Open(sys.Sqlite3DB, path+sys.Sqlite3RO))}
+	return &GexDB{dir: dir, db: sys.Must(sql.Open(sys.SqliteDB, path))}
 }
 
 func (gdb *GexDB) Close() error {
