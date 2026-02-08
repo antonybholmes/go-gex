@@ -312,7 +312,7 @@ func NewGexDB(dir string) *GexDB {
 
 	// defer db.Close()
 
-	return &GexDB{dir: dir, path: path, db: sys.Must(sql.Open(sys.Sqlite3DB, path+"?mode=ro"))}
+	return &GexDB{dir: dir, path: path, db: sys.Must(sql.Open(sys.Sqlite3DB, path+sys.Sqlite3RO))}
 }
 
 func (gdb *GexDB) Close() error {
