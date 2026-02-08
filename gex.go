@@ -46,18 +46,18 @@ type (
 	}
 
 	Metadata struct {
-		Id          string `json:"id"`
+		//Id          string `json:"id"`
 		Name        string `json:"name"`
 		Value       string `json:"value"`
-		Description string `json:"description,omitempty"`
 		Color       string `json:"color,omitempty"`
+		Description string `json:"description,omitempty"`
 	}
 
 	Sample struct {
 		Id   string `json:"id"`
 		Name string `json:"name"`
 		//AltNames []NameValueType `json:"altNames"`
-		Metadata []*NameValueType `json:"metadata"`
+		Metadata []*Metadata `json:"metadata"`
 	}
 
 	SearchResults struct {
@@ -177,42 +177,45 @@ const (
 		ORDER BY samples.id`
 
 	MetadataSQL = `SELECT
-		metadata.name,
-		metadata.color
-		FROM metadata`
+		m.name,
+		m.color
+		FROM metadata m
+		ORDER BY m.name`
 
+	// order by sample id and then sample_metadata.id to ensure consistent order of metadata for each sample
+	// as it was read from its original source file
 	SampleMetadataSQL = `SELECT
-		sample_metadata.id,
-		sample_metadata.sample_id,
-		metadata_types.name,
-		metadata.value,
-		metadata.color
-		FROM sample_metadata 
-		JOIN metadata ON sample_metadata.metadata_id = metadata.id
-		ORDER by sample_metadata.sample_id, metadata_types.id, metadata.id`
+		s.id,
+		m.name,
+		smd.value,
+		m.color
+		FROM sample_metadata smd
+		JOIN metadata m ON smd.metadata_id = m.id
+		JOIN samples s ON smd.sample_id = s.id
+		ORDER by s.id, smd.id`
 
 	ExprTypesSQL = `SELECT
-		et.id,
-		et.public_id,
-		et.name
-		FROM expr_types et
-		JOIN expression ex ON et.id = ex.expression_type_id
+		e.id,
+		e.public_id,
+		e.name
+		FROM expr_types e
+		JOIN expression ex ON e.id = ex.expression_type_id
 		JOIN datasets d ON ex.dataset_id = d.id
 		JOIN dataset_permissions dp ON d.id = dp.dataset_id
 		JOIN permissions p ON dp.permission_id = p.id
 		WHERE
 			<<PERMISSIONS>>
 			AND <<DATASETS>>
-		ORDER BY et.name`
+		ORDER BY e.name`
 
 	ExprTypeSQL = `SELECT
-		et.id,
-		et.public_id,
-		et.name
-		FROM expr_types et
+		e.id,
+		e.public_id,
+		e.name
+		FROM expr_types e
 		WHERE
-			et.public_id = :id
-			OR et.name LIKE :id
+			e.public_id = :id
+			OR e.name LIKE :id
 		LIMIT 1`
 
 	GeneSQL = `SELECT 
@@ -252,12 +255,12 @@ const (
 		FROM probes p
 		JOIN genes g ON g.id = p.gene_id
 		WHERE
-			p.public_id = :g
-			OR p.name LIKE :g
-			OR g.public_id = :g
-			OR g.gene_symbol LIKE :g
-			OR g.ensembl = :g
-			OR g.refseq = :g
+			p.public_id = :id
+			OR p.name LIKE :id
+			OR g.public_id = :id
+			OR g.gene_symbol LIKE :id
+			OR g.ensembl = :id
+			OR g.refseq = :id
 		ORDER BY g.gene_symbol`
 
 	// ExprSQL = `SELECT
@@ -309,7 +312,7 @@ func NewGexDB(dir string) *GexDB {
 
 	// defer db.Close()
 
-	return &GexDB{dir: dir, path: path, db: sys.Must(sql.Open(sys.Sqlite3DB, path))}
+	return &GexDB{dir: dir, path: path, db: sys.Must(sql.Open(sys.Sqlite3DB, path+"?mode=ro"))}
 }
 
 func (gdb *GexDB) Close() error {
@@ -497,10 +500,8 @@ func (gdb *GexDB) Metadata() ([]*Metadata, error) {
 		var m Metadata
 
 		err := rows.Scan(
-			&m.Id,
 			&m.Name,
 			&m.Value,
-			&m.Description,
 			&m.Color)
 
 		if err != nil {
@@ -542,13 +543,12 @@ func (gdb *GexDB) Samples() ([]*Sample, error) {
 		// to avoid nil slices
 		// we can estimate the size to avoid too many allocations
 		//sample.AltNames = make([]NameValueType, 0, 10)
-		sample.Metadata = make([]*NameValueType, 0, 10)
+		sample.Metadata = make([]*Metadata, 0, 10)
 
 		samples = append(samples, &sample)
 		sampleMap[sample.Id] = &sample
 	}
 
-	var id string
 	var sampleId string
 
 	// add sample metadata to samples
@@ -562,16 +562,16 @@ func (gdb *GexDB) Samples() ([]*Sample, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var nv = NameValueType{}
+		var m Metadata
 
-		err := rows.Scan(&id, &sampleId, &nv.Name, &nv.Value, &nv.Color)
+		err := rows.Scan(sampleId, &m.Name, &m.Value, &m.Color)
 
 		if err != nil {
 			log.Error().Msgf("error scanning sample: %v", err)
 			return nil, err
 		}
 
-		sampleMap[sampleId].Metadata = append(sampleMap[sampleId].Metadata, &nv)
+		sampleMap[sampleId].Metadata = append(sampleMap[sampleId].Metadata, &m)
 	}
 
 	return samples, nil
@@ -659,33 +659,33 @@ func (gdb *GexDB) ExprTypes(datasetIds []string, isAdmin bool, permissions []str
 	return ret, nil
 }
 
-func (gdb *GexDB) FindGenes(genes []string) ([]*GexGene, error) {
+// func (gdb *GexDB) FindGenes(genes []string) ([]*GexGene, error) {
 
-	ret := make([]*GexGene, 0, len(genes))
+// 	ret := make([]*GexGene, 0, len(genes))
 
-	for _, g := range genes {
-		var gene GexGene
-		err := gdb.db.QueryRow(GeneSQL, sql.Named("id", g)).Scan(
-			&gene.PublicId,
-			&gene.Ensembl,
-			&gene.Refseq,
-			&gene.Ncbi,
-			&gene.Name)
+// 	for _, g := range genes {
+// 		var gene GexGene
+// 		err := gdb.db.QueryRow(GeneSQL, sql.Named("id", g)).Scan(
+// 			&gene.PublicId,
+// 			&gene.Ensembl,
+// 			&gene.Refseq,
+// 			&gene.Ncbi,
+// 			&gene.Name)
 
-		if err != nil {
-			// log that we couldn't find a gene, but continue
-			// anyway to find as many as possible
-			log.Error().Msgf("gene not found: %s: %v", g, err)
+// 		if err != nil {
+// 			// log that we couldn't find a gene, but continue
+// 			// anyway to find as many as possible
+// 			log.Error().Msgf("gene not found: %s: %v", g, err)
 
-			//return nil, err
-			continue
-		}
+// 			//return nil, err
+// 			continue
+// 		}
 
-		ret = append(ret, &gene)
-	}
+// 		ret = append(ret, &gene)
+// 	}
 
-	return ret, nil
-}
+// 	return ret, nil
+// }
 
 // func (gdb *GexDB) FindProbes(genes []string) ([]*Probe, error) {
 
@@ -729,7 +729,7 @@ func (gdb *GexDB) FindProbes(genes []string) ([]*Idtype, error) {
 	ret := make([]*Idtype, 0, len(genes))
 
 	for _, g := range genes {
-		rows, err := gdb.db.Query(ProbeIdsSQL, sql.Named("g", g))
+		rows, err := gdb.db.Query(ProbeIdsSQL, sql.Named("id", g))
 
 		if err != nil {
 			log.Error().Msgf("error querying probe ids for gene %s: %v", g, err)

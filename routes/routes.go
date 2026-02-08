@@ -5,6 +5,7 @@ import (
 
 	"github.com/antonybholmes/go-gex"
 	"github.com/antonybholmes/go-gex/gexdb"
+	"github.com/antonybholmes/go-sys/log"
 	"github.com/antonybholmes/go-web"
 	"github.com/antonybholmes/go-web/auth"
 	"github.com/antonybholmes/go-web/middleware"
@@ -128,9 +129,10 @@ func GexGeneExprRoute(c *gin.Context) {
 		for _, datasetId := range params.Datasets {
 			ret, err := gexdb.Expression(datasetId, exprType, probes, isAdmin, user.Permissions)
 
+			// if there is an error accessing a dataset, we skip it and continue with the others
 			if err != nil {
-				c.Error(err)
-				return
+				log.Debug().Msgf("not able to access dataset: %s", datasetId)
+				continue
 			}
 
 			results = append(results, ret)
