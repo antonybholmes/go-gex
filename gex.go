@@ -15,14 +15,14 @@ import (
 )
 
 type (
-	Idtype struct {
+	Entity struct {
 		Id       int    `json:"-"`
 		PublicId string `db:"public_id" json:"id"`
 		Name     string `json:"name"`
 	}
 
 	GexGene struct {
-		Idtype
+		Entity
 		Ensembl string `json:"ensembl,omitempty"`
 		Refseq  string `json:"refseq,omitempty"`
 		//GeneSymbol string `json:"geneSymbol"`
@@ -30,17 +30,17 @@ type (
 	}
 
 	Probe struct {
-		Idtype
+		Entity
 		Gene *GexGene `json:"gene,omitempty"`
 	}
 
 	Technology struct {
-		Idtype
-		ExprTypes []Idtype `json:"exprTypes"`
+		Entity
+		ExprTypes []Entity `json:"exprTypes"`
 	}
 
-	NameValueType struct {
-		Idtype
+	NamedValue struct {
+		Entity
 		Value string `json:"value"`
 		Color string `json:"color,omitempty"`
 	}
@@ -66,8 +66,8 @@ type (
 		// each search. The useful info in a search is just
 		// the platform name and id
 
-		Dataset  *BasicDataset `json:"dataset"`
-		ExprType *Idtype       `json:"type"`
+		Dataset  *Entity       `json:"dataset"`
+		ExprType *Entity       `json:"type"`
 		Features []*Expression `json:"features"`
 	}
 
@@ -80,13 +80,8 @@ type (
 		Values []float32 `json:"values"`
 	}
 
-	BasicDataset struct {
-		Idtype
-		Count int `json:"count,omitempty"`
-	}
-
 	Dataset struct {
-		BasicDataset
+		Entity
 		Genome     string `json:"genome"`
 		Technology string `json:"technology"`
 		Platform   string `json:"platform"`
@@ -94,7 +89,7 @@ type (
 		Institution string    `json:"institution"`
 		Description string    `json:"description"`
 		Samples     []*Sample `json:"samples"`
-		ExprTypes   []*Idtype `json:"exprTypes"`
+		ExprTypes   []*Entity `json:"exprTypes"`
 	}
 
 	GexDB struct {
@@ -329,9 +324,9 @@ func (gdb *GexDB) Dir() string {
 	return gdb.dir
 }
 
-func (gdb *GexDB) Genomes() ([]*Idtype, error) {
+func (gdb *GexDB) Genomes() ([]*Entity, error) {
 
-	genomes := make([]*Idtype, 0, 10)
+	genomes := make([]*Entity, 0, 10)
 
 	rows, err := gdb.db.Query(GenomesSql)
 
@@ -342,7 +337,7 @@ func (gdb *GexDB) Genomes() ([]*Idtype, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var genome Idtype
+		var genome Entity
 
 		err := rows.Scan(
 			&genome.Id,
@@ -470,13 +465,13 @@ func (gdb *GexDB) Datasets(genome string,
 }
 
 // used for search results where only basic dataset info is needed
-func (gdb *GexDB) BasicDataset(datasetId string, permissions []string, isAdmin bool) (*BasicDataset, error) {
+func (gdb *GexDB) BasicDataset(datasetId string, permissions []string, isAdmin bool) (*Entity, error) {
 
 	namedArgs := []any{sql.Named("id", datasetId)}
 
 	query := sqlite.MakePermissionsSql(BasicDatasetSQL, isAdmin, permissions, &namedArgs)
 
-	var ret BasicDataset
+	var ret Entity
 
 	err := gdb.db.QueryRow(query, namedArgs...).Scan(
 		&ret.Id,
@@ -583,9 +578,9 @@ func (gdb *GexDB) Samples() ([]*Sample, error) {
 	return samples, nil
 }
 
-func (gdb *GexDB) ExprType(id string) (*Idtype, error) {
+func (gdb *GexDB) ExprType(id string) (*Entity, error) {
 
-	var ret Idtype
+	var ret Entity
 
 	err := gdb.db.QueryRow(ExprTypeSQL, sql.Named("id", id)).Scan(
 		&ret.Id,
@@ -617,7 +612,7 @@ func (gdb *GexDB) ExprType(id string) (*Idtype, error) {
 // 	return datasetCache, nil
 // }
 
-func (gdb *GexDB) ExprTypes(datasetIds []string, isAdmin bool, permissions []string) ([]*Idtype, error) {
+func (gdb *GexDB) ExprTypes(datasetIds []string, isAdmin bool, permissions []string) ([]*Entity, error) {
 
 	namedArgs := []any{}
 
@@ -625,7 +620,7 @@ func (gdb *GexDB) ExprTypes(datasetIds []string, isAdmin bool, permissions []str
 
 	query = MakeInDatasetsSql(query, datasetIds, &namedArgs)
 
-	allExprTypes := make(map[string]*Idtype)
+	allExprTypes := make(map[string]*Entity)
 
 	rows, err := gdb.db.Query(query, namedArgs...)
 
@@ -636,7 +631,7 @@ func (gdb *GexDB) ExprTypes(datasetIds []string, isAdmin bool, permissions []str
 	defer rows.Close()
 
 	for rows.Next() {
-		var exprType Idtype
+		var exprType Entity
 
 		err := rows.Scan(
 			&exprType.PublicId,
@@ -652,7 +647,7 @@ func (gdb *GexDB) ExprTypes(datasetIds []string, isAdmin bool, permissions []str
 
 	}
 
-	ret := make([]*Idtype, 0, len(datasetIds))
+	ret := make([]*Entity, 0, len(datasetIds))
 
 	for _, exprType := range allExprTypes {
 		ret = append(ret, exprType)
@@ -811,7 +806,7 @@ func (gdb *GexDB) FindProbes(genes []string) ([]*Probe, error) {
 
 // using binary blobs for expression values
 func (gdb *GexDB) Expression(datasetId string,
-	exprType *Idtype,
+	exprType *Entity,
 	probes []*Probe,
 	isAdmin bool,
 	permissions []string) (*SearchResults, error) {
