@@ -47,13 +47,25 @@ func AllTechnologies() (map[string]map[string][]string, error) {
 	return instance.AllTechnologies()
 }
 
-func FindSeqValues(datasetId string, exprTypeId string, genes []string, isAdmin bool, permissions []string) (*gex.SearchResults, error) {
-	return instance.FindSeqValues(datasetId, exprTypeId, genes, isAdmin, permissions)
+func Expression(datasetId string, exprTypeId *gex.Idtype, probes []*gex.Idtype, isAdmin bool, permissions []string) (*gex.SearchResults, error) {
+	return instance.Expression(datasetId, exprTypeId, probes, isAdmin, permissions)
 }
 
-func FindMicroarrayValues(datasetId string, exprTypeId string, genes []string, isAdmin bool, permissions []string) (*gex.SearchResults, error) {
-	return instance.FindMicroarrayValues(datasetId, exprTypeId, genes, isAdmin, permissions)
+func ExprType(id string) (*gex.Idtype, error) {
+	return instance.ExprType(id)
 }
+
+func FindProbes(genes []string) ([]*gex.Idtype, error) {
+	return instance.FindProbes(genes)
+}
+
+// func FindSeqValues(datasetId string, exprTypeId string, genes []string, isAdmin bool, permissions []string) (*gex.SearchResults, error) {
+// 	return instance.FindSeqValues(datasetId, exprTypeId, genes, isAdmin, permissions)
+// }
+
+// func FindMicroarrayValues(datasetId string, exprTypeId string, genes []string, isAdmin bool, permissions []string) (*gex.SearchResults, error) {
+// 	return instance.FindMicroarrayValues(datasetId, exprTypeId, genes, isAdmin, permissions)
+// }
 
 // func GetDataset(uuid string) (*gex.Dataset, error) {
 // 	return instance.GetDataset(uuid)

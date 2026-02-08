@@ -15,18 +15,18 @@ import (
 )
 
 type (
-	GexGene struct {
-		PublicId   string `db:"public_id" json:"id"`
-		Ensembl    string `json:"ensembl,omitempty"`
-		Refseq     string `json:"refseq,omitempty"`
-		GeneSymbol string `json:"geneSymbol"`
-		Ncbi       string `json:"ncbi,omitempty"`
-	}
-
 	Idtype struct {
 		Id       int    `json:"-"`
 		PublicId string `db:"public_id" json:"id"`
 		Name     string `json:"name"`
+	}
+
+	GexGene struct {
+		Idtype
+		Ensembl string `json:"ensembl,omitempty"`
+		Refseq  string `json:"refseq,omitempty"`
+		//GeneSymbol string `json:"geneSymbol"`
+		Ncbi string `json:"ncbi,omitempty"`
 	}
 
 	Probe struct {
@@ -74,8 +74,8 @@ type (
 
 	// Either a probe or gene
 	ResultFeature struct {
-		Probe *Probe   `json:"probeId,omitempty"` // distinguish between null and ""
-		Gene  *GexGene `json:"gene"`
+		Probe *Idtype `json:"probeId,omitempty"` // distinguish between null and ""
+		//Gene  *GexGene `json:"gene"`
 		//Platform     *ValueType       `json:"platform"`
 		//GexValue *GexValue    `json:"gexType"`
 		Expr []float32 `json:"expr"`
@@ -214,7 +214,7 @@ const (
 		FROM expr_types et
 		WHERE
 			et.public_id = :id
-			OR et.name = :id
+			OR et.name LIKE :id
 		LIMIT 1`
 
 	GeneSQL = `SELECT 
@@ -235,11 +235,12 @@ const (
 		p.id AS probe_id,
 		p.public_id AS probe_public_id,
 		p.name AS probe_name,
+		g.id AS gene_id, 
 		g.public_id AS gene_public_id, 
+		g.gene_symbol AS gene_name,
 		g.ensembl,
 		g.refseq,
-		g.ncbi,
-		g.gene_symbol 
+		g.ncbi
 		FROM genes g
 		JOIN probes p ON g.id = p.gene_id
 		WHERE
@@ -248,19 +249,48 @@ const (
 			g.refseq = :id OR
 			g.gene_symbol LIKE :id`
 
+	ProbeIdsSQL = `SELECT DISTINCT
+		p.id AS probe_id,
+		FROM probes p
+		JOIN genes g ON g.id = p.gene_id
+		WHERE
+			p.public_id = :g
+			OR p.name LIKE :g
+			OR g.public_id = :g
+			OR g.gene_symbol LIKE :g
+			OR g.ensembl = :g
+			OR g.refseq = :g
+		ORDER BY g.gene_symbol`
+
+	// ExprSQL = `SELECT
+	// 	p.id,
+	// 	p.public_id,
+	// 	p.name,
+	// 	f.url,
+	// 	e.offset
+	// 	FROM expression e
+	// 	JOIN datasets d ON ex.dataset_id = e.id
+	// 	JOIN dataset_permissions dp ON d.id = dp.dataset_id
+	// 	JOIN probes p ON e.probe_id = p.id
+	// 	JOIN files f ON e.file_id = f.id
+	// 	WHERE
+	// 		<<PERMISSIONS>>
+	// 		AND <<PROBES>>
+	// 		AND e.expression_type_id = :expr_type
+	// 		AND d.public_id = :dataset
+	// 	ORDER BY p.name`
+
 	ExprSQL = `SELECT
-		p.public_id,
 		f.url,
 		e.offset
 		FROM expression e
 		JOIN datasets d ON ex.dataset_id = e.id
 		JOIN dataset_permissions dp ON d.id = dp.dataset_id
-		JOIN probes p ON e.probe_id = p.id
 		JOIN files f ON e.file_id = f.id
 		WHERE 
 			<<PERMISSIONS>>
-			AND <<PROBES>>
-			AND e.expression_type_id = :et
+			AND e.probe_id = :probe
+			AND e.expression_type_id = :expr_type
 			AND d.public_id = :dataset`
 
 	GexTypeCounts string = "Counts"
@@ -640,7 +670,7 @@ func (gdb *GexDB) FindGenes(genes []string) ([]*GexGene, error) {
 			&gene.Ensembl,
 			&gene.Refseq,
 			&gene.Ncbi,
-			&gene.GeneSymbol)
+			&gene.Name)
 
 		if err != nil {
 			// log that we couldn't find a gene, but continue
@@ -657,37 +687,68 @@ func (gdb *GexDB) FindGenes(genes []string) ([]*GexGene, error) {
 	return ret, nil
 }
 
-func (gdb *GexDB) FindProbes(genes []string) ([]*Probe, error) {
+// func (gdb *GexDB) FindProbes(genes []string) ([]*Probe, error) {
 
-	ret := make([]*Probe, 0, len(genes))
+// 	ret := make([]*Probe, 0, len(genes))
+
+// 	for _, g := range genes {
+// 		var probe Probe
+
+// 		// init the gene
+// 		probe.Gene = &GexGene{}
+
+// 		err := gdb.db.QueryRow(ProbesSQL, sql.Named("id", g)).Scan(
+// 			&probe.Id,
+// 			&probe.PublicId,
+// 			&probe.Name,
+// 			&probe.Gene.Id,
+// 			&probe.Gene.PublicId,
+// 			&probe.Gene.Name,
+// 			&probe.Gene.Ensembl,
+// 			&probe.Gene.Refseq,
+// 			&probe.Gene.Ncbi,
+// 		)
+
+// 		if err != nil {
+// 			// log that we couldn't find a gene, but continue
+// 			// anyway to find as many as possible
+// 			log.Error().Msgf("gene not found: %s: %v", g, err)
+
+// 			//return nil, err
+// 			continue
+// 		}
+
+// 		ret = append(ret, &probe)
+// 	}
+
+// 	return ret, nil
+// }
+
+func (gdb *GexDB) FindProbes(genes []string) ([]*Idtype, error) {
+
+	ret := make([]*Idtype, 0, len(genes))
 
 	for _, g := range genes {
-		var probe Probe
-
-		// init the gene
-		probe.Gene = &GexGene{}
-
-		err := gdb.db.QueryRow(ProbesSQL, sql.Named("id", g)).Scan(
-			&probe.Id,
-			&probe.PublicId,
-			&probe.Name,
-			&probe.Gene.PublicId,
-			&probe.Gene.Ensembl,
-			&probe.Gene.Refseq,
-			&probe.Gene.Ncbi,
-			&probe.Gene.GeneSymbol,
-		)
+		rows, err := gdb.db.Query(ProbeIdsSQL, sql.Named("g", g))
 
 		if err != nil {
-			// log that we couldn't find a gene, but continue
-			// anyway to find as many as possible
-			log.Error().Msgf("gene not found: %s: %v", g, err)
-
-			//return nil, err
+			log.Error().Msgf("error querying probe ids for gene %s: %v", g, err)
 			continue
 		}
 
-		ret = append(ret, &probe)
+		defer rows.Close()
+
+		for rows.Next() {
+			var probe Idtype
+			err := rows.Scan(probe.Id, probe.PublicId, probe.Name)
+
+			if err != nil {
+				log.Error().Msgf("error scanning probe id for gene %s: %v", g, err)
+				continue
+			}
+
+			ret = append(ret, &probe)
+		}
 	}
 
 	return ret, nil
@@ -736,17 +797,19 @@ func (gdb *GexDB) FindProbes(genes []string) ([]*Probe, error) {
 // }
 
 // using binary blobs for expression values
-func (gdb *GexDB) Expr(datasetId string,
-	exprTypeId string,
-	probes []*Probe,
+func (gdb *GexDB) Expression(datasetId string,
+	exprType *Idtype,
+	probes []*Idtype,
 	isAdmin bool,
 	permissions []string) (*SearchResults, error) {
 
-	exprType, err := gdb.ExprType(exprTypeId)
+	//exprType, err := gdb.ExprType(exprTypeId)
 
-	if err != nil {
-		return nil, err
-	}
+	//if err != nil {
+	//	return nil, err
+	//}
+
+	//probeIds, err := gdb.FindProbes(genes)
 
 	dataset, err := gdb.BasicDataset(datasetId, permissions, isAdmin)
 
@@ -759,20 +822,56 @@ func (gdb *GexDB) Expr(datasetId string,
 		ExprType: exprType,
 		Features: make([]*ResultFeature, 0, len(probes))}
 
-	var id string
+	// query = MakeInProbesSql(query, probeIds, &namedArgs)
+
+	// rows, err := gdb.db.Query(query, namedArgs...)
+
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// defer rows.Close()
+
+	// var url string
+	// var offset int64
+
+	// for rows.Next() {
+	// 	var probe Idtype
+	// 	err := rows.Scan(
+	// 		&probe.Id,
+	// 		&probe.PublicId,
+	// 		&probe.Name,
+	// 		&url,
+	// 		&offset)
+
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+
+	// 	path := filepath.Join(gdb.dir, url)
+
+	// 	values, err := readFloat32sWithOffset(path, offset, dataset.Count)
+
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+
+	// 	feature := ResultFeature{Probe: &probe, Expr: values}
+
+	// 	ret.Features = append(ret.Features, &feature)
+	// }
+
 	var url string
 	var offset int64
 
-	namedArgs := []any{sql.Named("et", exprType.Id), sql.Named("dataset", datasetId)}
-
-	query := sqlite.MakePermissionsSql(ExprSQL, isAdmin, permissions, &namedArgs)
-
-	query = MakeInProbesSql(query, probes, &namedArgs)
-
 	for _, probe := range probes {
+		namedArgs := []any{sql.Named("dataset", datasetId),
+			sql.Named("probe", probe.Id),
+			sql.Named("expr_type", exprType.Id)}
+
+		query := sqlite.MakePermissionsSql(ExprSQL, isAdmin, permissions, &namedArgs)
 
 		err := gdb.db.QueryRow(query, namedArgs...).Scan(
-			&id,
 			&url,
 			&offset)
 
@@ -796,20 +895,20 @@ func (gdb *GexDB) Expr(datasetId string,
 	return &ret, nil
 }
 
-func (gdb *GexDB) FindSeqValues(dataset string,
-	exprTypeId string,
-	genes []string,
-	isAdmin bool,
-	permissions []string) (*SearchResults, error) {
+// func (gdb *GexDB) FindSeqValues(dataset string,
+// 	exprTypeId string,
+// 	genes []string,
+// 	isAdmin bool,
+// 	permissions []string) (*SearchResults, error) {
 
-	probes, err := gdb.FindProbes(genes)
+// 	probes, err := gdb.FindProbes(genes)
 
-	if err != nil {
-		return nil, err
-	}
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	return gdb.Expr(dataset, exprTypeId, probes, isAdmin, permissions)
-}
+// 	return gdb.Expression(dataset, exprTypeId, probes, isAdmin, permissions)
+// }
 
 func readFloat32sWithOffset(path string, offset int64, count int) ([]float32, error) {
 	// Open the file for reading
@@ -848,20 +947,20 @@ func read(f *os.File, offset int, length int) ([]byte, error) {
 	return buf, nil
 }
 
-func (gdb *GexDB) FindMicroarrayValues(dataset string,
-	exprTypeId string,
-	genes []string,
-	isAdmin bool,
-	permissions []string) (*SearchResults, error) {
+// func (gdb *GexDB) FindMicroarrayValues(dataset string,
+// 	exprTypeId string,
+// 	genes []string,
+// 	isAdmin bool,
+// 	permissions []string) (*SearchResults, error) {
 
-	probes, err := gdb.FindProbes(genes)
+// 	probes, err := gdb.FindProbes(genes)
 
-	if err != nil {
-		return nil, err
-	}
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	return gdb.Expr(dataset, exprTypeId, probes, isAdmin, permissions)
-}
+// 	return gdb.Expr(dataset, exprTypeId, probes, isAdmin, permissions)
+// }
 
 func MakeInDatasetsSql(query string, datasets []string, namedArgs *[]any) string {
 
@@ -879,14 +978,14 @@ func MakeInDatasetsSql(query string, datasets []string, namedArgs *[]any) string
 
 }
 
-func MakeInProbesSql(query string, probes []*Probe, namedArgs *[]any) string {
+func MakeInProbesSql(query string, probes []int, namedArgs *[]any) string {
 
 	inPlaceholders := make([]string, len(probes))
 
 	for i, probe := range probes {
 		ph := fmt.Sprintf("p%d", i+1)
 		inPlaceholders[i] = ":" + ph
-		*namedArgs = append(*namedArgs, sql.Named(ph, probe.Id))
+		*namedArgs = append(*namedArgs, sql.Named(ph, probe))
 	}
 
 	clause := "e.probe_id IN (" + strings.Join(inPlaceholders, ",") + ")"

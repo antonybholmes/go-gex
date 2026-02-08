@@ -108,34 +108,62 @@ func GexGeneExprRoute(c *gin.Context) {
 
 		results := make([]*gex.SearchResults, 0, len(params.Datasets))
 
+		// find the expression type desired
+		exprType, err := gexdb.ExprType(params.ExprType)
+
+		if err != nil {
+			web.BadReqResp(c, errors.New("invalid expr type"))
+			return
+		}
+
+		// match the gens to probes using either probe or gene ids
+		probes, err := gexdb.FindProbes(params.Genes)
+
+		if err != nil {
+			web.BadReqResp(c, errors.New("invalid genes"))
+			return
+		}
+
+		// search each dataset and gene in order user specified
+		for _, datasetId := range params.Datasets {
+			ret, err := gexdb.Expression(datasetId, exprType, probes, isAdmin, user.Permissions)
+
+			if err != nil {
+				c.Error(err)
+				return
+			}
+
+			results = append(results, ret)
+		}
+
 		// at a minimum the dataset id will contain the technology
 		// we can use this to determine which search function to call
 		// e.g. "FindMicroarrayValues" or "FindSeqValues", other
 		// info could be added later
-		if params.ExprType == "Microarray" {
-			// microarray
-			for _, datasetId := range params.Datasets {
-				ret, err := gexdb.FindMicroarrayValues(datasetId, params.ExprType, params.Genes, isAdmin, user.Permissions)
+		// if params.ExprType == "Microarray" {
+		// 	// microarray
+		// 	for _, datasetId := range params.Datasets {
+		// 		ret, err := gexdb.FindMicroarrayValues(datasetId, params.ExprType, params.Genes, isAdmin, user.Permissions)
 
-				if err != nil {
-					c.Error(err)
-					return
-				}
+		// 		if err != nil {
+		// 			c.Error(err)
+		// 			return
+		// 		}
 
-				results = append(results, ret)
-			}
-		} else {
-			for _, datasetId := range params.Datasets {
-				ret, err := gexdb.FindSeqValues(datasetId, params.ExprType, params.Genes, isAdmin, user.Permissions)
+		// 		results = append(results, ret)
+		// 	}
+		// } else {
+		// 	for _, datasetId := range params.Datasets {
+		// 		ret, err := gexdb.FindSeqValues(datasetId, params.ExprType, params.Genes, isAdmin, user.Permissions)
 
-				if err != nil {
-					c.Error(err)
-					return
-				}
+		// 		if err != nil {
+		// 			c.Error(err)
+		// 			return
+		// 		}
 
-				results = append(results, ret)
-			}
-		}
+		// 		results = append(results, ret)
+		// 	}
+		// }
 
 		web.MakeDataResp(c, "", results)
 	})
