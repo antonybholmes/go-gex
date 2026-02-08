@@ -4,25 +4,12 @@ import (
 	"sync"
 
 	"github.com/antonybholmes/go-gex"
-	"github.com/antonybholmes/go-sys"
 )
 
 var (
 	instance *gex.GexDB
 	once     sync.Once
-
-	technologies = []gex.Technology{
-		{PublicId: sys.BlankUUID, Name: "RNA-seq", ExprTypes: []gex.ExprType{
-			{Id: sys.BlankUUID, Name: "Counts"},
-			{Id: sys.BlankUUID, Name: "TPM"},
-			{Id: sys.BlankUUID, Name: "VST"}}},
-		{PublicId: sys.BlankUUID, Name: "Microarray", ExprTypes: []gex.ExprType{{Id: sys.BlankUUID, Name: "RMA"}}},
-	}
 )
-
-func Technologies() []gex.Technology {
-	return technologies
-}
 
 func InitGexDB(dir string) (*gex.GexDB, error) {
 	once.Do(func() {
@@ -40,7 +27,7 @@ func Dir() string {
 	return instance.Dir()
 }
 
-func Genomes() ([]*gex.Genome, error) {
+func Genomes() ([]*gex.Idtype, error) {
 	return instance.Genomes()
 }
 
@@ -48,7 +35,7 @@ func Genomes() ([]*gex.Genome, error) {
 // 	return instance.Plaforms(species)
 // }
 
-func ExprTypes(datasets []string, isAdmin bool, permissions []string) ([]*gex.ExprType, error) {
+func ExprTypes(datasets []string, isAdmin bool, permissions []string) ([]*gex.Idtype, error) {
 	return instance.ExprTypes(datasets, isAdmin, permissions)
 }
 
@@ -60,12 +47,12 @@ func AllTechnologies() (map[string]map[string][]string, error) {
 	return instance.AllTechnologies()
 }
 
-func FindSeqValues(datasetId string, exprType *gex.ExprType, geneIds []string) (*gex.SearchResults, error) {
-	return instance.FindSeqValues(datasetId, exprType, geneIds)
+func FindSeqValues(datasetId string, exprTypeId string, genes []string, isAdmin bool, permissions []string) (*gex.SearchResults, error) {
+	return instance.FindSeqValues(datasetId, exprTypeId, genes, isAdmin, permissions)
 }
 
-func FindMicroarrayValues(datasetId string, geneIds []string) (*gex.SearchResults, error) {
-	return instance.FindMicroarrayValues(datasetId, geneIds)
+func FindMicroarrayValues(datasetId string, exprTypeId string, genes []string, isAdmin bool, permissions []string) (*gex.SearchResults, error) {
+	return instance.FindMicroarrayValues(datasetId, exprTypeId, genes, isAdmin, permissions)
 }
 
 // func GetDataset(uuid string) (*gex.Dataset, error) {
