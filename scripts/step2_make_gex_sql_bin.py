@@ -675,7 +675,7 @@ for di, dataset in enumerate(datasets):
 
             cursor.execute(
                 f"""
-                INSERT INTO expression (dataset_id, probe_id, expression_type_id, offset, length, file_id, version) VALUES ({dataset_index}, {probe_id}, {expr_type_id}, {offset}, {l}, {file_id}, 1);
+                INSERT INTO expression (dataset_id, probe_id, expression_type_id, offset, length, file_id, version) VALUES ({dataset_index}, {probe_id}, {expr_type_id}, {offset}, {samples}, {file_id}, 1);
                 """
             )
 

@@ -162,10 +162,8 @@ const (
 	BasicDatasetSQL = `SELECT
 		d.id,
 		d.public_id,
-		d.name,
-		COUNT(s.id)
+		d.name
 		FROM datasets d
-		JOIN samples s ON s.dataset_id = d.id
 		JOIN dataset_permissions dp ON d.id = dp.dataset_id
 		JOIN permissions p ON dp.permission_id = p.id
 		WHERE
@@ -421,7 +419,10 @@ func (gdb *GexDB) AllTechnologies() (map[string]map[string][]string, error) {
 	return technologies, nil
 }
 
-func (gdb *GexDB) Datasets(genome string, technology string, permissions []string, isAdmin bool) ([]*Dataset, error) {
+func (gdb *GexDB) Datasets(genome string,
+	technology string,
+	permissions []string,
+	isAdmin bool) ([]*Dataset, error) {
 
 	namedArgs := []any{sql.Named("gid", genome), sql.Named("tid", technology)}
 
@@ -460,9 +461,9 @@ func (gdb *GexDB) Datasets(genome string, technology string, permissions []strin
 }
 
 // used for search results where only basic dataset info is needed
-func (gdb *GexDB) BasicDataset(dataset string, permissions []string, isAdmin bool) (*BasicDataset, error) {
+func (gdb *GexDB) BasicDataset(datasetId string, permissions []string, isAdmin bool) (*BasicDataset, error) {
 
-	namedArgs := []any{sql.Named("id", dataset)}
+	namedArgs := []any{sql.Named("id", datasetId)}
 
 	query := sqlite.MakePermissionsSql(BasicDatasetSQL, isAdmin, permissions, &namedArgs)
 
@@ -471,8 +472,7 @@ func (gdb *GexDB) BasicDataset(dataset string, permissions []string, isAdmin boo
 	err := gdb.db.QueryRow(query, namedArgs...).Scan(
 		&ret.Id,
 		&ret.PublicId,
-		&ret.Name,
-		&ret.Count)
+		&ret.Name)
 
 	if err != nil {
 		return nil, err
@@ -611,13 +611,13 @@ func (gdb *GexDB) ExprType(id string) (*Idtype, error) {
 // 	return datasetCache, nil
 // }
 
-func (gdb *GexDB) ExprTypes(datasets []string, isAdmin bool, permissions []string) ([]*Idtype, error) {
+func (gdb *GexDB) ExprTypes(datasetIds []string, isAdmin bool, permissions []string) ([]*Idtype, error) {
 
 	namedArgs := []any{}
 
 	query := sqlite.MakePermissionsSql(DatasetsSQL, isAdmin, permissions, &namedArgs)
 
-	query = MakeInDatasetsSql(query, datasets, &namedArgs)
+	query = MakeInDatasetsSql(query, datasetIds, &namedArgs)
 
 	allExprTypes := make(map[string]*Idtype)
 
@@ -646,7 +646,7 @@ func (gdb *GexDB) ExprTypes(datasets []string, isAdmin bool, permissions []strin
 
 	}
 
-	ret := make([]*Idtype, 0, len(datasets))
+	ret := make([]*Idtype, 0, len(datasetIds))
 
 	for _, exprType := range allExprTypes {
 		ret = append(ret, exprType)
@@ -863,6 +863,7 @@ func (gdb *GexDB) Expression(datasetId string,
 
 	var url string
 	var offset int64
+	var length int
 
 	for _, probe := range probes {
 		namedArgs := []any{sql.Named("dataset", datasetId),
@@ -873,7 +874,8 @@ func (gdb *GexDB) Expression(datasetId string,
 
 		err := gdb.db.QueryRow(query, namedArgs...).Scan(
 			&url,
-			&offset)
+			&offset,
+			&length)
 
 		if err != nil {
 			return nil, err
@@ -881,7 +883,7 @@ func (gdb *GexDB) Expression(datasetId string,
 
 		path := filepath.Join(gdb.dir, url)
 
-		values, err := readFloat32sWithOffset(path, offset, dataset.Count)
+		values, err := readFloat32Array(path, offset, length)
 
 		if err != nil {
 			return nil, err
@@ -910,7 +912,9 @@ func (gdb *GexDB) Expression(datasetId string,
 // 	return gdb.Expression(dataset, exprTypeId, probes, isAdmin, permissions)
 // }
 
-func readFloat32sWithOffset(path string, offset int64, count int) ([]float32, error) {
+// read a binary file containing float32 values with a given offset and count
+// and create a float32 slice from the values
+func readFloat32Array(path string, offset int64, l int) ([]float32, error) {
 	// Open the file for reading
 	f, err := os.Open(path)
 
@@ -922,15 +926,17 @@ func readFloat32sWithOffset(path string, offset int64, count int) ([]float32, er
 
 	// Seek to the specified offset
 	_, err = f.Seek(offset, 0) // 0 means "from the beginning of the file"
+
 	if err != nil {
 		return nil, err
 	}
 
 	// Prepare a slice to hold the read values
-	data := make([]float32, count)
+	data := make([]float32, l)
 
 	// Read the data into the slice
 	err = binary.Read(f, binary.LittleEndian, &data)
+
 	if err != nil {
 		return nil, err
 	}
@@ -938,14 +944,14 @@ func readFloat32sWithOffset(path string, offset int64, count int) ([]float32, er
 	return data, nil
 }
 
-func read(f *os.File, offset int, length int) ([]byte, error) {
-	buf := make([]byte, length)
-	_, err := f.ReadAt(buf, int64(offset))
-	if err != nil {
-		return nil, err
-	}
-	return buf, nil
-}
+// func read(f *os.File, offset int, length int) ([]byte, error) {
+// 	buf := make([]byte, length)
+// 	_, err := f.ReadAt(buf, int64(offset))
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return buf, nil
+// }
 
 // func (gdb *GexDB) FindMicroarrayValues(dataset string,
 // 	exprTypeId string,

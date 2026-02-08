@@ -39,13 +39,13 @@ func ExprTypes(datasets []string, isAdmin bool, permissions []string) ([]*gex.Id
 	return instance.ExprTypes(datasets, isAdmin, permissions)
 }
 
-func Datasets(species string, technology string, isAdmin bool, permissions []string) ([]*gex.Dataset, error) {
-	return instance.Datasets(species, technology, permissions, isAdmin)
+func Datasets(genome string, technology string, isAdmin bool, permissions []string) ([]*gex.Dataset, error) {
+	return instance.Datasets(genome, technology, permissions, isAdmin)
 }
 
-func AllTechnologies() (map[string]map[string][]string, error) {
-	return instance.AllTechnologies()
-}
+// func AllTechnologies() (map[string]map[string][]string, error) {
+// 	return instance.AllTechnologies()
+// }
 
 func Expression(datasetId string, exprTypeId *gex.Idtype, probes []*gex.Idtype, isAdmin bool, permissions []string) (*gex.SearchResults, error) {
 	return instance.Expression(datasetId, exprTypeId, probes, isAdmin, permissions)
