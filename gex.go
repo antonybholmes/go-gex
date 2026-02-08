@@ -15,38 +15,41 @@ import (
 )
 
 type (
-	Entity struct {
+	IdEntity struct {
 		Id       int    `json:"-"`
 		PublicId string `db:"public_id" json:"id"`
-		Name     string `json:"name"`
+	}
+
+	NameEntity struct {
+		IdEntity
+		Name string `json:"name"`
 	}
 
 	GexGene struct {
-		Entity
-		Ensembl string `json:"ensembl,omitempty"`
-		Refseq  string `json:"refseq,omitempty"`
-		//GeneSymbol string `json:"geneSymbol"`
-		Ncbi string `json:"ncbi,omitempty"`
+		IdEntity
+		Ensembl    string `json:"ensembl,omitempty"`
+		Refseq     string `json:"refseq,omitempty"`
+		GeneSymbol string `json:"geneSymbol"`
+		Ncbi       string `json:"ncbi,omitempty"`
 	}
 
 	Probe struct {
-		Entity
+		NameEntity
 		Gene *GexGene `json:"gene,omitempty"`
 	}
 
 	Technology struct {
-		Entity
-		ExprTypes []Entity `json:"exprTypes"`
+		NameEntity
+		ExprTypes []NameEntity `json:"exprTypes"`
 	}
 
 	NamedValue struct {
-		Entity
+		NameEntity
 		Value string `json:"value"`
 		Color string `json:"color,omitempty"`
 	}
 
 	Metadata struct {
-		//Id          string `json:"id"`
 		Name        string `json:"name"`
 		Value       string `json:"value"`
 		Color       string `json:"color,omitempty"`
@@ -54,8 +57,7 @@ type (
 	}
 
 	Sample struct {
-		Id   string `json:"id"`
-		Name string `json:"name"`
+		NameEntity
 		//AltNames []NameValueType `json:"altNames"`
 		Metadata []*Metadata `json:"metadata"`
 	}
@@ -66,8 +68,8 @@ type (
 		// each search. The useful info in a search is just
 		// the platform name and id
 
-		Dataset  *Entity       `json:"dataset"`
-		ExprType *Entity       `json:"type"`
+		Dataset  *NameEntity   `json:"dataset"`
+		ExprType *NameEntity   `json:"type"`
 		Features []*Expression `json:"features"`
 	}
 
@@ -81,15 +83,15 @@ type (
 	}
 
 	Dataset struct {
-		Entity
+		NameEntity
 		Genome     string `json:"genome"`
 		Technology string `json:"technology"`
 		Platform   string `json:"platform"`
 
-		Institution string    `json:"institution"`
-		Description string    `json:"description"`
-		Samples     []*Sample `json:"samples"`
-		ExprTypes   []*Entity `json:"exprTypes"`
+		Institution string        `json:"institution"`
+		Description string        `json:"description"`
+		Samples     []*Sample     `json:"samples"`
+		ExprTypes   []*NameEntity `json:"exprTypes"`
 	}
 
 	GexDB struct {
@@ -323,9 +325,9 @@ func (gdb *GexDB) Dir() string {
 	return gdb.dir
 }
 
-func (gdb *GexDB) Genomes() ([]*Entity, error) {
+func (gdb *GexDB) Genomes() ([]*NameEntity, error) {
 
-	genomes := make([]*Entity, 0, 10)
+	genomes := make([]*NameEntity, 0, 10)
 
 	rows, err := gdb.db.Query(GenomesSql)
 
@@ -336,7 +338,7 @@ func (gdb *GexDB) Genomes() ([]*Entity, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var genome Entity
+		var genome NameEntity
 
 		err := rows.Scan(
 			&genome.Id,
@@ -464,13 +466,13 @@ func (gdb *GexDB) Datasets(genome string,
 }
 
 // used for search results where only basic dataset info is needed
-func (gdb *GexDB) BasicDataset(datasetId string, permissions []string, isAdmin bool) (*Entity, error) {
+func (gdb *GexDB) BasicDataset(datasetId string, permissions []string, isAdmin bool) (*NameEntity, error) {
 
 	namedArgs := []any{sql.Named("id", datasetId)}
 
 	query := sqlite.MakePermissionsSql(BasicDatasetSQL, isAdmin, permissions, &namedArgs)
 
-	var ret Entity
+	var ret NameEntity
 
 	err := gdb.db.QueryRow(query, namedArgs...).Scan(
 		&ret.Id,
@@ -525,7 +527,7 @@ func (gdb *GexDB) Samples() ([]*Sample, error) {
 	defer rows.Close()
 
 	samples := make([]*Sample, 0, DefaultNumSamples)
-	sampleMap := make(map[string]*Sample)
+	sampleMap := make(map[int]*Sample)
 
 	for rows.Next() {
 		var sample Sample
@@ -549,8 +551,6 @@ func (gdb *GexDB) Samples() ([]*Sample, error) {
 		sampleMap[sample.Id] = &sample
 	}
 
-	var sampleId string
-
 	// add sample metadata to samples
 
 	rows, err = gdb.db.Query(SampleMetadataSQL)
@@ -560,6 +560,8 @@ func (gdb *GexDB) Samples() ([]*Sample, error) {
 	}
 
 	defer rows.Close()
+
+	var sampleId int
 
 	for rows.Next() {
 		var m Metadata
@@ -577,9 +579,9 @@ func (gdb *GexDB) Samples() ([]*Sample, error) {
 	return samples, nil
 }
 
-func (gdb *GexDB) ExprType(id string) (*Entity, error) {
+func (gdb *GexDB) ExprType(id string) (*NameEntity, error) {
 
-	var ret Entity
+	var ret NameEntity
 
 	err := gdb.db.QueryRow(ExprTypeSQL, sql.Named("id", id)).Scan(
 		&ret.Id,
@@ -611,7 +613,7 @@ func (gdb *GexDB) ExprType(id string) (*Entity, error) {
 // 	return datasetCache, nil
 // }
 
-func (gdb *GexDB) ExprTypes(datasetIds []string, isAdmin bool, permissions []string) ([]*Entity, error) {
+func (gdb *GexDB) ExprTypes(datasetIds []string, isAdmin bool, permissions []string) ([]*NameEntity, error) {
 
 	namedArgs := []any{}
 
@@ -619,7 +621,7 @@ func (gdb *GexDB) ExprTypes(datasetIds []string, isAdmin bool, permissions []str
 
 	query = MakeInDatasetsSql(query, datasetIds, &namedArgs)
 
-	allExprTypes := make(map[string]*Entity)
+	allExprTypes := make(map[string]*NameEntity)
 
 	rows, err := gdb.db.Query(query, namedArgs...)
 
@@ -630,7 +632,7 @@ func (gdb *GexDB) ExprTypes(datasetIds []string, isAdmin bool, permissions []str
 	defer rows.Close()
 
 	for rows.Next() {
-		var exprType Entity
+		var exprType NameEntity
 
 		err := rows.Scan(
 			&exprType.PublicId,
@@ -646,7 +648,7 @@ func (gdb *GexDB) ExprTypes(datasetIds []string, isAdmin bool, permissions []str
 
 	}
 
-	ret := make([]*Entity, 0, len(datasetIds))
+	ret := make([]*NameEntity, 0, len(datasetIds))
 
 	for _, exprType := range allExprTypes {
 		ret = append(ret, exprType)
@@ -715,7 +717,7 @@ func (gdb *GexDB) FindProbes(genes []string) ([]*Probe, error) {
 			&probe.Name,
 			&probe.Gene.Id,
 			&probe.Gene.PublicId,
-			&probe.Gene.Name,
+			&probe.Gene.GeneSymbol,
 			&probe.Gene.Ensembl,
 			&probe.Gene.Refseq,
 			&probe.Gene.Ncbi,
@@ -805,7 +807,7 @@ func (gdb *GexDB) FindProbes(genes []string) ([]*Probe, error) {
 
 // using binary blobs for expression values
 func (gdb *GexDB) Expression(datasetId string,
-	exprType *Entity,
+	exprType *NameEntity,
 	probes []*Probe,
 	isAdmin bool,
 	permissions []string) (*SearchResults, error) {

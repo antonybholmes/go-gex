@@ -27,7 +27,7 @@ func Dir() string {
 	return instance.Dir()
 }
 
-func Genomes() ([]*gex.Entity, error) {
+func Genomes() ([]*gex.NameEntity, error) {
 	return instance.Genomes()
 }
 
@@ -35,7 +35,7 @@ func Genomes() ([]*gex.Entity, error) {
 // 	return instance.Plaforms(species)
 // }
 
-func ExprTypes(datasets []string, isAdmin bool, permissions []string) ([]*gex.Entity, error) {
+func ExprTypes(datasets []string, isAdmin bool, permissions []string) ([]*gex.NameEntity, error) {
 	return instance.ExprTypes(datasets, isAdmin, permissions)
 }
 
@@ -47,11 +47,11 @@ func Datasets(genome string, technology string, isAdmin bool, permissions []stri
 // 	return instance.AllTechnologies()
 // }
 
-func Expression(datasetId string, exprTypeId *gex.Entity, probes []*gex.Probe, isAdmin bool, permissions []string) (*gex.SearchResults, error) {
+func Expression(datasetId string, exprTypeId *gex.NameEntity, probes []*gex.Probe, isAdmin bool, permissions []string) (*gex.SearchResults, error) {
 	return instance.Expression(datasetId, exprTypeId, probes, isAdmin, permissions)
 }
 
-func ExprType(id string) (*gex.Entity, error) {
+func ExprType(id string) (*gex.NameEntity, error) {
 	return instance.ExprType(id)
 }
 
