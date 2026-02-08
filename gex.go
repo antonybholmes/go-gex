@@ -66,19 +66,18 @@ type (
 		// each search. The useful info in a search is just
 		// the platform name and id
 
-		//Dataset *Dataset      `json:"dataset"`
-		Dataset  *BasicDataset    `json:"dataset"`
-		ExprType *Idtype          `json:"exprType"`
-		Features []*ResultFeature `json:"features"`
+		Dataset  *BasicDataset `json:"dataset"`
+		ExprType *Idtype       `json:"type"`
+		Features []*Expression `json:"features"`
 	}
 
 	// Either a probe or gene
-	ResultFeature struct {
-		Probe *Idtype `json:"probeId,omitempty"` // distinguish between null and ""
+	Expression struct {
+		Probe *Probe `json:"probe"` // distinguish between null and ""
 		//Gene  *GexGene `json:"gene"`
 		//Platform     *ValueType       `json:"platform"`
 		//GexValue *GexValue    `json:"gexType"`
-		Expr []float32 `json:"expr"`
+		Values []float32 `json:"values"`
 	}
 
 	BasicDataset struct {
@@ -232,7 +231,7 @@ const (
 			g.gene_symbol LIKE :id
 		LIMIT 1`
 
-	ProbesSQL = `SELECT
+	ProbesSQL = `SELECT DISTINCT
 		p.id AS probe_id,
 		p.public_id AS probe_public_id,
 		p.name AS probe_name,
@@ -242,26 +241,33 @@ const (
 		g.ensembl,
 		g.refseq,
 		g.ncbi
-		FROM genes g
-		JOIN probes p ON g.id = p.gene_id
-		WHERE
-			g.public_id = :id OR
-			g.ensembl = :id OR 
-			g.refseq = :id OR
-			g.gene_symbol LIKE :id`
+		FROM probes p
+		JOIN genes g ON g.id = p.gene_id
+		JOIN <<PATTERNS>> ON (
+			p.public_id = v.id
+			OR p.name LIKE v.id
+			OR g.public_id = v.id
+			OR g.gene_symbol LIKE v.id
+			OR g.ensembl = v.id
+			OR g.refseq = v.id
+		)
+		ORDER BY v.ord`
 
 	ProbeIdsSQL = `SELECT DISTINCT
 		p.id AS probe_id,
+		p.public_id AS probe_public_id,
+		p.name AS probe_name
 		FROM probes p
 		JOIN genes g ON g.id = p.gene_id
-		WHERE
-			p.public_id = :id
-			OR p.name LIKE :id
-			OR g.public_id = :id
-			OR g.gene_symbol LIKE :id
-			OR g.ensembl = :id
-			OR g.refseq = :id
-		ORDER BY g.gene_symbol`
+		JOIN <<PATTERNS>> ON (
+			p.public_id = v.id
+			OR p.name LIKE v.id
+			OR g.public_id = v.id
+			OR g.gene_symbol LIKE v.id
+			OR g.ensembl = v.id
+			OR g.refseq = v.id
+		)
+		ORDER BY v.ord`
 
 	// ExprSQL = `SELECT
 	// 	p.id,
@@ -687,35 +693,72 @@ func (gdb *GexDB) ExprTypes(datasetIds []string, isAdmin bool, permissions []str
 // 	return ret, nil
 // }
 
-// func (gdb *GexDB) FindProbes(genes []string) ([]*Probe, error) {
+func (gdb *GexDB) FindProbes(genes []string) ([]*Probe, error) {
 
-// 	ret := make([]*Probe, 0, len(genes))
+	ret := make([]*Probe, 0, len(genes))
 
-// 	for _, g := range genes {
-// 		var probe Probe
+	patternsSql, args := MakeOrderdPatternsClause(genes)
 
-// 		// init the gene
-// 		probe.Gene = &GexGene{}
+	query := strings.Replace(ProbeIdsSQL, "<<PATTERNS>>", patternsSql, 1)
 
-// 		err := gdb.db.QueryRow(ProbesSQL, sql.Named("id", g)).Scan(
-// 			&probe.Id,
-// 			&probe.PublicId,
-// 			&probe.Name,
-// 			&probe.Gene.Id,
-// 			&probe.Gene.PublicId,
-// 			&probe.Gene.Name,
-// 			&probe.Gene.Ensembl,
-// 			&probe.Gene.Refseq,
-// 			&probe.Gene.Ncbi,
-// 		)
+	rows, err := gdb.db.Query(query, args...)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var probe Probe
+
+		// init the gene
+		probe.Gene = &GexGene{}
+
+		err := rows.Scan(
+			&probe.Id,
+			&probe.PublicId,
+			&probe.Name,
+			&probe.Gene.Id,
+			&probe.Gene.PublicId,
+			&probe.Gene.Name,
+			&probe.Gene.Ensembl,
+			&probe.Gene.Refseq,
+			&probe.Gene.Ncbi,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		ret = append(ret, &probe)
+	}
+
+	return ret, nil
+}
+
+// func (gdb *GexDB) FindProbes(genes []string) ([]*Idtype, error) {
+
+// 	ret := make([]*Idtype, 0, len(genes))
+
+// 	patternsSql, args := MakeOrderdPatternsClause(genes)
+
+// 	query := strings.Replace(ProbeIdsSQL, "<<PATTERNS>>", patternsSql, 1)
+
+// 	rows, err := gdb.db.Query(query, args...)
+
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	defer rows.Close()
+
+// 	for rows.Next() {
+// 		var probe Idtype
+// 		err := rows.Scan(&probe.Id, &probe.PublicId, &probe.Name)
 
 // 		if err != nil {
-// 			// log that we couldn't find a gene, but continue
-// 			// anyway to find as many as possible
-// 			log.Error().Msgf("gene not found: %s: %v", g, err)
-
-// 			//return nil, err
-// 			continue
+// 			return nil, err
 // 		}
 
 // 		ret = append(ret, &probe)
@@ -723,36 +766,6 @@ func (gdb *GexDB) ExprTypes(datasetIds []string, isAdmin bool, permissions []str
 
 // 	return ret, nil
 // }
-
-func (gdb *GexDB) FindProbes(genes []string) ([]*Idtype, error) {
-
-	ret := make([]*Idtype, 0, len(genes))
-
-	for _, g := range genes {
-		rows, err := gdb.db.Query(ProbeIdsSQL, sql.Named("id", g))
-
-		if err != nil {
-			log.Error().Msgf("error querying probe ids for gene %s: %v", g, err)
-			continue
-		}
-
-		defer rows.Close()
-
-		for rows.Next() {
-			var probe Idtype
-			err := rows.Scan(probe.Id, probe.PublicId, probe.Name)
-
-			if err != nil {
-				log.Error().Msgf("error scanning probe id for gene %s: %v", g, err)
-				continue
-			}
-
-			ret = append(ret, &probe)
-		}
-	}
-
-	return ret, nil
-}
 
 // func (gdb *GexDB) FindSeqValues(datasetId string,
 // 	exprType *ExprType,
@@ -799,7 +812,7 @@ func (gdb *GexDB) FindProbes(genes []string) ([]*Idtype, error) {
 // using binary blobs for expression values
 func (gdb *GexDB) Expression(datasetId string,
 	exprType *Idtype,
-	probes []*Idtype,
+	probes []*Probe,
 	isAdmin bool,
 	permissions []string) (*SearchResults, error) {
 
@@ -820,7 +833,7 @@ func (gdb *GexDB) Expression(datasetId string,
 	ret := SearchResults{
 		Dataset:  dataset,
 		ExprType: exprType,
-		Features: make([]*ResultFeature, 0, len(probes))}
+		Features: make([]*Expression, 0, len(probes))}
 
 	// query = MakeInProbesSql(query, probeIds, &namedArgs)
 
@@ -889,7 +902,7 @@ func (gdb *GexDB) Expression(datasetId string,
 			return nil, err
 		}
 
-		feature := ResultFeature{Probe: probe, Expr: values}
+		feature := Expression{Probe: probe, Values: values}
 
 		ret.Features = append(ret.Features, &feature)
 	}
@@ -998,4 +1011,30 @@ func MakeInProbesSql(query string, probes []int, namedArgs *[]any) string {
 
 	return strings.Replace(query, "<<PROBES>>", clause, 1)
 
+}
+
+func MakeOrderdPatternsClause(list []string) (string, []any) {
+	if len(list) == 0 {
+		return "", nil
+	}
+
+	parts := make([]string, len(list))
+	params := make([]any, 0, len(list)*2)
+
+	for i, s := range list {
+		idx := i + 1
+		patternName := fmt.Sprintf("v%d", idx)
+		ordName := fmt.Sprintf("vo%d", idx)
+
+		// Build one row
+		parts[i] = fmt.Sprintf("(:%s, :%s)", patternName, ordName)
+
+		// Bind values
+		params = append(params,
+			sql.Named(patternName, s),
+			sql.Named(ordName, idx),
+		)
+	}
+
+	return "(VALUES" + strings.Join(parts, ", ") + ") AS v(id, ord)", params
 }

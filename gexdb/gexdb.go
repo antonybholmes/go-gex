@@ -47,7 +47,7 @@ func Datasets(genome string, technology string, isAdmin bool, permissions []stri
 // 	return instance.AllTechnologies()
 // }
 
-func Expression(datasetId string, exprTypeId *gex.Idtype, probes []*gex.Idtype, isAdmin bool, permissions []string) (*gex.SearchResults, error) {
+func Expression(datasetId string, exprTypeId *gex.Idtype, probes []*gex.Probe, isAdmin bool, permissions []string) (*gex.SearchResults, error) {
 	return instance.Expression(datasetId, exprTypeId, probes, isAdmin, permissions)
 }
 
@@ -55,7 +55,7 @@ func ExprType(id string) (*gex.Idtype, error) {
 	return instance.ExprType(id)
 }
 
-func FindProbes(genes []string) ([]*gex.Idtype, error) {
+func FindProbes(genes []string) ([]*gex.Probe, error) {
 	return instance.FindProbes(genes)
 }
 
