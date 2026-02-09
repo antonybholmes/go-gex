@@ -45,12 +45,17 @@ func GenomesRoute(c *gin.Context) {
 	web.MakeDataResp(c, "", types)
 }
 
-// func TechnologiesRoute(c *gin.Context) {
+func TechnologiesRoute(c *gin.Context) {
 
-// 	technologies := gexdb.Technologies() //gexdbcache.Technologies()
+	technologies, err := gexdb.Technologies() //gexdbcache.Technologies()
 
-// 	web.MakeDataResp(c, "", technologies)
-// }
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	web.MakeDataResp(c, "", technologies)
+}
 
 func ExprTypesRoute(c *gin.Context) {
 	middleware.JwtUserWithPermissionsRoute(c, func(c *gin.Context, isAdmin bool, user *auth.AuthUserJwtClaims) {
@@ -73,7 +78,7 @@ func ExprTypesRoute(c *gin.Context) {
 	})
 }
 
-func GexDatasetsRoute(c *gin.Context) {
+func DatasetsRoute(c *gin.Context) {
 	middleware.JwtUserWithPermissionsRoute(c, func(c *gin.Context, isAdmin bool, user *auth.AuthUserJwtClaims) {
 
 		genome := c.Param("genome")
@@ -90,7 +95,7 @@ func GexDatasetsRoute(c *gin.Context) {
 	})
 }
 
-func GexGeneExprRoute(c *gin.Context) {
+func GeneExpressionRoute(c *gin.Context) {
 	middleware.JwtUserWithPermissionsRoute(c, func(c *gin.Context, isAdmin bool, user *auth.AuthUserJwtClaims) {
 		params, err := parseParamsFromPost(c)
 

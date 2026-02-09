@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/antonybholmes/go-gex"
+	"github.com/antonybholmes/go-sys"
 )
 
 var (
@@ -27,7 +28,7 @@ func Dir() string {
 	return instance.Dir()
 }
 
-func Genomes() ([]*gex.NameEntity, error) {
+func Genomes() ([]*sys.Entity, error) {
 	return instance.Genomes()
 }
 
@@ -35,7 +36,7 @@ func Genomes() ([]*gex.NameEntity, error) {
 // 	return instance.Plaforms(species)
 // }
 
-func ExprTypes(datasets []string, isAdmin bool, permissions []string) ([]*gex.NameEntity, error) {
+func ExprTypes(datasets []string, isAdmin bool, permissions []string) ([]*sys.Entity, error) {
 	return instance.ExprTypes(datasets, isAdmin, permissions)
 }
 
@@ -43,15 +44,15 @@ func Datasets(genome string, technology string, isAdmin bool, permissions []stri
 	return instance.Datasets(genome, technology, permissions, isAdmin)
 }
 
-// func AllTechnologies() (map[string]map[string][]string, error) {
-// 	return instance.AllTechnologies()
-// }
+func Technologies() ([]*sys.Entity, error) {
+	return instance.Technologies()
+}
 
-func Expression(datasetId string, exprTypeId *gex.NameEntity, probes []*gex.Probe, isAdmin bool, permissions []string) (*gex.SearchResults, error) {
+func Expression(datasetId string, exprTypeId *sys.Entity, probes []*gex.Probe, isAdmin bool, permissions []string) (*gex.SearchResults, error) {
 	return instance.Expression(datasetId, exprTypeId, probes, isAdmin, permissions)
 }
 
-func ExprType(id string) (*gex.NameEntity, error) {
+func ExprType(id string) (*sys.Entity, error) {
 	return instance.ExprType(id)
 }
 

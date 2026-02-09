@@ -15,18 +15,8 @@ import (
 )
 
 type (
-	IdEntity struct {
-		Id       int    `json:"-"`
-		PublicId string `db:"public_id" json:"id"`
-	}
-
-	NameEntity struct {
-		IdEntity
-		Name string `json:"name"`
-	}
-
 	GexGene struct {
-		IdEntity
+		sys.IdEntity
 		Ensembl    string `json:"ensembl,omitempty"`
 		Refseq     string `json:"refseq,omitempty"`
 		GeneSymbol string `json:"geneSymbol"`
@@ -34,32 +24,32 @@ type (
 	}
 
 	Probe struct {
-		NameEntity
+		sys.Entity
 		Gene *GexGene `json:"gene,omitempty"`
 	}
 
-	Technology struct {
-		NameEntity
-		ExprTypes []NameEntity `json:"exprTypes"`
-	}
+	// Technology struct {
+	// 	sys.Entity
+	// 	ExprTypes []sys.Entity `json:"exprTypes"`
+	// }
 
 	NamedValue struct {
-		NameEntity
+		sys.Entity
 		Value string `json:"value"`
 		Color string `json:"color,omitempty"`
 	}
 
-	Metadata struct {
-		Name        string `json:"name"`
-		Value       string `json:"value"`
-		Color       string `json:"color,omitempty"`
-		Description string `json:"description,omitempty"`
-	}
+	// Metadata struct {
+	// 	Name  string `json:"name"`
+	// 	Value string `json:"value"`
+	// 	Color string `json:"color,omitempty"`
+	// 	//Description string `json:"description,omitempty"`
+	// }
 
 	Sample struct {
-		NameEntity
+		sys.Entity
 		//AltNames []NameValueType `json:"altNames"`
-		Metadata []*Metadata `json:"metadata"`
+		Metadata []*NamedValue `json:"metadata"`
 	}
 
 	SearchResults struct {
@@ -68,8 +58,8 @@ type (
 		// each search. The useful info in a search is just
 		// the platform name and id
 
-		Dataset  *NameEntity   `json:"dataset"`
-		ExprType *NameEntity   `json:"type"`
+		Dataset  *sys.Entity   `json:"dataset"`
+		ExprType *sys.Entity   `json:"type"`
 		Features []*Expression `json:"features"`
 	}
 
@@ -83,15 +73,12 @@ type (
 	}
 
 	Dataset struct {
-		NameEntity
-		Genome     string `json:"genome"`
-		Technology string `json:"technology"`
-		Platform   string `json:"platform"`
-
-		Institution string        `json:"institution"`
-		Description string        `json:"description"`
-		Samples     []*Sample     `json:"samples"`
-		ExprTypes   []*NameEntity `json:"exprTypes"`
+		sys.Entity
+		Genome      *sys.Entity `json:"genome"`
+		Technology  *sys.Entity `json:"technology"`
+		Platform    string      `json:"platform,omitempty"`
+		Institution string      `json:"institution"`
+		Samples     []*Sample   `json:"samples,omitempty"`
 	}
 
 	GexDB struct {
@@ -123,39 +110,52 @@ const (
 		ORDER BY g.name`
 
 	TechnologiesSQL = `SELECT
-		t.public_id
+		t.id,
+		t.public_id,
 		t.name
 		FROM technologies t
-		JOIN datasets d ON d.technology_id = t.id
-		WHERE datasets.public_id = :id
 		ORDER BY t.name`
 
-	AllTechnologiesSQL = `SELECT DISTINCT 
-		species, 
-		technology, 
-		platform 
-		FROM datasets 
-		ORDER BY species, technology, platform`
+	// AllTechnologiesSQL = `SELECT DISTINCT
+	// 	species,
+	// 	technology,
+	// 	platform
+	// 	FROM datasets
+	// 	ORDER BY species, technology, platform`
 
 	BaseDatasetsSQL = `SELECT 
+		d.id,
 		d.public_id,
-		g.name AS genome,
-		t.name AS technology,
+		d.name,
 		d.platform,
 		d.institution,
-		d.name,
-		d.description
+		g.id AS genome_id,
+		g.public_id AS genome_public_id,
+		g.name AS genome_name,
+		t.id AS technology_id,
+		t.public_id AS technology_public_id,
+		t.name AS technology_name
+		s.id AS sample_id,
+		s.public_id AS sample_public_id,
+		s.name AS sample_name,
+		m.name AS metadata_name,
+		smd.value AS metadata_value,
+		smd.color AS metadata_color
 		FROM datasets d
 		JOIN dataset_permissions dp ON d.id = dp.dataset_id
 		JOIN permissions p ON dp.permission_id = p.id
 		JOIN genomes g ON d.genome_id = g.id
 		JOIN technologies t ON d.technology_id = t.id
+		JOIN samples s ON s.dataset_id = d.id
+		JOIN sample_metadata smd ON smd.sample_id = s.id
+		JOIN metadata m ON smd.metadata_id = m.id
 		WHERE
 			<<PERMISSIONS>>`
 
-	DatasetsSQL = BaseDatasetsSQL + ` AND d.genome_id = :gid 
-			AND d.technology_id = :tid
-			ORDER BY d.name`
+	DatasetsSQL = BaseDatasetsSQL +
+		` AND d.genome_id = :gid 
+		AND d.technology_id = :tid
+		ORDER BY d.name, s.name, m.name`
 
 	DatasetFromIdSQL = BaseDatasetsSQL + ` AND d.public_id = :id`
 
@@ -177,6 +177,8 @@ const (
 		ORDER BY samples.id`
 
 	MetadataSQL = `SELECT
+		m.id,
+		m.public_id,
 		m.name,
 		m.color
 		FROM metadata m
@@ -185,7 +187,9 @@ const (
 	// order by sample id and then sample_metadata.id to ensure consistent order of metadata for each sample
 	// as it was read from its original source file
 	SampleMetadataSQL = `SELECT
-		s.id,
+		s.id AS sample_id,
+		m.id AS metadata_id,
+		m.public_id,
 		m.name,
 		smd.value,
 		m.color
@@ -194,12 +198,12 @@ const (
 		JOIN samples s ON smd.sample_id = s.id
 		ORDER by s.id, smd.id`
 
-	ExprTypesSQL = `SELECT
+	ExprTypesSQL = `SELECT DISTINCT
 		e.id,
 		e.public_id,
 		e.name
 		FROM expr_types e
-		JOIN expression ex ON e.id = ex.expression_type_id
+		JOIN expression ex ON e.expression_type_id = ex.expression_type_id
 		JOIN datasets d ON ex.dataset_id = d.id
 		JOIN dataset_permissions dp ON d.id = dp.dataset_id
 		JOIN permissions p ON dp.permission_id = p.id
@@ -325,9 +329,9 @@ func (gdb *GexDB) Dir() string {
 	return gdb.dir
 }
 
-func (gdb *GexDB) Genomes() ([]*NameEntity, error) {
+func (gdb *GexDB) Genomes() ([]*sys.Entity, error) {
 
-	genomes := make([]*NameEntity, 0, 10)
+	genomes := make([]*sys.Entity, 0, 10)
 
 	rows, err := gdb.db.Query(GenomesSql)
 
@@ -338,7 +342,7 @@ func (gdb *GexDB) Genomes() ([]*NameEntity, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var genome NameEntity
+		var genome sys.Entity
 
 		err := rows.Scan(
 			&genome.Id,
@@ -355,11 +359,11 @@ func (gdb *GexDB) Genomes() ([]*NameEntity, error) {
 	return genomes, nil
 }
 
-func (gdb *GexDB) Technologies(genome string) ([]string, error) {
+func (gdb *GexDB) Technologies() ([]*sys.Entity, error) {
 
-	platforms := make([]string, 0, 10)
+	technologies := make([]*sys.Entity, 0, 10)
 
-	rows, err := gdb.db.Query(TechnologiesSQL, sql.Named("id", genome))
+	rows, err := gdb.db.Query(TechnologiesSQL)
 
 	if err != nil {
 		return nil, err
@@ -368,61 +372,91 @@ func (gdb *GexDB) Technologies(genome string) ([]string, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var platform string
+		var technology sys.Entity
 
 		err := rows.Scan(
-			&platform)
+			&technology.Id,
+			&technology.PublicId,
+			&technology.Name)
 
 		if err != nil {
 			return nil, err
 		}
 
-		platforms = append(platforms, platform)
-	}
-
-	return platforms, nil
-}
-
-func (gdb *GexDB) AllTechnologies() (map[string]map[string][]string, error) {
-
-	technologies := make(map[string]map[string][]string)
-
-	rows, err := gdb.db.Query(AllTechnologiesSQL)
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer rows.Close()
-
-	var species string
-	var technology string
-	var platform string
-
-	for rows.Next() {
-
-		err := rows.Scan(&species,
-			&technology,
-			&platform)
-
-		if err != nil {
-			return nil, err
-		}
-
-		if technologies[species] == nil {
-			technologies[species] = make(map[string][]string)
-		}
-
-		if technologies[species][technology] == nil {
-			technologies[species][technology] = make([]string, 0, 10)
-		}
-
-		technologies[species][technology] = append(technologies[species][technology], platform)
-
+		technologies = append(technologies, &technology)
 	}
 
 	return technologies, nil
 }
+
+// func (gdb *GexDB) Technologies(genome string) ([]string, error) {
+
+// 	platforms := make([]string, 0, 10)
+
+// 	rows, err := gdb.db.Query(TechnologiesSQL, sql.Named("id", genome))
+
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	defer rows.Close()
+
+// 	for rows.Next() {
+// 		var platform string
+
+// 		err := rows.Scan(
+// 			&platform)
+
+// 		if err != nil {
+// 			return nil, err
+// 		}
+
+// 		platforms = append(platforms, platform)
+// 	}
+
+// 	return platforms, nil
+// }
+
+// func (gdb *GexDB) AllTechnologies() (map[string]map[string][]string, error) {
+
+// 	technologies := make(map[string]map[string][]string)
+
+// 	rows, err := gdb.db.Query(AllTechnologiesSQL)
+
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	defer rows.Close()
+
+// 	var species string
+// 	var technology string
+// 	var platform string
+
+// 	for rows.Next() {
+
+// 		err := rows.Scan(&species,
+// 			&technology,
+// 			&platform)
+
+// 		if err != nil {
+// 			return nil, err
+// 		}
+
+// 		if technologies[species] == nil {
+// 			technologies[species] = make(map[string][]string)
+// 		}
+
+// 		if technologies[species][technology] == nil {
+// 			technologies[species][technology] = make([]string, 0, 10)
+// 		}
+
+// 		technologies[species][technology] = append(technologies[species][technology], platform)
+
+// 	}
+
+// 	return technologies, nil
+// }
 
 func (gdb *GexDB) Datasets(genome string,
 	technology string,
@@ -443,36 +477,71 @@ func (gdb *GexDB) Datasets(genome string,
 
 	datasets := make([]*Dataset, 0, 10)
 
+	var currentDataset *Dataset
+	var currentSample *Sample
+
 	for datasetRows.Next() {
 		var dataset Dataset
+		var genome sys.Entity
+		var technology sys.Entity
+		var sample Sample
+		var metadata NamedValue
+
+		//dataset.Genome = &sys.Entity{}
+		//dataset.Technology = &sys.Entity{}
+		//dataset.Samples = make([]*Sample, 0, 10)
 
 		err := datasetRows.Scan(
 			&dataset.Id,
 			&dataset.PublicId,
-			&dataset.Genome,
-			&dataset.Technology,
+			&dataset.Name,
 			&dataset.Platform,
 			&dataset.Institution,
-			&dataset.Name)
+			&genome.Id,
+			&genome.PublicId,
+			&genome.Name,
+			&technology.Id,
+			&technology.PublicId,
+			&technology.Name,
+			&sample.Id,
+			&sample.PublicId,
+			&sample.Name,
+			&metadata.Name,
+			&metadata.Value,
+			&metadata.Color)
 
 		if err != nil {
 			return nil, err
 		}
 
-		datasets = append(datasets, &dataset)
+		if currentDataset == nil || currentDataset.Id != dataset.Id {
+			currentDataset = &dataset
+			currentDataset.Genome = &genome
+			currentDataset.Technology = &technology
+			currentDataset.Samples = make([]*Sample, 0, 20)
+			datasets = append(datasets, &dataset)
+		}
+
+		if currentSample == nil || currentSample.Id != sample.Id {
+			currentSample = &sample
+			currentSample.Metadata = make([]*NamedValue, 0, 20)
+			currentDataset.Samples = append(currentDataset.Samples, currentSample)
+		}
+
+		currentSample.Metadata = append(currentSample.Metadata, &metadata)
 	}
 
 	return datasets, nil
 }
 
 // used for search results where only basic dataset info is needed
-func (gdb *GexDB) BasicDataset(datasetId string, permissions []string, isAdmin bool) (*NameEntity, error) {
+func (gdb *GexDB) BasicDataset(datasetId string, permissions []string, isAdmin bool) (*sys.Entity, error) {
 
 	namedArgs := []any{sql.Named("id", datasetId)}
 
 	query := sqlite.MakePermissionsSql(BasicDatasetSQL, isAdmin, permissions, &namedArgs)
 
-	var ret NameEntity
+	var ret sys.Entity
 
 	err := gdb.db.QueryRow(query, namedArgs...).Scan(
 		&ret.Id,
@@ -486,7 +555,7 @@ func (gdb *GexDB) BasicDataset(datasetId string, permissions []string, isAdmin b
 	return &ret, nil
 }
 
-func (gdb *GexDB) Metadata() ([]*Metadata, error) {
+func (gdb *GexDB) Metadata() ([]*NamedValue, error) {
 
 	rows, err := gdb.db.Query(MetadataSQL)
 
@@ -496,12 +565,14 @@ func (gdb *GexDB) Metadata() ([]*Metadata, error) {
 
 	defer rows.Close()
 
-	metadata := make([]*Metadata, 0, 20)
+	metadata := make([]*NamedValue, 0, 20)
 
 	for rows.Next() {
-		var m Metadata
+		var m NamedValue
 
 		err := rows.Scan(
+			&m.Id,
+			&m.PublicId,
 			&m.Name,
 			&m.Value,
 			&m.Color)
@@ -545,7 +616,7 @@ func (gdb *GexDB) Samples() ([]*Sample, error) {
 		// to avoid nil slices
 		// we can estimate the size to avoid too many allocations
 		//sample.AltNames = make([]NameValueType, 0, 10)
-		sample.Metadata = make([]*Metadata, 0, 10)
+		sample.Metadata = make([]*NamedValue, 0, 10)
 
 		samples = append(samples, &sample)
 		sampleMap[sample.Id] = &sample
@@ -564,9 +635,9 @@ func (gdb *GexDB) Samples() ([]*Sample, error) {
 	var sampleId int
 
 	for rows.Next() {
-		var m Metadata
+		var m NamedValue
 
-		err := rows.Scan(sampleId, &m.Name, &m.Value, &m.Color)
+		err := rows.Scan(sampleId, &m.Id, &m.PublicId, &m.Name, &m.Value, &m.Color)
 
 		if err != nil {
 			log.Error().Msgf("error scanning sample: %v", err)
@@ -579,9 +650,9 @@ func (gdb *GexDB) Samples() ([]*Sample, error) {
 	return samples, nil
 }
 
-func (gdb *GexDB) ExprType(id string) (*NameEntity, error) {
+func (gdb *GexDB) ExprType(id string) (*sys.Entity, error) {
 
-	var ret NameEntity
+	var ret sys.Entity
 
 	err := gdb.db.QueryRow(ExprTypeSQL, sql.Named("id", id)).Scan(
 		&ret.Id,
@@ -613,15 +684,15 @@ func (gdb *GexDB) ExprType(id string) (*NameEntity, error) {
 // 	return datasetCache, nil
 // }
 
-func (gdb *GexDB) ExprTypes(datasetIds []string, isAdmin bool, permissions []string) ([]*NameEntity, error) {
+func (gdb *GexDB) ExprTypes(datasetIds []string, isAdmin bool, permissions []string) ([]*sys.Entity, error) {
 
 	namedArgs := []any{}
 
-	query := sqlite.MakePermissionsSql(DatasetsSQL, isAdmin, permissions, &namedArgs)
+	query := sqlite.MakePermissionsSql(ExprTypesSQL, isAdmin, permissions, &namedArgs)
 
 	query = MakeInDatasetsSql(query, datasetIds, &namedArgs)
 
-	allExprTypes := make(map[string]*NameEntity)
+	allExprTypes := make(map[string]*sys.Entity)
 
 	rows, err := gdb.db.Query(query, namedArgs...)
 
@@ -632,7 +703,7 @@ func (gdb *GexDB) ExprTypes(datasetIds []string, isAdmin bool, permissions []str
 	defer rows.Close()
 
 	for rows.Next() {
-		var exprType NameEntity
+		var exprType sys.Entity
 
 		err := rows.Scan(
 			&exprType.PublicId,
@@ -648,7 +719,7 @@ func (gdb *GexDB) ExprTypes(datasetIds []string, isAdmin bool, permissions []str
 
 	}
 
-	ret := make([]*NameEntity, 0, len(datasetIds))
+	ret := make([]*sys.Entity, 0, len(datasetIds))
 
 	for _, exprType := range allExprTypes {
 		ret = append(ret, exprType)
@@ -693,9 +764,7 @@ func (gdb *GexDB) FindProbes(genes []string) ([]*Probe, error) {
 
 	ret := make([]*Probe, 0, len(genes))
 
-	patternsSql, args := MakeOrderdPatternsClause(genes)
-
-	query := strings.Replace(ProbeIdsSQL, "<<PATTERNS>>", patternsSql, 1)
+	query, args := MakeOrderdPatternsClause(ProbesSQL, genes)
 
 	rows, err := gdb.db.Query(query, args...)
 
@@ -807,7 +876,7 @@ func (gdb *GexDB) FindProbes(genes []string) ([]*Probe, error) {
 
 // using binary blobs for expression values
 func (gdb *GexDB) Expression(datasetId string,
-	exprType *NameEntity,
+	exprType *sys.Entity,
 	probes []*Probe,
 	isAdmin bool,
 	permissions []string) (*SearchResults, error) {
@@ -1009,7 +1078,7 @@ func MakeInProbesSql(query string, probes []int, namedArgs *[]any) string {
 
 }
 
-func MakeOrderdPatternsClause(list []string) (string, []any) {
+func MakeOrderdPatternsClause(query string, list []string) (string, []any) {
 	if len(list) == 0 {
 		return "", nil
 	}
@@ -1032,5 +1101,8 @@ func MakeOrderdPatternsClause(list []string) (string, []any) {
 		)
 	}
 
-	return "(VALUES" + strings.Join(parts, ", ") + ") AS v(id, ord)", params
+	patternsSql := "(VALUES" + strings.Join(parts, ", ") + ") AS v(id, ord)"
+
+	return strings.Replace(query, "<<PATTERNS>>", patternsSql, 1), params
+
 }
