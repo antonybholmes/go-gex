@@ -25,8 +25,8 @@ type (
 	}
 
 	Probe struct {
-		sys.Entity
 		Gene *GexGene `json:"gene,omitempty"`
+		sys.Entity
 	}
 
 	// Technology struct {
