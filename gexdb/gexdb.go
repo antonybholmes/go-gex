@@ -36,9 +36,9 @@ func Genomes() ([]*sys.Entity, error) {
 // 	return instance.Plaforms(species)
 // }
 
-func ExprTypes(datasets []string, isAdmin bool, permissions []string) ([]*sys.Entity, error) {
-	return instance.ExprTypes(datasets, isAdmin, permissions)
-}
+// func ExprTypes(datasets []string, isAdmin bool, permissions []string) ([]*sys.Entity, error) {
+// 	return instance.ExprTypes(datasets, isAdmin, permissions)
+// }
 
 func Datasets(genome string, technology string, isAdmin bool, permissions []string) ([]*gex.Dataset, error) {
 	return instance.Datasets(genome, technology, permissions, isAdmin)
@@ -56,8 +56,8 @@ func ExprType(id string) (*sys.Entity, error) {
 	return instance.ExprType(id)
 }
 
-func FindProbes(genes []string) ([]*gex.Probe, error) {
-	return instance.FindProbes(genes)
+func FindProbes(genome, technology string, genes []string) ([]*gex.Probe, error) {
+	return instance.FindProbes(genome, technology, genes)
 }
 
 // func FindSeqValues(datasetId string, exprTypeId string, genes []string, isAdmin bool, permissions []string) (*gex.SearchResults, error) {

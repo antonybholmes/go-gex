@@ -1,12 +1,12 @@
 package gex
 
 import (
+	"context"
 	"database/sql"
 	"encoding/binary"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/antonybholmes/go-sys"
@@ -17,9 +17,10 @@ import (
 type (
 	GexGene struct {
 		sys.IdEntity
+		GeneId     string `json:"geneId"` // a real gene id, not a db key
+		GeneSymbol string `json:"geneSymbol"`
 		Ensembl    string `json:"ensembl,omitempty"`
 		Refseq     string `json:"refseq,omitempty"`
-		GeneSymbol string `json:"geneSymbol"`
 		Ncbi       string `json:"ncbi,omitempty"`
 	}
 
@@ -46,6 +47,17 @@ type (
 	// 	//Description string `json:"description,omitempty"`
 	// }
 
+	Dataset struct {
+		sys.Entity
+		Genome      *sys.Entity `json:"genome"`
+		Technology  *sys.Entity `json:"technology"`
+		Platform    string      `json:"platform,omitempty"`
+		Institution string      `json:"institution"`
+		Samples     []*Sample   `json:"samples,omitempty"`
+		//Metadata    []string    `json:"metadata,omitempty"`
+		ExprTypes []*sys.Entity `json:"exprTypes,omitempty"`
+	}
+
 	Sample struct {
 		sys.Entity
 		//AltNames []NameValueType `json:"altNames"`
@@ -70,15 +82,6 @@ type (
 		//Platform     *ValueType       `json:"platform"`
 		//GexValue *GexValue    `json:"gexType"`
 		Values []float32 `json:"values"`
-	}
-
-	Dataset struct {
-		sys.Entity
-		Genome      *sys.Entity `json:"genome"`
-		Technology  *sys.Entity `json:"technology"`
-		Platform    string      `json:"platform,omitempty"`
-		Institution string      `json:"institution"`
-		Samples     []*Sample   `json:"samples,omitempty"`
 	}
 
 	GexDB struct {
@@ -134,13 +137,13 @@ const (
 		g.name AS genome_name,
 		t.id AS technology_id,
 		t.public_id AS technology_public_id,
-		t.name AS technology_name
+		t.name AS technology_name,
 		s.id AS sample_id,
 		s.public_id AS sample_public_id,
 		s.name AS sample_name,
 		m.name AS metadata_name,
 		smd.value AS metadata_value,
-		smd.color AS metadata_color
+		m.color AS metadata_color
 		FROM datasets d
 		JOIN dataset_permissions dp ON d.id = dp.dataset_id
 		JOIN permissions p ON dp.permission_id = p.id
@@ -152,9 +155,14 @@ const (
 		WHERE
 			<<PERMISSIONS>>`
 
+	// DatasetsSQL = BaseDatasetsSQL +
+	// 	` AND d.genome_id = :gid
+	// 	AND d.technology_id = :tid
+	// 	ORDER BY d.name, s.name, m.name`
+
 	DatasetsSQL = BaseDatasetsSQL +
-		` AND d.genome_id = :gid 
-		AND d.technology_id = :tid
+		` AND g.name = :genome 
+		AND t.name = :technology
 		ORDER BY d.name, s.name, m.name`
 
 	DatasetFromIdSQL = BaseDatasetsSQL + ` AND d.public_id = :id`
@@ -198,28 +206,41 @@ const (
 		JOIN samples s ON smd.sample_id = s.id
 		ORDER by s.id, smd.id`
 
+	// ExprTypesSQL = `SELECT DISTINCT
+	// 	e.id,
+	// 	e.public_id,
+	// 	e.name
+	// 	FROM expr_types e
+	// 	JOIN expression ex ON e.expression_type_id = ex.expression_type_id
+	// 	JOIN datasets d ON ex.dataset_id = d.id
+	// 	JOIN dataset_permissions dp ON d.id = dp.dataset_id
+	// 	JOIN permissions p ON dp.permission_id = p.id
+	// 	WHERE
+	// 		<<PERMISSIONS>>
+	// 		AND <<DATASETS>>
+	// 	ORDER BY e.name`
+
 	ExprTypesSQL = `SELECT DISTINCT
 		e.id,
 		e.public_id,
 		e.name
-		FROM expr_types e
-		JOIN expression ex ON e.expression_type_id = ex.expression_type_id
+		FROM expression_types e
+		JOIN expression ex ON e.id = ex.expression_type_id
 		JOIN datasets d ON ex.dataset_id = d.id
 		JOIN dataset_permissions dp ON d.id = dp.dataset_id
 		JOIN permissions p ON dp.permission_id = p.id
 		WHERE
-			<<PERMISSIONS>>
-			AND <<DATASETS>>
+			d.id = :id
 		ORDER BY e.name`
 
 	ExprTypeSQL = `SELECT
 		e.id,
 		e.public_id,
 		e.name
-		FROM expr_types e
+		FROM expression_types e
 		WHERE
 			e.public_id = :id
-			OR e.name LIKE :id
+			OR e.name = :id
 		LIMIT 1`
 
 	GeneSQL = `SELECT 
@@ -237,42 +258,69 @@ const (
 		LIMIT 1`
 
 	ProbesSQL = `SELECT DISTINCT
-		p.id AS probe_id,
-		p.public_id AS probe_public_id,
-		p.name AS probe_name,
-		g.id AS gene_id, 
-		g.public_id AS gene_public_id, 
-		g.gene_symbol AS gene_name,
-		g.ensembl,
-		g.refseq,
-		g.ncbi
-		FROM probes p
-		JOIN genes g ON g.id = p.gene_id
-		JOIN <<PATTERNS>> ON (
-			p.public_id = v.id
-			OR p.name LIKE v.id
-			OR g.public_id = v.id
-			OR g.gene_symbol LIKE v.id
-			OR g.ensembl = v.id
-			OR g.refseq = v.id
-		)
-		ORDER BY v.ord`
+		t.probe_id,
+		t.probe_public_id,
+		t.probe_name,
+		t.gid, 
+		t.gene_public_id, 
+		t.gene_id,
+		t.gene_symbol,
+		t.ensembl,
+		t.refseq,
+		t.ncbi
+		FROM (
+			SELECT DISTINCT
+			p.id AS probe_id,
+			p.public_id AS probe_public_id,
+			p.name AS probe_name,
+			g.id AS gid, 
+			g.public_id AS gene_public_id, 
+			g.gene_id AS gene_id,
+			g.gene_symbol AS gene_symbol,
+			g.ensembl,
+			g.refseq,
+			g.ncbi,
+			i.ord
+			FROM probes p
+			JOIN genomes gn ON gn.id = p.genome_id
+			JOIN technologies t ON t.id = p.technology_id
+			JOIN genes g ON g.id = p.gene_id
+			JOIN ids i ON (
+				p.public_id = i.id
+				OR p.name LIKE i.id
+				OR g.public_id = i.id
+				OR g.gene_symbol LIKE i.id
+				OR g.ensembl = i.id
+				OR g.refseq = i.id
+			)
+			WHERE
+				gn.name = :genome
+				AND t.name = :technology
+		) t
+		ORDER BY t.ord`
 
-	ProbeIdsSQL = `SELECT DISTINCT
-		p.id AS probe_id,
-		p.public_id AS probe_public_id,
-		p.name AS probe_name
-		FROM probes p
-		JOIN genes g ON g.id = p.gene_id
-		JOIN <<PATTERNS>> ON (
-			p.public_id = v.id
-			OR p.name LIKE v.id
-			OR g.public_id = v.id
-			OR g.gene_symbol LIKE v.id
-			OR g.ensembl = v.id
-			OR g.refseq = v.id
-		)
-		ORDER BY v.ord`
+	// ProbeIdsSQL = `SELECT DISTINCT
+	// 	p.id AS probe_id,
+	// 	p.public_id AS probe_public_id,
+	// 	p.name AS probe_name
+	// 	FROM probes p
+	// 	JOIN genes g ON g.id = p.gene_id
+	// 	JOIN ids i ON (
+	// 		p.public_id = i.id
+	// 		OR p.name LIKE i.id
+	// 		OR g.public_id = i.id
+	// 		OR g.gene_symbol LIKE i.id
+	// 		OR g.ensembl = i.id
+	// 		OR g.refseq = i.id
+	// 	)
+	// 	ORDER BY i.ord`
+
+	CreateIdTableSQL = `CREATE TEMP TABLE IF NOT EXISTS ids (
+        id  TEXT NOT NULL,
+        ord INTEGER NOT NULL
+    )`
+
+	InsertIdSQL = `INSERT INTO ids (id, ord) VALUES (?, ?)`
 
 	// ExprSQL = `SELECT
 	// 	p.id,
@@ -294,21 +342,22 @@ const (
 
 	ExprSQL = `SELECT
 		f.url,
-		e.offset
+		e.offset,
+		e.length
 		FROM expression e
-		JOIN datasets d ON ex.dataset_id = e.id
+		JOIN datasets d ON d.id = e.dataset_id
 		JOIN dataset_permissions dp ON d.id = dp.dataset_id
 		JOIN files f ON e.file_id = f.id
 		WHERE 
 			<<PERMISSIONS>>
 			AND e.probe_id = :probe
-			AND e.expression_type_id = :expr_type
+			AND e.expression_type_id = :type
 			AND d.public_id = :dataset`
 )
 
 func NewGexDB(dir string) *GexDB {
 
-	path := filepath.Join(dir, "gex.db"+sys.SqliteROSuffix)
+	path := filepath.Join(dir, "gex.db"+sys.SqliteReadOnlySuffix)
 
 	// db, err := sql.Open("sqlite3", path)
 
@@ -318,7 +367,7 @@ func NewGexDB(dir string) *GexDB {
 
 	// defer db.Close()
 
-	return &GexDB{dir: dir, db: sys.Must(sql.Open(sys.SqliteDB, path))}
+	return &GexDB{dir: dir, db: sys.Must(sql.Open(sys.Sqlite3DB, path))}
 }
 
 func (gdb *GexDB) Close() error {
@@ -463,24 +512,26 @@ func (gdb *GexDB) Datasets(genome string,
 	permissions []string,
 	isAdmin bool) ([]*Dataset, error) {
 
-	namedArgs := []any{sql.Named("gid", genome), sql.Named("tid", technology)}
+	namedArgs := []any{sql.Named("genome", genome), sql.Named("technology", technology)}
+
+	log.Debug().Msgf("Query: %s, Args: %v", DatasetsSQL, namedArgs)
 
 	query := sqlite.MakePermissionsSql(DatasetsSQL, isAdmin, permissions, &namedArgs)
 
-	datasetRows, err := gdb.db.Query(query, namedArgs...)
+	rows, err := gdb.db.Query(query, namedArgs...)
 
 	if err != nil {
 		return nil, err
 	}
 
-	defer datasetRows.Close()
+	defer rows.Close()
 
 	datasets := make([]*Dataset, 0, 10)
 
 	var currentDataset *Dataset
 	var currentSample *Sample
 
-	for datasetRows.Next() {
+	for rows.Next() {
 		var dataset Dataset
 		var genome sys.Entity
 		var technology sys.Entity
@@ -491,7 +542,7 @@ func (gdb *GexDB) Datasets(genome string,
 		//dataset.Technology = &sys.Entity{}
 		//dataset.Samples = make([]*Sample, 0, 10)
 
-		err := datasetRows.Scan(
+		err := rows.Scan(
 			&dataset.Id,
 			&dataset.PublicId,
 			&dataset.Name,
@@ -519,6 +570,7 @@ func (gdb *GexDB) Datasets(genome string,
 			currentDataset.Genome = &genome
 			currentDataset.Technology = &technology
 			currentDataset.Samples = make([]*Sample, 0, 20)
+
 			datasets = append(datasets, &dataset)
 		}
 
@@ -529,6 +581,24 @@ func (gdb *GexDB) Datasets(genome string,
 		}
 
 		currentSample.Metadata = append(currentSample.Metadata, &metadata)
+	}
+
+	// Add expr types
+
+	for _, dataset := range datasets {
+		dataset.ExprTypes = make([]*sys.Entity, 0, 5)
+
+		query = sqlite.MakePermissionsSql(ExprTypesSQL, isAdmin, permissions, &namedArgs)
+
+		rows, err = gdb.db.Query(ExprTypesSQL, sql.Named("id", dataset.Id))
+
+		for rows.Next() {
+			var exprType sys.Entity
+
+			rows.Scan(&exprType.Id, &exprType.PublicId, &exprType.Name)
+
+			dataset.ExprTypes = append(dataset.ExprTypes, &exprType)
+		}
 	}
 
 	return datasets, nil
@@ -684,52 +754,52 @@ func (gdb *GexDB) ExprType(id string) (*sys.Entity, error) {
 // 	return datasetCache, nil
 // }
 
-func (gdb *GexDB) ExprTypes(datasetIds []string, isAdmin bool, permissions []string) ([]*sys.Entity, error) {
+// func (gdb *GexDB) ExprTypes(datasetIds []string, isAdmin bool, permissions []string) ([]*sys.Entity, error) {
 
-	namedArgs := []any{}
+// 	namedArgs := []any{}
 
-	query := sqlite.MakePermissionsSql(ExprTypesSQL, isAdmin, permissions, &namedArgs)
+// 	query := sqlite.MakePermissionsSql(ExprTypesSQL, isAdmin, permissions, &namedArgs)
 
-	query = MakeInDatasetsSql(query, datasetIds, &namedArgs)
+// 	query = MakeInDatasetsSql(query, datasetIds, &namedArgs)
 
-	allExprTypes := make(map[string]*sys.Entity)
+// 	allExprTypes := make(map[string]*sys.Entity)
 
-	rows, err := gdb.db.Query(query, namedArgs...)
+// 	rows, err := gdb.db.Query(query, namedArgs...)
 
-	if err != nil {
-		return nil, err
-	}
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	defer rows.Close()
+// 	defer rows.Close()
 
-	for rows.Next() {
-		var exprType sys.Entity
+// 	for rows.Next() {
+// 		var exprType sys.Entity
 
-		err := rows.Scan(
-			&exprType.PublicId,
-			&exprType.Name)
+// 		err := rows.Scan(
+// 			&exprType.PublicId,
+// 			&exprType.Name)
 
-		if err != nil {
-			return nil, err
-		}
+// 		if err != nil {
+// 			return nil, err
+// 		}
 
-		if _, exists := allExprTypes[exprType.PublicId]; !exists {
-			allExprTypes[exprType.PublicId] = &exprType
-		}
-	}
+// 		if _, exists := allExprTypes[exprType.PublicId]; !exists {
+// 			allExprTypes[exprType.PublicId] = &exprType
+// 		}
+// 	}
 
-	ret := make([]*sys.Entity, 0, len(datasetIds))
+// 	ret := make([]*sys.Entity, 0, len(datasetIds))
 
-	for _, exprType := range allExprTypes {
-		ret = append(ret, exprType)
-	}
+// 	for _, exprType := range allExprTypes {
+// 		ret = append(ret, exprType)
+// 	}
 
-	sort.Slice(ret, func(i, j int) bool {
-		return ret[i].Name < ret[j].Name
-	})
+// 	sort.Slice(ret, func(i, j int) bool {
+// 		return ret[i].Name < ret[j].Name
+// 	})
 
-	return ret, nil
-}
+// 	return ret, nil
+// }
 
 // func (gdb *GexDB) FindGenes(genes []string) ([]*GexGene, error) {
 
@@ -759,15 +829,56 @@ func (gdb *GexDB) ExprTypes(datasetIds []string, isAdmin bool, permissions []str
 // 	return ret, nil
 // }
 
-func (gdb *GexDB) FindProbes(genes []string) ([]*Probe, error) {
+func (gdb *GexDB) FindProbes(genome, technology string, genes []string) ([]*Probe, error) {
 
 	ret := make([]*Probe, 0, len(genes))
 
-	query, args := MakeOrderdPatternsClause(ProbesSQL, genes)
-
-	rows, err := gdb.db.Query(query, args...)
+	tx, err := gdb.db.BeginTx(context.Background(), &sql.TxOptions{
+		ReadOnly: false,
+	})
 
 	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(CreateIdTableSQL)
+
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = tx.Exec(`DELETE FROM ids`)
+	if err != nil {
+		return nil, err
+	}
+
+	stmt, err := tx.Prepare(InsertIdSQL)
+
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	for i, id := range genes {
+		if _, err := stmt.Exec(id, i+1); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	//query, args := MakeOrderdPatternsClause(ProbesSQL, genes)
+
+	log.Debug().Msgf("probes %v", ProbesSQL)
+
+	rows, err := gdb.db.Query(ProbesSQL,
+		sql.Named("genome", genome), sql.Named("technology", technology))
+
+	if err != nil {
+		log.Debug().Msgf("error querying probes: %v", err)
 		return nil, err
 	}
 
@@ -785,6 +896,7 @@ func (gdb *GexDB) FindProbes(genes []string) ([]*Probe, error) {
 			&probe.Name,
 			&probe.Gene.Id,
 			&probe.Gene.PublicId,
+			&probe.Gene.GeneId,
 			&probe.Gene.GeneSymbol,
 			&probe.Gene.Ensembl,
 			&probe.Gene.Refseq,
@@ -792,10 +904,16 @@ func (gdb *GexDB) FindProbes(genes []string) ([]*Probe, error) {
 		)
 
 		if err != nil {
+			log.Debug().Msgf("error querying probes 2: %v", err)
 			return nil, err
 		}
 
 		ret = append(ret, &probe)
+	}
+
+	for _, g := range ret {
+		log.Debug().Msgf("pp %v", *g)
+
 	}
 
 	return ret, nil
@@ -894,6 +1012,8 @@ func (gdb *GexDB) Expression(datasetId string,
 		return nil, err
 	}
 
+	log.Debug().Msgf("hmm %v", dataset)
+
 	ret := SearchResults{
 		Dataset:  dataset,
 		ExprType: exprType,
@@ -945,7 +1065,7 @@ func (gdb *GexDB) Expression(datasetId string,
 	for _, probe := range probes {
 		namedArgs := []any{sql.Named("dataset", datasetId),
 			sql.Named("probe", probe.Id),
-			sql.Named("expr_type", exprType.Id)}
+			sql.Named("type", exprType.Id)}
 
 		query := sqlite.MakePermissionsSql(ExprSQL, isAdmin, permissions, &namedArgs)
 
@@ -955,16 +1075,21 @@ func (gdb *GexDB) Expression(datasetId string,
 			&length)
 
 		if err != nil {
+			log.Debug().Msgf("error querying probes 2: %v, %v %v ", query, err, *probe)
 			return nil, err
 		}
 
 		path := filepath.Join(gdb.dir, url)
 
+		log.Debug().Msgf("cheese %s %d %d", path, offset, length)
+
 		values, err := readFloat32Array(path, offset, length)
 
 		if err != nil {
+			log.Debug().Msgf("v %v %v", values, err)
 			return nil, err
 		}
+		//log.Debug().Msgf("v %v  ", values)
 
 		feature := Expression{Probe: probe, Values: values}
 
@@ -1100,7 +1225,7 @@ func MakeOrderdPatternsClause(query string, list []string) (string, []any) {
 		)
 	}
 
-	patternsSql := "(VALUES" + strings.Join(parts, ", ") + ") AS v(id, ord)"
+	patternsSql := "(VALUES " + strings.Join(parts, ", ") + ") AS v(id, ord)"
 
 	return strings.Replace(query, "<<PATTERNS>>", patternsSql, 1), params
 

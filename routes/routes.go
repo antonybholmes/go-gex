@@ -13,11 +13,11 @@ import (
 )
 
 type GexParams struct {
-	Genomes    string   `json:"genomes"`
-	Technology string   `json:"technology"`
-	ExprType   string   `json:"exprType"` // use pointer so we can check for nil
-	Genes      []string `json:"genes"`
-	Datasets   []string `json:"datasets"`
+	//Genome     string   `json:"genome"`
+	//Technology string   `json:"technology"`
+	//ExprType   string   `json:"type"` // use pointer so we can check for nil
+	Genes    []string `json:"genes"`
+	Datasets []string `json:"datasets"`
 }
 
 func parseParamsFromPost(c *gin.Context) (*GexParams, error) {
@@ -25,6 +25,8 @@ func parseParamsFromPost(c *gin.Context) (*GexParams, error) {
 	var params GexParams
 
 	err := c.Bind(&params)
+
+	log.Debug().Msgf("Params: %+v %+v", c.Params, params)
 
 	if err != nil {
 		return nil, err
@@ -57,26 +59,26 @@ func TechnologiesRoute(c *gin.Context) {
 	web.MakeDataResp(c, "", technologies)
 }
 
-func ExprTypesRoute(c *gin.Context) {
-	middleware.JwtUserWithPermissionsRoute(c, func(c *gin.Context, isAdmin bool, user *auth.AuthUserJwtClaims) {
+// func ExprTypesRoute(c *gin.Context) {
+// 	middleware.JwtUserWithPermissionsRoute(c, func(c *gin.Context, isAdmin bool, user *auth.AuthUserJwtClaims) {
 
-		params, err := parseParamsFromPost(c)
+// 		params, err := parseParamsFromPost(c)
 
-		if err != nil {
-			c.Error(err)
-			return
-		}
+// 		if err != nil {
+// 			c.Error(err)
+// 			return
+// 		}
 
-		exprTypes, err := gexdb.ExprTypes(params.Datasets, isAdmin, user.Permissions)
+// 		exprTypes, err := gexdb.ExprTypes(params.Datasets, isAdmin, user.Permissions)
 
-		if err != nil {
-			c.Error(err)
-			return
-		}
+// 		if err != nil {
+// 			c.Error(err)
+// 			return
+// 		}
 
-		web.MakeDataResp(c, "", exprTypes)
-	})
-}
+// 		web.MakeDataResp(c, "", exprTypes)
+// 	})
+// }
 
 func DatasetsRoute(c *gin.Context) {
 	middleware.JwtUserWithPermissionsRoute(c, func(c *gin.Context, isAdmin bool, user *auth.AuthUserJwtClaims) {
@@ -97,6 +99,10 @@ func DatasetsRoute(c *gin.Context) {
 
 func GeneExpressionRoute(c *gin.Context) {
 	middleware.JwtUserWithPermissionsRoute(c, func(c *gin.Context, isAdmin bool, user *auth.AuthUserJwtClaims) {
+		genome := c.Param("genome")
+		technology := c.Param("technology")
+		t := c.Param("type")
+
 		params, err := parseParamsFromPost(c)
 
 		if err != nil {
@@ -107,7 +113,7 @@ func GeneExpressionRoute(c *gin.Context) {
 		// we enforce the expr type so that if multiple datasets are provided
 		// they must all be of the same type so that we do not
 		// mix microarray and rna-seq searches together for example
-		if params.ExprType == "" {
+		if t == "" {
 			web.BadReqResp(c, errors.New("expr type is required"))
 			return
 		}
@@ -115,7 +121,7 @@ func GeneExpressionRoute(c *gin.Context) {
 		results := make([]*gex.SearchResults, 0, len(params.Datasets))
 
 		// find the expression type desired
-		exprType, err := gexdb.ExprType(params.ExprType)
+		exprType, err := gexdb.ExprType(t)
 
 		if err != nil {
 			web.BadReqResp(c, errors.New("invalid expr type"))
@@ -123,7 +129,7 @@ func GeneExpressionRoute(c *gin.Context) {
 		}
 
 		// match the gens to probes using either probe or gene ids
-		probes, err := gexdb.FindProbes(params.Genes)
+		probes, err := gexdb.FindProbes(genome, technology, params.Genes)
 
 		if err != nil {
 			web.BadReqResp(c, errors.New("invalid genes"))

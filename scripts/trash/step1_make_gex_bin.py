@@ -60,7 +60,7 @@ for dataset in datasets:
 
         os.makedirs(full_dir, exist_ok=True)
 
-        df = pd.read_csv(file["path"], sep="\t", header=0)
+        df = pd.read_csv(file["path"], sep="\t", header=0, index_col=0)
         cols = dataset["idColCount"]
 
         df = df.iloc[:, cols:]
@@ -75,7 +75,11 @@ for dataset in datasets:
         buf += struct.pack("<I", df.shape[1])
         cols = df.shape[1]
         for i, row in df.iterrows():
-            # print(row.values)
+            # print(row)
+
+            if row.name == "BCL6":
+                print(row.values)
+
             buf += struct.pack("<" + "f" * cols, *row.values)
 
         with open(full_path, "wb") as f:

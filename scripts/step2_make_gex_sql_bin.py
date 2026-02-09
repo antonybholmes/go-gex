@@ -17,6 +17,7 @@ from importlib_metadata import metadata
 
 DATA_TYPES = ["Counts", "TPM", "VST"]
 DIR = "../data/modules/gex"
+VERSION = 1
 
 
 def load_sample_data(df: pd.DataFrame):  # , num_id_cols: int = 1):
@@ -327,7 +328,7 @@ cursor.execute(
         id INTEGER PRIMARY KEY,
         public_id TEXT NOT NULL UNIQUE,
         genome_id INTEGER NOT NULL,
-        gene_id INTEGER NOT NULL,
+        gene_id TEXT NOT NULL,
         ensembl TEXT NOT NULL DEFAULT '',
         refseq TEXT NOT NULL DEFAULT '',
         ncbi INTEGER NOT NULL DEFAULT 0,
@@ -342,17 +343,19 @@ cursor.execute(
         id INTEGER PRIMARY KEY,
         public_id TEXT NOT NULL UNIQUE,
         genome_id INTEGER NOT NULL,
+        technology_id INTEGER NOT NULL,
         name TEXT NOT NULL,
         gene_id INTEGER NOT NULL,
         UNIQUE(genome_id, name),
         FOREIGN KEY(genome_id) REFERENCES genomes(id),
+        FOREIGN KEY(technology_id) REFERENCES technologies(id),
         FOREIGN KEY(gene_id) REFERENCES genes(id));
     """,
 )
 
 cursor.execute(
     f"""
-    CREATE TABLE technology (
+    CREATE TABLE technologies (
         id INTEGER PRIMARY KEY,
         public_id TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL UNIQUE,
@@ -361,13 +364,13 @@ cursor.execute(
 )
 
 cursor.execute(
-    f"INSERT INTO technology (id, public_id, name, description) VALUES (1, '{uuid.uuid7()}', 'RNA-seq', 'RNA sequencing');"
+    f"INSERT INTO technologies (id, public_id, name, description) VALUES (1, '{uuid.uuid7()}', 'RNA-seq', 'RNA sequencing');"
 )
 cursor.execute(
-    f"INSERT INTO technology (id, public_id, name, description) VALUES (2, '{uuid.uuid7()}', 'Microarray', 'Microarray sequencing');"
+    f"INSERT INTO technologies (id, public_id, name, description) VALUES (2, '{uuid.uuid7()}', 'Microarray', 'Microarray sequencing');"
 )
 cursor.execute(
-    f"INSERT INTO technology (id, public_id, name, description) VALUES (3, '{uuid.uuid7()}', 'scRNA-seq', 'Single-cell RNA sequencing');"
+    f"INSERT INTO technologies (id, public_id, name, description) VALUES (3, '{uuid.uuid7()}', 'scRNA-seq', 'Single-cell RNA sequencing');"
 )
 
 cursor.execute(
@@ -382,7 +385,7 @@ cursor.execute(
         institution TEXT NOT NULL,
         description TEXT NOT NULL DEFAULT '',
         FOREIGN KEY(genome_id) REFERENCES genomes(id),
-        FOREIGN KEY(technology_id) REFERENCES technology(id));
+        FOREIGN KEY(technology_id) REFERENCES technologies(id));
     """,
 )
 
@@ -466,6 +469,19 @@ cursor.execute(
 )
 
 
+cursor.execute(
+    f"""
+    CREATE TABLE data_types (
+        id INTEGER PRIMARY KEY,
+        public_id TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL UNIQUE);
+    """,
+)
+
+cursor.execute(
+    f"INSERT INTO data_types (id, public_id, name) VALUES (1, '{uuid.uuid7()}', 'float32');"
+)
+
 # the blob will store float32 values for all samples for a given gene/probe
 cursor.execute(
     f"""
@@ -474,7 +490,7 @@ cursor.execute(
         dataset_id INTEGER NOT NULL,
         probe_id TEXT NOT NULL,
         expression_type_id INTEGER NOT NULL,
-        dtype TEXT NOT NULL DEFAULT 'float32',
+        data_type_id INTEGER NOT NULL DEFAULT 1,
         offset INTEGER NOT NULL,
         length INTEGER NOT NULL,
         file_id INTEGER NOT NULL,
@@ -482,6 +498,7 @@ cursor.execute(
         FOREIGN KEY(dataset_id) REFERENCES datasets(id),
         FOREIGN KEY(expression_type_id) REFERENCES expression_types(id),
         FOREIGN KEY(probe_id) REFERENCES probes(id),
+        FOREIGN KEY(data_type_id) REFERENCES data_types(id),
         FOREIGN KEY(file_id) REFERENCES files(id));
     """,
 )
@@ -521,7 +538,10 @@ cursor.execute("BEGIN TRANSACTION;")
 
 sample_index = 1
 probe_index = 1
-probe_map = {"human": {}, "mouse": {}}
+probe_map = {
+    "human": collections.defaultdict(lambda: collections.defaultdict(int)),
+    "mouse": collections.defaultdict(lambda: collections.defaultdict(int)),
+}
 expr_types = {}
 file_map = {}
 technology_map = {"RNA-seq": 1, "Microarray": 2, "scRNA-seq": 3}
@@ -531,14 +551,15 @@ for di, dataset in enumerate(datasets):
     dataset_id = str(uuid.uuid7())
     genome = dataset["genome"].lower()
     genome_id = genome_map[dataset["genome"]]
+    technology = dataset["technology"]
 
-    if dataset["technology"] not in technology_map:
-        technology_map[dataset["technology"]] = len(technology_map) + 1
+    if technology not in technology_map:
+        technology_map[technology] = len(technology_map) + 1
         cursor.execute(
-            f"INSERT INTO technology (id, public_id, name) VALUES ({technology_map[dataset['technology']]}, '{str(uuid.uuid7())}', '{dataset['technology']}');"
+            f"INSERT INTO technologies (id, public_id, name) VALUES ({technology_map[dataset['technology']]}, '{str(uuid.uuid7())}', '{dataset['technology']}');"
         )
 
-    technology_id = technology_map[dataset["technology"]]
+    technology_id = technology_map[technology]
 
     cursor.execute(
         f"INSERT INTO datasets (id, public_id, genome_id, name, technology_id, platform, institution) VALUES ({dataset_index}, '{dataset_id}', {genome_id}, '{dataset['name']}', {technology_id}, '{dataset['platform']}', '{dataset['institution']}');",
@@ -615,7 +636,7 @@ for di, dataset in enumerate(datasets):
 
         path = f"{dir}/{file_type}.bin"
 
-        full_path = os.path.join(DIR, path)
+        full_bin_path = os.path.join(DIR, path)
 
         expr_type = file["type"]
 
@@ -635,52 +656,50 @@ for di, dataset in enumerate(datasets):
             )
         file_id = file_map[path]
 
-        with open(full_path, "rb") as fin:
-
-            magic = struct.unpack("<I", fin.read(4))[0]
-            print("Magic:", file, magic)
-
-            # Step 1: Read the offset table entry
-
-            version = struct.unpack("<I", fin.read(4))[0]
-            print("Version:", version)
-
-            genes = struct.unpack("<I", fin.read(4))[0]
-            print("Genes:", genes)
-
-            samples = struct.unpack("<I", fin.read(4))[0]
-            print("Samples:", samples)
-
-        # magic number + version + genes + samples
         offset = 4 + 4 + 4 + 4
-        l = samples * 4
-        for probe in probes:
-            if probe not in probe_map[genome]:
+        num_samples = len(sample_names)
+        with open(full_bin_path, "wb") as fout:
+            fout.write(struct.pack("<I", 42))
+            fout.write(struct.pack("<I", VERSION))
+            fout.write(struct.pack("<I", len(probes)))
+            fout.write(struct.pack("<I", num_samples))
 
-                gene_id = official_symbols[genome][exp_map[probe]["gene"]]["index"]
+            # magic number + version + genes + samples
+
+            lb = num_samples * 4
+            for probe in probes:
+                if probe not in probe_map[genome][technology]:
+
+                    gene_id = official_symbols[genome][exp_map[probe]["gene"]]["index"]
+
+                    cursor.execute(
+                        f"""INSERT INTO probes (id, public_id, genome_id, technology_id, gene_id, name) VALUES ({probe_index}, '{str(uuid.uuid7())}', {genome_id}, {technology_id}, {gene_id}, '{probe}');
+                    """
+                    )
+                    probe_map[genome][technology][probe] = probe_index
+                    probe_index += 1
+
+                probe_id = probe_map[genome][technology][probe]
+
+                # print(
+                #     f"""INSERT INTO expression (dataset_id, probe_id, expression_type_id, offset, length, url, version) VALUES ({dataset_index}, {probe_id}, {expr_type_id}, {offset}, {l}, '{path}', 1);
+                #     """
+                # )
 
                 cursor.execute(
-                    f"""INSERT INTO probes (id, public_id, genome_id, gene_id, name) VALUES ({probe_index}, '{str(uuid.uuid7())}', {genome_id}, {gene_id}, '{probe}');
-                """
+                    f"""
+                    INSERT INTO expression (dataset_id, probe_id, expression_type_id, offset, length, file_id, version) VALUES ({dataset_index}, {probe_id}, {expr_type_id}, {offset}, {num_samples}, {file_id}, {VERSION});
+                    """
                 )
-                probe_map[genome][probe] = probe_index
-                probe_index += 1
 
-            probe_id = probe_map[genome][probe]
+                exp = exp_map[probe]
 
-            # print(
-            #     f"""INSERT INTO expression (dataset_id, probe_id, expression_type_id, offset, length, url, version) VALUES ({dataset_index}, {probe_id}, {expr_type_id}, {offset}, {l}, '{path}', 1);
-            #     """
-            # )
+                # print(exp)
 
-            cursor.execute(
-                f"""
-                INSERT INTO expression (dataset_id, probe_id, expression_type_id, offset, length, file_id, version) VALUES ({dataset_index}, {probe_id}, {expr_type_id}, {offset}, {samples}, {file_id}, 1);
-                """
-            )
+                fout.write(struct.pack("<" + "f" * num_samples, *(exp["values"])))
 
-            # use 4 bytes per sample for float32
-            offset += l
+                # use 4 bytes per sample for float32
+                offset += lb
 
 
 # print(exp_map)
