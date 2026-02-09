@@ -347,6 +347,7 @@ const (
 		FROM expression e
 		JOIN datasets d ON d.id = e.dataset_id
 		JOIN dataset_permissions dp ON d.id = dp.dataset_id
+		JOIN permissions p ON dp.permission_id = p.id
 		JOIN files f ON e.file_id = f.id
 		WHERE 
 			<<PERMISSIONS>>
@@ -532,8 +533,6 @@ func (gdb *GexDB) Datasets(genome string,
 	var currentDataset *Dataset
 	var currentSample *Sample
 
-	log.Debug().Msgf("sdfsdf 1 %v", err)
-
 	for rows.Next() {
 		var dataset Dataset
 		var genome sys.Entity
@@ -565,7 +564,6 @@ func (gdb *GexDB) Datasets(genome string,
 			&metadata.Color)
 
 		if err != nil {
-			log.Debug().Msgf("sdfsdf %v", err)
 			return nil, err
 		}
 
@@ -621,14 +619,19 @@ func (gdb *GexDB) BasicDataset(datasetId string, permissions []string, isAdmin b
 
 	var ret sys.Entity
 
+	log.Debug().Msgf("basic %s %v", query, permissions)
+
 	err := gdb.db.QueryRow(query, namedArgs...).Scan(
 		&ret.Id,
 		&ret.PublicId,
 		&ret.Name)
 
 	if err != nil {
+		log.Debug().Msgf("basic err %v", err)
 		return nil, err
 	}
+
+	log.Debug().Msgf("basic ret %v", ret)
 
 	return &ret, nil
 }
@@ -715,7 +718,7 @@ func (gdb *GexDB) Samples() ([]*Sample, error) {
 	for rows.Next() {
 		var m NamedValue
 
-		err := rows.Scan(sampleId, &m.Id, &m.PublicId, &m.Name, &m.Value, &m.Color)
+		err := rows.Scan(&sampleId, &m.Id, &m.PublicId, &m.Name, &m.Value, &m.Color)
 
 		if err != nil {
 			return nil, err
@@ -922,9 +925,9 @@ func (gdb *GexDB) FindProbes(genome, technology string, genes []string) ([]*Prob
 		ret = append(ret, &probe)
 	}
 
-	for _, g := range ret {
-		log.Debug().Msgf("probe %v", *g)
-	}
+	// for _, g := range ret {
+	// 	log.Debug().Msgf("probe %v", *g)
+	// }
 
 	return ret, nil
 }
@@ -1027,44 +1030,7 @@ func (gdb *GexDB) Expression(datasetId string,
 		ExprType: exprType,
 		Probes:   make([]*ExpressionProbe, 0, len(probes))}
 
-	// query = MakeInProbesSql(query, probeIds, &namedArgs)
-
-	// rows, err := gdb.db.Query(query, namedArgs...)
-
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// defer rows.Close()
-
-	// var url string
-	// var offset int64
-
-	// for rows.Next() {
-	// 	var probe Idtype
-	// 	err := rows.Scan(
-	// 		&probe.Id,
-	// 		&probe.PublicId,
-	// 		&probe.Name,
-	// 		&url,
-	// 		&offset)
-
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-
-	// 	path := filepath.Join(gdb.dir, url)
-
-	// 	values, err := readFloat32sWithOffset(path, offset, dataset.Count)
-
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-
-	// 	feature := ResultFeature{Probe: &probe, Expr: values}
-
-	// 	ret.Features = append(ret.Features, &feature)
-	// }
+	log.Debug().Msgf("here1 %v", *dataset)
 
 	var url string
 	var offset int64
@@ -1084,6 +1050,8 @@ func (gdb *GexDB) Expression(datasetId string,
 			&length)
 
 		if err != nil {
+			log.Debug().Msgf("here2 %v", err)
+
 			return nil, err
 		}
 
@@ -1097,7 +1065,7 @@ func (gdb *GexDB) Expression(datasetId string,
 		if err != nil {
 			return nil, err
 		}
-		//log.Debug().Msgf("v %v  ", values)
+		log.Debug().Msgf("v %v  ", values)
 
 		feature := ExpressionProbe{Probe: probe, Values: values}
 
