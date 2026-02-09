@@ -716,7 +716,6 @@ func (gdb *GexDB) ExprTypes(datasetIds []string, isAdmin bool, permissions []str
 		if _, exists := allExprTypes[exprType.PublicId]; !exists {
 			allExprTypes[exprType.PublicId] = &exprType
 		}
-
 	}
 
 	ret := make([]*sys.Entity, 0, len(datasetIds))
