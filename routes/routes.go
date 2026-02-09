@@ -26,8 +26,6 @@ func parseParamsFromPost(c *gin.Context) (*GexParams, error) {
 
 	err := c.Bind(&params)
 
-	log.Debug().Msgf("Params: %+v %+v", c.Params, params)
-
 	if err != nil {
 		return nil, err
 	}

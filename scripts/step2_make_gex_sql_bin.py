@@ -656,17 +656,18 @@ for di, dataset in enumerate(datasets):
             )
         file_id = file_map[path]
 
-        offset = 4 + 4 + 4 + 4
+        # 42, version, num probes, num samples, block size
+        offset = 4 + 4 + 4 + 4 + 4
         num_samples = len(sample_names)
+
+        lb = 4 + num_samples * 4  # bytes row occupies
         with open(full_bin_path, "wb") as fout:
             fout.write(struct.pack("<I", 42))
             fout.write(struct.pack("<I", VERSION))
             fout.write(struct.pack("<I", len(probes)))
             fout.write(struct.pack("<I", num_samples))
+            fout.write(struct.pack("<I", lb))  # block size
 
-            # magic number + version + genes + samples
-
-            lb = num_samples * 4
             for probe in probes:
                 if probe not in probe_map[genome][technology]:
 
@@ -694,8 +695,8 @@ for di, dataset in enumerate(datasets):
 
                 exp = exp_map[probe]
 
-                # print(exp)
-
+                # a block consists of the probe id followed by the expression values
+                fout.write(struct.pack("<I", probe_id))
                 fout.write(struct.pack("<" + "f" * num_samples, *(exp["values"])))
 
                 # use 4 bytes per sample for float32

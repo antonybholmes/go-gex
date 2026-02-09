@@ -70,13 +70,13 @@ type (
 		// each search. The useful info in a search is just
 		// the platform name and id
 
-		Dataset  *sys.Entity   `json:"dataset"`
-		ExprType *sys.Entity   `json:"type"`
-		Features []*Expression `json:"features"`
+		Dataset  *sys.Entity        `json:"dataset"`
+		ExprType *sys.Entity        `json:"type"`
+		Probes   []*ExpressionProbe `json:"probes"`
 	}
 
 	// Either a probe or gene
-	Expression struct {
+	ExpressionProbe struct {
 		Probe *Probe `json:"probe"` // distinguish between null and ""
 		//Gene  *GexGene `json:"gene"`
 		//Platform     *ValueType       `json:"platform"`
@@ -211,7 +211,7 @@ const (
 	// 	e.public_id,
 	// 	e.name
 	// 	FROM expr_types e
-	// 	JOIN expression ex ON e.expression_type_id = ex.expression_type_id
+	// 	JOIN Probes ex ON e.Probes_type_id = ex.Probes_type_id
 	// 	JOIN datasets d ON ex.dataset_id = d.id
 	// 	JOIN dataset_permissions dp ON d.id = dp.dataset_id
 	// 	JOIN permissions p ON dp.permission_id = p.id
@@ -257,6 +257,13 @@ const (
 			g.gene_symbol LIKE :id
 		LIMIT 1`
 
+	CreateIdTableSQL = `CREATE TEMP TABLE IF NOT EXISTS ids (
+        id TEXT NOT NULL UNIQUE,
+        ord INTEGER NOT NULL
+    )`
+
+	InsertIdSQL = `INSERT INTO ids (id, ord) VALUES (:id, :ord) ON CONFLICT(id) DO NOTHING`
+
 	ProbesSQL = `SELECT DISTINCT
 		t.probe_id,
 		t.probe_public_id,
@@ -280,18 +287,18 @@ const (
 			g.ensembl,
 			g.refseq,
 			g.ncbi,
-			i.ord
+			ids.ord
 			FROM probes p
 			JOIN genomes gn ON gn.id = p.genome_id
 			JOIN technologies t ON t.id = p.technology_id
 			JOIN genes g ON g.id = p.gene_id
-			JOIN ids i ON (
-				p.public_id = i.id
-				OR p.name LIKE i.id
-				OR g.public_id = i.id
-				OR g.gene_symbol LIKE i.id
-				OR g.ensembl = i.id
-				OR g.refseq = i.id
+			JOIN ids ON (
+				p.public_id = ids.id
+				OR p.name LIKE ids.id
+				OR g.public_id = ids.id
+				OR g.gene_symbol LIKE ids.id
+				OR g.ensembl = ids.id
+				OR g.refseq = ids.id
 			)
 			WHERE
 				gn.name = :genome
@@ -315,20 +322,13 @@ const (
 	// 	)
 	// 	ORDER BY i.ord`
 
-	CreateIdTableSQL = `CREATE TEMP TABLE IF NOT EXISTS ids (
-        id  TEXT NOT NULL,
-        ord INTEGER NOT NULL
-    )`
-
-	InsertIdSQL = `INSERT INTO ids (id, ord) VALUES (?, ?)`
-
 	// ExprSQL = `SELECT
 	// 	p.id,
 	// 	p.public_id,
 	// 	p.name,
 	// 	f.url,
 	// 	e.offset
-	// 	FROM expression e
+	// 	FROM Probes e
 	// 	JOIN datasets d ON ex.dataset_id = e.id
 	// 	JOIN dataset_permissions dp ON d.id = dp.dataset_id
 	// 	JOIN probes p ON e.probe_id = p.id
@@ -336,7 +336,7 @@ const (
 	// 	WHERE
 	// 		<<PERMISSIONS>>
 	// 		AND <<PROBES>>
-	// 		AND e.expression_type_id = :expr_type
+	// 		AND e.Probes_type_id = :expr_type
 	// 		AND d.public_id = :dataset
 	// 	ORDER BY p.name`
 
@@ -521,6 +521,7 @@ func (gdb *GexDB) Datasets(genome string,
 	rows, err := gdb.db.Query(query, namedArgs...)
 
 	if err != nil {
+		log.Debug().Msgf("sdfsdf %v", err)
 		return nil, err
 	}
 
@@ -530,6 +531,8 @@ func (gdb *GexDB) Datasets(genome string,
 
 	var currentDataset *Dataset
 	var currentSample *Sample
+
+	log.Debug().Msgf("sdfsdf 1 %v", err)
 
 	for rows.Next() {
 		var dataset Dataset
@@ -562,6 +565,7 @@ func (gdb *GexDB) Datasets(genome string,
 			&metadata.Color)
 
 		if err != nil {
+			log.Debug().Msgf("sdfsdf %v", err)
 			return nil, err
 		}
 
@@ -595,7 +599,11 @@ func (gdb *GexDB) Datasets(genome string,
 		for rows.Next() {
 			var exprType sys.Entity
 
-			rows.Scan(&exprType.Id, &exprType.PublicId, &exprType.Name)
+			err := rows.Scan(&exprType.Id, &exprType.PublicId, &exprType.Name)
+
+			if err != nil {
+				return nil, err
+			}
 
 			dataset.ExprTypes = append(dataset.ExprTypes, &exprType)
 		}
@@ -710,7 +718,6 @@ func (gdb *GexDB) Samples() ([]*Sample, error) {
 		err := rows.Scan(sampleId, &m.Id, &m.PublicId, &m.Name, &m.Value, &m.Color)
 
 		if err != nil {
-			log.Error().Msgf("error scanning sample: %v", err)
 			return nil, err
 		}
 
@@ -831,7 +838,7 @@ func (gdb *GexDB) ExprType(id string) (*sys.Entity, error) {
 
 func (gdb *GexDB) FindProbes(genome, technology string, genes []string) ([]*Probe, error) {
 
-	ret := make([]*Probe, 0, len(genes))
+	// use a transaction to insert gene ids into a temp table
 
 	tx, err := gdb.db.BeginTx(context.Background(), &sql.TxOptions{
 		ReadOnly: false,
@@ -840,6 +847,7 @@ func (gdb *GexDB) FindProbes(genome, technology string, genes []string) ([]*Prob
 	if err != nil {
 		return nil, err
 	}
+
 	defer tx.Rollback()
 
 	_, err = tx.Exec(CreateIdTableSQL)
@@ -858,10 +866,11 @@ func (gdb *GexDB) FindProbes(genome, technology string, genes []string) ([]*Prob
 	if err != nil {
 		return nil, err
 	}
+
 	defer stmt.Close()
 
 	for i, id := range genes {
-		if _, err := stmt.Exec(id, i+1); err != nil {
+		if _, err := stmt.Exec(sql.Named("id", id), sql.Named("ord", i+1)); err != nil {
 			return nil, err
 		}
 	}
@@ -870,15 +879,18 @@ func (gdb *GexDB) FindProbes(genome, technology string, genes []string) ([]*Prob
 		return nil, err
 	}
 
-	//query, args := MakeOrderdPatternsClause(ProbesSQL, genes)
+	//
+	// Join the ids with the probes table to find
+	// matching probes whilst maintaining the gene
+	// order
+	//
 
-	log.Debug().Msgf("probes %v", ProbesSQL)
+	ret := make([]*Probe, 0, len(genes))
 
 	rows, err := gdb.db.Query(ProbesSQL,
 		sql.Named("genome", genome), sql.Named("technology", technology))
 
 	if err != nil {
-		log.Debug().Msgf("error querying probes: %v", err)
 		return nil, err
 	}
 
@@ -904,7 +916,6 @@ func (gdb *GexDB) FindProbes(genome, technology string, genes []string) ([]*Prob
 		)
 
 		if err != nil {
-			log.Debug().Msgf("error querying probes 2: %v", err)
 			return nil, err
 		}
 
@@ -912,8 +923,7 @@ func (gdb *GexDB) FindProbes(genome, technology string, genes []string) ([]*Prob
 	}
 
 	for _, g := range ret {
-		log.Debug().Msgf("pp %v", *g)
-
+		log.Debug().Msgf("probe %v", *g)
 	}
 
 	return ret, nil
@@ -991,7 +1001,7 @@ func (gdb *GexDB) FindProbes(genome, technology string, genes []string) ([]*Prob
 // 	return res, nil
 // }
 
-// using binary blobs for expression values
+// using binary blobs for Probes values
 func (gdb *GexDB) Expression(datasetId string,
 	exprType *sys.Entity,
 	probes []*Probe,
@@ -1012,12 +1022,10 @@ func (gdb *GexDB) Expression(datasetId string,
 		return nil, err
 	}
 
-	log.Debug().Msgf("hmm %v", dataset)
-
 	ret := SearchResults{
 		Dataset:  dataset,
 		ExprType: exprType,
-		Features: make([]*Expression, 0, len(probes))}
+		Probes:   make([]*ExpressionProbe, 0, len(probes))}
 
 	// query = MakeInProbesSql(query, probeIds, &namedArgs)
 
@@ -1063,7 +1071,8 @@ func (gdb *GexDB) Expression(datasetId string,
 	var length int
 
 	for _, probe := range probes {
-		namedArgs := []any{sql.Named("dataset", datasetId),
+		namedArgs := []any{
+			sql.Named("dataset", datasetId),
 			sql.Named("probe", probe.Id),
 			sql.Named("type", exprType.Id)}
 
@@ -1075,25 +1084,24 @@ func (gdb *GexDB) Expression(datasetId string,
 			&length)
 
 		if err != nil {
-			log.Debug().Msgf("error querying probes 2: %v, %v %v ", query, err, *probe)
 			return nil, err
 		}
 
 		path := filepath.Join(gdb.dir, url)
 
-		log.Debug().Msgf("cheese %s %d %d", path, offset, length)
-
-		values, err := readFloat32Array(path, offset, length)
+		// the offset is the start of a row block which consists
+		// of a 4 byte unsigned int of the probe id, which can be
+		// matched to the database and then the data
+		_, values, err := readGeneBlock(path, offset, length)
 
 		if err != nil {
-			log.Debug().Msgf("v %v %v", values, err)
 			return nil, err
 		}
 		//log.Debug().Msgf("v %v  ", values)
 
-		feature := Expression{Probe: probe, Values: values}
+		feature := ExpressionProbe{Probe: probe, Values: values}
 
-		ret.Features = append(ret.Features, &feature)
+		ret.Probes = append(ret.Probes, &feature)
 	}
 
 	return &ret, nil
@@ -1111,17 +1119,17 @@ func (gdb *GexDB) Expression(datasetId string,
 // 		return nil, err
 // 	}
 
-// 	return gdb.Expression(dataset, exprTypeId, probes, isAdmin, permissions)
+// 	return gdb.Probes(dataset, exprTypeId, probes, isAdmin, permissions)
 // }
 
 // read a binary file containing float32 values with a given offset and count
-// and create a float32 slice from the values
-func readFloat32Array(path string, offset int64, l int) ([]float32, error) {
+// and return the probe id and a float array of the sample values
+func readGeneBlock(path string, offset int64, l int) (uint32, []float32, error) {
 	// Open the file for reading
 	f, err := os.Open(path)
 
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 
 	defer f.Close()
@@ -1130,7 +1138,15 @@ func readFloat32Array(path string, offset int64, l int) ([]float32, error) {
 	_, err = f.Seek(offset, 0) // 0 means "from the beginning of the file"
 
 	if err != nil {
-		return nil, err
+		return 0, nil, err
+	}
+
+	var probeId uint32
+
+	err = binary.Read(f, binary.LittleEndian, &probeId)
+
+	if err != nil {
+		return 0, nil, err
 	}
 
 	// Prepare a slice to hold the read values
@@ -1140,10 +1156,10 @@ func readFloat32Array(path string, offset int64, l int) ([]float32, error) {
 	err = binary.Read(f, binary.LittleEndian, &data)
 
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 
-	return data, nil
+	return probeId, data, nil
 }
 
 // func read(f *os.File, offset int, length int) ([]byte, error) {
