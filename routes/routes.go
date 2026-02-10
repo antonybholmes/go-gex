@@ -81,8 +81,10 @@ func TechnologiesRoute(c *gin.Context) {
 func DatasetsRoute(c *gin.Context) {
 	middleware.JwtUserWithPermissionsRoute(c, func(c *gin.Context, isAdmin bool, user *auth.AuthUserJwtClaims) {
 
-		genome := c.Param("genome")
-		technology := c.Param("technology")
+		genome := c.Query("genome")
+		technology := c.Query("technology")
+
+		log.Debug().Msgf("genome: %s, technology: %s", genome, technology)
 
 		datasets, err := gexdb.Datasets(genome, technology, isAdmin, user.Permissions)
 
@@ -97,9 +99,9 @@ func DatasetsRoute(c *gin.Context) {
 
 func GeneExpressionRoute(c *gin.Context) {
 	middleware.JwtUserWithPermissionsRoute(c, func(c *gin.Context, isAdmin bool, user *auth.AuthUserJwtClaims) {
-		genome := c.Param("genome")
-		technology := c.Param("technology")
-		t := c.Param("type")
+		genome := c.Query("genome")
+		technology := c.Query("technology")
+		t := c.Query("type")
 
 		params, err := parseParamsFromPost(c)
 

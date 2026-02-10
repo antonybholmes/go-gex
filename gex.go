@@ -11,6 +11,7 @@ import (
 
 	"github.com/antonybholmes/go-sys"
 	"github.com/antonybholmes/go-sys/log"
+	"github.com/antonybholmes/go-web"
 	"github.com/antonybholmes/go-web/auth/sqlite"
 )
 
@@ -161,8 +162,8 @@ const (
 	// 	ORDER BY d.name, s.name, m.name`
 
 	DatasetsSQL = BaseDatasetsSQL +
-		` AND g.name = :genome 
-		AND t.name = :technology
+		` AND LOWER(g.name) = :genome 
+		AND LOWER(t.name) = :technology
 		ORDER BY d.name, s.name, m.name`
 
 	DatasetFromIdSQL = BaseDatasetsSQL + ` AND d.public_id = :id`
@@ -240,7 +241,7 @@ const (
 		FROM expression_types e
 		WHERE
 			e.public_id = :id
-			OR e.name = :id
+			OR LOWER(e.name) = :id
 		LIMIT 1`
 
 	GeneSQL = `SELECT 
@@ -294,15 +295,15 @@ const (
 			JOIN genes g ON g.id = p.gene_id
 			JOIN ids ON (
 				p.public_id = ids.id
-				OR p.name LIKE ids.id
+				OR LOWER(p.name) LIKE ids.id
 				OR g.public_id = ids.id
-				OR g.gene_symbol LIKE ids.id
-				OR g.ensembl = ids.id
+				OR LOWER(g.gene_symbol) LIKE ids.id
+				OR LOWER(g.ensembl) = ids.id
 				OR g.refseq = ids.id
 			)
 			WHERE
-				gn.name = :genome
-				AND t.name = :technology
+				LOWER(gn.name) = :genome
+				AND LOWER(t.name) = :technology
 		) t
 		ORDER BY t.ord`
 
@@ -513,7 +514,8 @@ func (gdb *GexDB) Datasets(genome string,
 	permissions []string,
 	isAdmin bool) ([]*Dataset, error) {
 
-	namedArgs := []any{sql.Named("genome", genome), sql.Named("technology", technology)}
+	namedArgs := []any{sql.Named("genome", web.FormatParam(genome)),
+		sql.Named("technology", web.FormatParam(technology))}
 
 	log.Debug().Msgf("Query: %s, Args: %v", DatasetsSQL, namedArgs)
 
@@ -734,7 +736,7 @@ func (gdb *GexDB) ExprType(id string) (*sys.Entity, error) {
 
 	var ret sys.Entity
 
-	err := gdb.db.QueryRow(ExprTypeSQL, sql.Named("id", id)).Scan(
+	err := gdb.db.QueryRow(ExprTypeSQL, sql.Named("id", web.FormatParam(id))).Scan(
 		&ret.Id,
 		&ret.PublicId,
 		&ret.Name)
@@ -873,7 +875,7 @@ func (gdb *GexDB) FindProbes(genome, technology string, genes []string) ([]*Prob
 	defer stmt.Close()
 
 	for i, id := range genes {
-		if _, err := stmt.Exec(sql.Named("id", id), sql.Named("ord", i+1)); err != nil {
+		if _, err := stmt.Exec(sql.Named("id", web.FormatParam(id)), sql.Named("ord", i+1)); err != nil {
 			return nil, err
 		}
 	}
@@ -891,7 +893,7 @@ func (gdb *GexDB) FindProbes(genome, technology string, genes []string) ([]*Prob
 	ret := make([]*Probe, 0, len(genes))
 
 	rows, err := gdb.db.Query(ProbesSQL,
-		sql.Named("genome", genome), sql.Named("technology", technology))
+		sql.Named("genome", web.FormatParam(genome)), sql.Named("technology", web.FormatParam(technology)))
 
 	if err != nil {
 		return nil, err
