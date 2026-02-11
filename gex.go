@@ -127,6 +127,21 @@ const (
 	// 	FROM datasets
 	// 	ORDER BY species, technology, platform`
 
+	GenomeTechnologySQL = `SELECT 
+		g.id AS genome_id,
+		g.public_id AS genome_public_id,
+		g.name AS genome_name,
+		t.id AS technology_id,
+		t.public_id AS technology_public_id,
+		t.name AS technology_name
+		FROM datasets d
+		JOIN dataset_permissions dp ON d.id = dp.dataset_id
+		JOIN permissions p ON dp.permission_id = p.id
+		JOIN genomes g ON d.genome_id = g.id
+		JOIN technologies t ON d.technology_id = t.id
+		WHERE
+			d.public_id = :id`
+
 	BaseDatasetsSQL = `SELECT 
 		d.id,
 		d.public_id,
@@ -302,8 +317,8 @@ const (
 				OR LOWER(ge.refseq) = ids.id
 			)
 			WHERE
-				LOWER(g.name) = :genome
-				AND LOWER(t.name) = :technology
+				g.id = :genome
+				AND t.id = :technology
 		) t
 		ORDER BY t.ord`
 
@@ -524,7 +539,6 @@ func (gdb *GexDB) Datasets(genome string,
 	rows, err := gdb.db.Query(query, namedArgs...)
 
 	if err != nil {
-		log.Debug().Msgf("sdfsdf %v", err)
 		return nil, err
 	}
 
@@ -621,19 +635,14 @@ func (gdb *GexDB) BasicDataset(datasetId string, permissions []string, isAdmin b
 
 	var ret sys.Entity
 
-	log.Debug().Msgf("basic %s %v", query, permissions)
-
 	err := gdb.db.QueryRow(query, namedArgs...).Scan(
 		&ret.Id,
 		&ret.PublicId,
 		&ret.Name)
 
 	if err != nil {
-		log.Debug().Msgf("basic err %v", err)
 		return nil, err
 	}
-
-	log.Debug().Msgf("basic ret %v", ret)
 
 	return &ret, nil
 }
@@ -841,7 +850,27 @@ func (gdb *GexDB) ExprType(id string) (*sys.Entity, error) {
 // 	return ret, nil
 // }
 
-func (gdb *GexDB) FindProbes(genome, technology string, genes []string) ([]*Probe, error) {
+func (gdb *GexDB) GenomeTechnology(datasetId string) (*sys.Entity, *sys.Entity, error) {
+
+	var genome sys.Entity
+	var technology sys.Entity
+
+	err := gdb.db.QueryRow(GenomeTechnologySQL, sql.Named("id", datasetId)).Scan(
+		&genome.Id,
+		&genome.PublicId,
+		&genome.Name,
+		&technology.Id,
+		&technology.PublicId,
+		&technology.Name)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return &genome, &technology, nil
+}
+
+func (gdb *GexDB) FindProbes(genome, technology *sys.Entity, genes []string) ([]*Probe, error) {
 
 	// use a transaction to insert gene ids into a temp table
 
@@ -893,7 +922,7 @@ func (gdb *GexDB) FindProbes(genome, technology string, genes []string) ([]*Prob
 	ret := make([]*Probe, 0, len(genes))
 
 	rows, err := gdb.db.Query(ProbesSQL,
-		sql.Named("genome", web.FormatParam(genome)), sql.Named("technology", web.FormatParam(technology)))
+		sql.Named("genome", genome.Id), sql.Named("technology", technology.Id))
 
 	if err != nil {
 		return nil, err
@@ -1032,8 +1061,6 @@ func (gdb *GexDB) Expression(datasetId string,
 		ExprType: exprType,
 		Probes:   make([]*ExpressionProbe, 0, len(probes))}
 
-	log.Debug().Msgf("here1 %v", *dataset)
-
 	var url string
 	var offset int64
 	var length int
@@ -1067,7 +1094,8 @@ func (gdb *GexDB) Expression(datasetId string,
 		if err != nil {
 			return nil, err
 		}
-		log.Debug().Msgf("v %v  ", values)
+
+		//log.Debug().Msgf("v %v  ", values)
 
 		feature := ExpressionProbe{Probe: probe, Values: values}
 

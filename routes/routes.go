@@ -95,11 +95,11 @@ func DatasetsRoute(c *gin.Context) {
 	})
 }
 
-func GeneExpressionRoute(c *gin.Context) {
+func ExpressionRoute(c *gin.Context) {
 	middleware.JwtUserWithPermissionsRoute(c, func(c *gin.Context, isAdmin bool, user *auth.AuthUserJwtClaims) {
-		genome := c.Query("genome")
-		technology := c.Query("technology")
-		t := c.Query("type")
+		//genome := c.Query("genome")
+		//technology := c.Query("technology")
+		t := c.Param("type")
 
 		params, err := parseParamsFromPost(c)
 
@@ -126,7 +126,16 @@ func GeneExpressionRoute(c *gin.Context) {
 			return
 		}
 
-		// match the gens to probes using either probe or gene ids
+		// determin genome and technology from first dataset
+		genome, technology, err := gexdb.GenomeTechnology(params.Datasets[0])
+
+		if err != nil {
+			log.Debug().Msgf("not able to determine genome/technology from dataset: %v", err)
+			web.BadReqResp(c, errors.New("invalid geneome/technology"))
+			return
+		}
+
+		// match the genes to probes using either probe or gene ids
 		probes, err := gexdb.FindProbes(genome, technology, params.Genes)
 
 		if err != nil {

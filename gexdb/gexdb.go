@@ -56,8 +56,12 @@ func ExprType(id string) (*sys.Entity, error) {
 	return instance.ExprType(id)
 }
 
-func FindProbes(genome, technology string, genes []string) ([]*gex.Probe, error) {
+func FindProbes(genome, technology *sys.Entity, genes []string) ([]*gex.Probe, error) {
 	return instance.FindProbes(genome, technology, genes)
+}
+
+func GenomeTechnology(datasetId string) (*sys.Entity, *sys.Entity, error) {
+	return instance.GenomeTechnology(datasetId)
 }
 
 // func FindSeqValues(datasetId string, exprTypeId string, genes []string, isAdmin bool, permissions []string) (*gex.SearchResults, error) {
