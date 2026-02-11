@@ -84,8 +84,6 @@ func DatasetsRoute(c *gin.Context) {
 		genome := c.Query("genome")
 		technology := c.Query("technology")
 
-		log.Debug().Msgf("genome: %s, technology: %s", genome, technology)
-
 		datasets, err := gexdb.Datasets(genome, technology, isAdmin, user.Permissions)
 
 		if err != nil {

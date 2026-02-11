@@ -244,19 +244,19 @@ const (
 			OR LOWER(e.name) = :id
 		LIMIT 1`
 
-	GeneSQL = `SELECT 
-		g.public_id, 
-		g.ensembl,
-		g.refseq,
-		g.ncbi,
-		g.gene_symbol 
-		FROM genes g
-		WHERE
-			g.public_id = :id OR
-			g.ensembl = :id OR 
-			g.refseq = :id OR
-			g.gene_symbol LIKE :id
-		LIMIT 1`
+	// GeneSQL = `SELECT
+	// 	g.public_id,
+	// 	g.ensembl,
+	// 	g.refseq,
+	// 	g.ncbi,
+	// 	g.gene_symbol
+	// 	FROM genes g
+	// 	WHERE
+	// 		g.public_id = :id OR
+	// 		LOWER(g.ensembl) = :id OR
+	// 		LOWER(g.refseq) = :id OR
+	// 		LOWER(g.gene_symbol) LIKE :id
+	// 	LIMIT 1`
 
 	CreateIdTableSQL = `CREATE TEMP TABLE IF NOT EXISTS ids (
         id TEXT NOT NULL UNIQUE,
@@ -281,28 +281,28 @@ const (
 			p.id AS probe_id,
 			p.public_id AS probe_public_id,
 			p.name AS probe_name,
-			g.id AS gid, 
-			g.public_id AS gene_public_id, 
-			g.gene_id AS gene_id,
-			g.gene_symbol AS gene_symbol,
-			g.ensembl,
-			g.refseq,
-			g.ncbi,
+			ge.id AS gid, 
+			ge.public_id AS gene_public_id, 
+			ge.gene_id AS gene_id,
+			ge.gene_symbol AS gene_symbol,
+			ge.ensembl,
+			ge.refseq,
+			ge.ncbi,
 			ids.ord
 			FROM probes p
-			JOIN genomes gn ON gn.id = p.genome_id
+			JOIN genomes g ON g.id = p.genome_id
 			JOIN technologies t ON t.id = p.technology_id
-			JOIN genes g ON g.id = p.gene_id
+			JOIN genes ge ON ge.id = p.gene_id
 			JOIN ids ON (
 				p.public_id = ids.id
 				OR LOWER(p.name) LIKE ids.id
-				OR g.public_id = ids.id
-				OR LOWER(g.gene_symbol) LIKE ids.id
-				OR LOWER(g.ensembl) = ids.id
-				OR g.refseq = ids.id
+				OR ge.public_id = ids.id
+				OR LOWER(ge.gene_symbol) LIKE ids.id
+				OR LOWER(ge.ensembl) = ids.id
+				OR LOWER(ge.refseq) = ids.id
 			)
 			WHERE
-				LOWER(gn.name) = :genome
+				LOWER(g.name) = :genome
 				AND LOWER(t.name) = :technology
 		) t
 		ORDER BY t.ord`

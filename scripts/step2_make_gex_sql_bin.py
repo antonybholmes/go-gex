@@ -725,10 +725,17 @@ cursor.execute("CREATE INDEX samples_dataset_name_idx ON samples (name);")
 # -- CREATE INDEX metadata_public_id_idx ON metadata (public_id);
 
 # -- CREATE INDEX genes_hugo_idx ON genes (hugo);
-cursor.execute("CREATE INDEX genes_ensembl_idx ON genes (ensembl);")
-cursor.execute("CREATE INDEX genes_refseq_idx ON genes (refseq);")
-cursor.execute("CREATE INDEX genes_gene_symbol_idx ON genes (gene_symbol);")
+cursor.execute("CREATE INDEX genes_ensembl_idx ON genes (LOWER(ensembl));")
+cursor.execute("CREATE INDEX genes_refseq_idx ON genes (LOWER(refseq));")
+cursor.execute("CREATE INDEX genes_gene_symbol_idx ON genes (LOWER(gene_symbol));")
 
+cursor.execute("CREATE INDEX genomes_name_idx ON genomes (LOWER(name));")
+cursor.execute("CREATE INDEX technologies_name_idx ON technologies (LOWER(name));")
+cursor.execute(
+    "CREATE INDEX expression_types_name_idx ON expression_types (LOWER(name));"
+)
+
+cursor.execute("CREATE INDEX permissions_name_idx ON permissions (LOWER(name));")
 
 cursor.execute("COMMIT;")
 
