@@ -1188,7 +1188,7 @@ func MakeInProbesSql(query string, probes []int, namedArgs *[]any) string {
 
 }
 
-func MakeOrderdPatternsClause(query string, list []string) (string, []any) {
+func MakeOrderedPatternsClause(query string, list []string) (string, []any) {
 	if len(list) == 0 {
 		return "", nil
 	}
@@ -1197,6 +1197,7 @@ func MakeOrderdPatternsClause(query string, list []string) (string, []any) {
 	params := make([]any, 0, len(list)*2)
 
 	for i, s := range list {
+		s = web.FormatParam(s)
 		idx := i + 1
 		patternName := fmt.Sprintf("v%d", idx)
 		ordName := fmt.Sprintf("vo%d", idx)

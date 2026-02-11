@@ -724,7 +724,8 @@ cursor.execute("CREATE INDEX samples_dataset_name_idx ON samples (name);")
 # cursor.execute("CREATE INDEX metadata_type_id_idx ON metadata (metadata_type_id);")
 # -- CREATE INDEX metadata_public_id_idx ON metadata (public_id);
 
-# -- CREATE INDEX genes_hugo_idx ON genes (hugo);
+
+cursor.execute("CREATE INDEX genes_gene_id_idx ON genes (LOWER(gene_id));")
 cursor.execute("CREATE INDEX genes_ensembl_idx ON genes (LOWER(ensembl));")
 cursor.execute("CREATE INDEX genes_refseq_idx ON genes (LOWER(refseq));")
 cursor.execute("CREATE INDEX genes_gene_symbol_idx ON genes (LOWER(gene_symbol));")
