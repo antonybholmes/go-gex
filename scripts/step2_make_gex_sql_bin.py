@@ -711,7 +711,7 @@ cursor.execute("COMMIT;")
 
 cursor.execute("BEGIN TRANSACTION;")
 
-cursor.execute("CREATE INDEX samples_dataset_name_idx ON samples (name);")
+cursor.execute("CREATE INDEX samples_dataset_name_idx ON samples (LOWER(name));")
 # -- CREATE INDEX expr_gene_id_sample_id_idx ON expr (gene_id);
 
 # -- CREATE INDEX expr_type_public_id_idx ON expr_types(public_id);

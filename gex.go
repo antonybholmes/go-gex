@@ -1188,32 +1188,32 @@ func MakeInProbesSql(query string, probes []int, namedArgs *[]any) string {
 
 }
 
-func MakeOrderedPatternsClause(query string, list []string) (string, []any) {
-	if len(list) == 0 {
-		return "", nil
-	}
+// func MakeOrderedPatternsClause(query string, list []string) (string, []any) {
+// 	if len(list) == 0 {
+// 		return "", nil
+// 	}
 
-	parts := make([]string, len(list))
-	params := make([]any, 0, len(list)*2)
+// 	parts := make([]string, len(list))
+// 	params := make([]any, 0, len(list)*2)
 
-	for i, s := range list {
-		s = web.FormatParam(s)
-		idx := i + 1
-		patternName := fmt.Sprintf("v%d", idx)
-		ordName := fmt.Sprintf("vo%d", idx)
+// 	for i, s := range list {
+// 		s = web.FormatParam(s)
+// 		idx := i + 1
+// 		patternName := fmt.Sprintf("v%d", idx)
+// 		ordName := fmt.Sprintf("vo%d", idx)
 
-		// Build one row
-		parts[i] = fmt.Sprintf("(:%s, :%s)", patternName, ordName)
+// 		// Build one row
+// 		parts[i] = fmt.Sprintf("(:%s, :%s)", patternName, ordName)
 
-		// Bind values
-		params = append(params,
-			sql.Named(patternName, s),
-			sql.Named(ordName, idx),
-		)
-	}
+// 		// Bind values
+// 		params = append(params,
+// 			sql.Named(patternName, s),
+// 			sql.Named(ordName, idx),
+// 		)
+// 	}
 
-	patternsSql := "(VALUES " + strings.Join(parts, ", ") + ") AS v(id, ord)"
+// 	patternsSql := "(VALUES " + strings.Join(parts, ", ") + ") AS v(id, ord)"
 
-	return strings.Replace(query, "<<PATTERNS>>", patternsSql, 1), params
+// 	return strings.Replace(query, "<<PATTERNS>>", patternsSql, 1), params
 
-}
+// }
