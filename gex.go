@@ -17,12 +17,12 @@ import (
 
 type (
 	GexGene struct {
-		sys.IdEntity
-		GeneId     string `json:"geneId"` // a real gene id, not a db key
+		GeneId     string `json:"geneId"`
 		GeneSymbol string `json:"geneSymbol"`
 		Ensembl    string `json:"ensembl,omitempty"`
 		Refseq     string `json:"refseq,omitempty"`
 		Ncbi       string `json:"ncbi,omitempty"`
+		sys.IdEntity
 	}
 
 	Probe struct {
