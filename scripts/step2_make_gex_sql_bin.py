@@ -337,21 +337,6 @@ cursor.execute(
     """,
 )
 
-cursor.execute(
-    f"""
-    CREATE TABLE probes (
-        id INTEGER PRIMARY KEY,
-        public_id TEXT NOT NULL UNIQUE,
-        genome_id INTEGER NOT NULL,
-        technology_id INTEGER NOT NULL,
-        name TEXT NOT NULL,
-        gene_id INTEGER NOT NULL,
-        UNIQUE(genome_id, name),
-        FOREIGN KEY(genome_id) REFERENCES genomes(id),
-        FOREIGN KEY(technology_id) REFERENCES technologies(id),
-        FOREIGN KEY(gene_id) REFERENCES genes(id));
-    """,
-)
 
 cursor.execute(
     f"""
@@ -371,6 +356,22 @@ cursor.execute(
 )
 cursor.execute(
     f"INSERT INTO technologies (id, public_id, name, description) VALUES (3, '{uuid.uuid7()}', 'scRNA-seq', 'Single-cell RNA sequencing');"
+)
+
+cursor.execute(
+    f"""
+    CREATE TABLE probes (
+        id INTEGER PRIMARY KEY,
+        public_id TEXT NOT NULL UNIQUE,
+        genome_id INTEGER NOT NULL,
+        technology_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        gene_id INTEGER NOT NULL,
+        UNIQUE(genome_id, name),
+        FOREIGN KEY(genome_id) REFERENCES genomes(id),
+        FOREIGN KEY(technology_id) REFERENCES technologies(id),
+        FOREIGN KEY(gene_id) REFERENCES genes(id));
+    """,
 )
 
 cursor.execute(
@@ -711,32 +712,33 @@ cursor.execute("COMMIT;")
 
 cursor.execute("BEGIN TRANSACTION;")
 
-cursor.execute("CREATE INDEX samples_dataset_name_idx ON samples (LOWER(name));")
-# -- CREATE INDEX expr_gene_id_sample_id_idx ON expr (gene_id);
+cursor.execute("CREATE INDEX idx_samples_dataset_name ON samples (LOWER(name));")
+# -- CREATE INDEX idx_expr_gene_id_sample_id ON expr (gene_id);
 
-# -- CREATE INDEX expr_type_public_id_idx ON expr_types(public_id);
+# -- CREATE INDEX expr_type_public_id ON expr_types(public_id);
 
-# CREATE INDEX expr_sample_type_id_idx ON expr(sample_id, expr_type_id);
-# cursor.execute("CREATE INDEX expr_gene_type_id_idx ON expr(gene_id, expr_type_id);")
+# CREATE INDEX idx_expr_sample_type_id ON expr(sample_id, expr_type_id);
+# cursor.execute("CREATE INDEX idx_expr_gene_type_id ON expr(gene_id, expr_type_id);")
 
-# cursor.execute("CREATE INDEX metadata_types_name_idx ON metadata_types(name);")
+# cursor.execute("CREATE INDEX idx_metadata_types_name ON metadata_types(name);")
 
-# cursor.execute("CREATE INDEX metadata_type_id_idx ON metadata (metadata_type_id);")
-# -- CREATE INDEX metadata_public_id_idx ON metadata (public_id);
+# cursor.execute("CREATE INDEX idx_metadata_type_id ON metadata (metadata_type_id);")
+# -- CREATE INDEX idx_metadata_public_id ON metadata (public_id);
 
 
-cursor.execute("CREATE INDEX genes_gene_id_idx ON genes (LOWER(gene_id));")
-cursor.execute("CREATE INDEX genes_ensembl_idx ON genes (LOWER(ensembl));")
-cursor.execute("CREATE INDEX genes_refseq_idx ON genes (LOWER(refseq));")
-cursor.execute("CREATE INDEX genes_gene_symbol_idx ON genes (LOWER(gene_symbol));")
+cursor.execute("CREATE INDEX idx_genes_gene_id ON genes (LOWER(gene_id));")
+cursor.execute("CREATE INDEX idx_genes_ensembl ON genes (LOWER(ensembl));")
+cursor.execute("CREATE INDEX idx_genes_refseq ON genes (LOWER(refseq));")
+cursor.execute("CREATE INDEX idx_genes_gene_symbol ON genes (LOWER(gene_symbol));")
 
-cursor.execute("CREATE INDEX genomes_name_idx ON genomes (LOWER(name));")
-cursor.execute("CREATE INDEX technologies_name_idx ON technologies (LOWER(name));")
+cursor.execute("CREATE INDEX idx_genomes_name ON genomes (LOWER(name));")
+cursor.execute("CREATE INDEX idx_assemblies_name ON assemblies (LOWER(name));")
+cursor.execute("CREATE INDEX idx_technologies_name ON technologies (LOWER(name));")
 cursor.execute(
-    "CREATE INDEX expression_types_name_idx ON expression_types (LOWER(name));"
+    "CREATE INDEX idx_expression_types_name ON expression_types (LOWER(name));"
 )
 
-cursor.execute("CREATE INDEX permissions_name_idx ON permissions (LOWER(name));")
+cursor.execute("CREATE INDEX idx_permissions_name ON permissions (LOWER(name));")
 
 cursor.execute("COMMIT;")
 
