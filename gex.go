@@ -93,6 +93,8 @@ type (
 
 const (
 	DefaultNumSamples = 500
+	MaxDatasets       = 10
+	MaxProbes         = 200
 
 	GexTypeCounts = "Counts"
 	GexTypeTPM    = "TPM"
@@ -1186,6 +1188,8 @@ func readGeneBlock(path string, offset int64, l int) (uint32, []float32, error) 
 
 func MakeInDatasetsSql(query string, datasets []string, namedArgs *[]any) string {
 
+	datasets = datasets[:MaxDatasets]
+
 	inPlaceholders := make([]string, len(datasets))
 
 	for i, dataset := range datasets {
@@ -1201,6 +1205,8 @@ func MakeInDatasetsSql(query string, datasets []string, namedArgs *[]any) string
 }
 
 func MakeInProbesSql(query string, probes []int, namedArgs *[]any) string {
+
+	probes = probes[:MaxProbes]
 
 	inPlaceholders := make([]string, len(probes))
 
