@@ -301,7 +301,6 @@ cursor = conn.cursor()
 cursor.execute("PRAGMA journal_mode = WAL;")
 cursor.execute("PRAGMA foreign_keys = ON;")
 
-cursor.execute("BEGIN TRANSACTION;")
 
 cursor.execute(
     f"""
@@ -313,6 +312,7 @@ cursor.execute(
         UNIQUE(name, scientific_name));
     """,
 )
+cursor.execute("CREATE INDEX idx_genomes_name ON genomes (LOWER(name));")
 
 cursor.execute(
     f"INSERT INTO genomes (id, public_id, name, scientific_name) VALUES (1, '{uuid.uuid7()}', 'Human', 'Homo sapiens');"
@@ -336,6 +336,11 @@ cursor.execute(
         FOREIGN KEY(genome_id) REFERENCES genomes(id));
     """,
 )
+cursor.execute("CREATE INDEX idx_genes_gene_id ON genes (LOWER(gene_id));")
+cursor.execute("CREATE INDEX idx_genes_ensembl ON genes (LOWER(ensembl));")
+cursor.execute("CREATE INDEX idx_genes_refseq ON genes (LOWER(refseq));")
+cursor.execute("CREATE INDEX idx_genes_gene_symbol ON genes (LOWER(gene_symbol));")
+cursor.execute("CREATE INDEX idx_genes_genome_id ON genes(genome_id);")
 
 
 cursor.execute(
@@ -347,6 +352,7 @@ cursor.execute(
         description TEXT NOT NULL DEFAULT '');
     """,
 )
+cursor.execute("CREATE INDEX idx_technologies_name ON technologies (LOWER(name));")
 
 cursor.execute(
     f"INSERT INTO technologies (id, public_id, name, description) VALUES (1, '{uuid.uuid7()}', 'RNA-seq', 'RNA sequencing');"
@@ -374,6 +380,10 @@ cursor.execute(
     """,
 )
 
+cursor.execute("CREATE INDEX idx_probes_genome_id ON probes(genome_id);")
+cursor.execute("CREATE INDEX idx_probes_technology_id ON probes(technology_id);")
+cursor.execute("CREATE INDEX idx_probes_gene_id ON probes(gene_id);")
+
 cursor.execute(
     f"""
     CREATE TABLE datasets (
@@ -389,6 +399,9 @@ cursor.execute(
         FOREIGN KEY(technology_id) REFERENCES technologies(id));
     """,
 )
+
+cursor.execute("CREATE INDEX idx_datasets_genome_id ON datasets(genome_id);")
+cursor.execute("CREATE INDEX idx_datasets_technology_id ON datasets(technology_id);")
 
 cursor.execute(
     f""" CREATE TABLE permissions (
@@ -414,6 +427,13 @@ cursor.execute(
 )
 
 cursor.execute(
+    "CREATE INDEX idx_dataset_permissions_dataset_id ON dataset_permissions(dataset_id);"
+)
+cursor.execute(
+    "CREATE INDEX idx_dataset_permissions_permission_id ON dataset_permissions(permission_id);"
+)
+
+cursor.execute(
     f"""
     CREATE TABLE samples (
         id INTEGER PRIMARY KEY,
@@ -424,6 +444,8 @@ cursor.execute(
         FOREIGN KEY(dataset_id) REFERENCES datasets(id));
     """,
 )
+
+cursor.execute("CREATE INDEX idx_samples_dataset_id ON samples(dataset_id);")
 
 
 cursor.execute(
@@ -450,6 +472,12 @@ cursor.execute(
     """,
 )
 
+cursor.execute(
+    "CREATE INDEX idx_sample_metadata_sample_id ON sample_metadata(sample_id);"
+)
+cursor.execute(
+    "CREATE INDEX idx_sample_metadata_metadata_id ON sample_metadata(metadata_id);"
+)
 
 cursor.execute(
     f"""
@@ -458,6 +486,10 @@ cursor.execute(
         public_id TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL UNIQUE);
     """,
+)
+
+cursor.execute(
+    "CREATE INDEX idx_expression_types_name ON expression_types (LOWER(name));"
 )
 
 cursor.execute(
@@ -478,6 +510,8 @@ cursor.execute(
         name TEXT NOT NULL UNIQUE);
     """,
 )
+
+cursor.execute("CREATE INDEX idx_data_types_name ON data_types (LOWER(name));")
 
 cursor.execute(
     f"INSERT INTO data_types (id, public_id, name) VALUES (1, '{uuid.uuid7()}', 'float32');"
@@ -504,10 +538,14 @@ cursor.execute(
     """,
 )
 
-cursor.execute("COMMIT;")
+cursor.execute("CREATE INDEX idx_expression_dataset_id ON expression(dataset_id);")
+cursor.execute(
+    "CREATE INDEX idx_expression_expression_type_id ON expression(expression_type_id);"
+)
+cursor.execute("CREATE INDEX idx_expression_probe_id ON expression(probe_id);")
+cursor.execute("CREATE INDEX idx_expression_data_type_id ON expression(data_type_id);")
+cursor.execute("CREATE INDEX idx_expression_file_id ON expression(file_id);")
 
-
-cursor.execute("BEGIN TRANSACTION;")
 
 genomes = ["human", "mouse"]
 
@@ -532,10 +570,6 @@ for si, s in enumerate(genomes):
             ),
         )
 
-cursor.execute("COMMIT;")
-
-
-cursor.execute("BEGIN TRANSACTION;")
 
 sample_index = 1
 probe_index = 1
@@ -707,11 +741,6 @@ for di, dataset in enumerate(datasets):
 # print(exp_map)
 
 
-cursor.execute("COMMIT;")
-
-
-cursor.execute("BEGIN TRANSACTION;")
-
 cursor.execute("CREATE INDEX idx_samples_dataset_name ON samples (LOWER(name));")
 # -- CREATE INDEX idx_expr_gene_id_sample_id ON expr (gene_id);
 
@@ -726,21 +755,8 @@ cursor.execute("CREATE INDEX idx_samples_dataset_name ON samples (LOWER(name));"
 # -- CREATE INDEX idx_metadata_public_id ON metadata (public_id);
 
 
-cursor.execute("CREATE INDEX idx_genes_gene_id ON genes (LOWER(gene_id));")
-cursor.execute("CREATE INDEX idx_genes_ensembl ON genes (LOWER(ensembl));")
-cursor.execute("CREATE INDEX idx_genes_refseq ON genes (LOWER(refseq));")
-cursor.execute("CREATE INDEX idx_genes_gene_symbol ON genes (LOWER(gene_symbol));")
+# cursor.execute("CREATE INDEX idx_permissions_name ON permissions (LOWER(name));")
 
-cursor.execute("CREATE INDEX idx_genomes_name ON genomes (LOWER(name));")
-cursor.execute("CREATE INDEX idx_assemblies_name ON assemblies (LOWER(name));")
-cursor.execute("CREATE INDEX idx_technologies_name ON technologies (LOWER(name));")
-cursor.execute(
-    "CREATE INDEX idx_expression_types_name ON expression_types (LOWER(name));"
-)
-
-cursor.execute("CREATE INDEX idx_permissions_name ON permissions (LOWER(name));")
-
-cursor.execute("COMMIT;")
 
 # Commit and close
 conn.commit()

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/antonybholmes/go-sys"
+	"github.com/antonybholmes/go-sys/collections"
 	"github.com/antonybholmes/go-sys/log"
 	"github.com/antonybholmes/go-web"
 	"github.com/antonybholmes/go-web/auth/sqlite"
@@ -1188,7 +1189,7 @@ func readGeneBlock(path string, offset int64, l int) (uint32, []float32, error) 
 
 func MakeInDatasetsSql(query string, datasets []string, namedArgs *[]any) string {
 
-	datasets = datasets[:MaxDatasets]
+	datasets = collections.TruncateSlice(datasets, MaxDatasets)
 
 	inPlaceholders := make([]string, len(datasets))
 
@@ -1206,7 +1207,7 @@ func MakeInDatasetsSql(query string, datasets []string, namedArgs *[]any) string
 
 func MakeInProbesSql(query string, probes []int, namedArgs *[]any) string {
 
-	probes = probes[:MaxProbes]
+	probes = collections.TruncateSlice(probes, MaxProbes)
 
 	inPlaceholders := make([]string, len(probes))
 
