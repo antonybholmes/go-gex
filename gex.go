@@ -37,9 +37,9 @@ type (
 	// }
 
 	NamedValue struct {
-		sys.Entity
 		Value string `json:"value"`
 		Color string `json:"color,omitempty"`
+		sys.Entity
 	}
 
 	// Metadata struct {
