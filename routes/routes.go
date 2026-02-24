@@ -7,7 +7,7 @@ import (
 	"github.com/antonybholmes/go-gex/gexdb"
 	"github.com/antonybholmes/go-sys/log"
 	"github.com/antonybholmes/go-web"
-	"github.com/antonybholmes/go-web/auth"
+	"github.com/antonybholmes/go-web/auth/token"
 	"github.com/antonybholmes/go-web/middleware"
 	"github.com/gin-gonic/gin"
 )
@@ -79,7 +79,7 @@ func TechnologiesRoute(c *gin.Context) {
 // }
 
 func DatasetsRoute(c *gin.Context) {
-	middleware.JwtUserWithPermissionsRoute(c, func(c *gin.Context, isAdmin bool, user *auth.AuthUserJwtClaims) {
+	middleware.JwtUserWithPermissionsRoute(c, func(c *gin.Context, isAdmin bool, user *token.AuthUserJwtClaims) {
 
 		genome := c.Query("genome")
 		technology := c.Query("technology")
@@ -96,7 +96,7 @@ func DatasetsRoute(c *gin.Context) {
 }
 
 func ExpressionRoute(c *gin.Context) {
-	middleware.JwtUserWithPermissionsRoute(c, func(c *gin.Context, isAdmin bool, user *auth.AuthUserJwtClaims) {
+	middleware.JwtUserWithPermissionsRoute(c, func(c *gin.Context, isAdmin bool, user *token.AuthUserJwtClaims) {
 		//genome := c.Query("genome")
 		//technology := c.Query("technology")
 		t := c.Param("type")
