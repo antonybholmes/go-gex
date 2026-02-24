@@ -66,6 +66,6 @@ require (
 
 require (
 	github.com/antonybholmes/go-sys v0.0.0-20260216173437-1755a134eb0d
-	github.com/antonybholmes/go-web v0.0.0-20260213183935-aaedefa50d12
+	github.com/antonybholmes/go-web v0.0.0-20260224185041-42ccb858f60c
 	github.com/gin-gonic/gin v1.11.0
 )
