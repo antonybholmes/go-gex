@@ -149,7 +149,7 @@ func ExpressionRoute(c *gin.Context) {
 
 			// if there is an error accessing a dataset, we skip it and continue with the others
 			if err != nil {
-				log.Debug().Msgf("not able to access dataset: %s", datasetId)
+				log.Debug().Msgf("not able to access dataset: %s %v", datasetId, err)
 				continue
 			}
 
