@@ -179,10 +179,11 @@ const (
 	// 	AND d.technology_id = :tid
 	// 	ORDER BY d.name, s.name, m.name`
 
+	// samples are ordered by id to ensure consistent order of metadata for each sample as it was read from its original source file
 	DatasetsSQL = BaseDatasetsSQL +
 		` AND LOWER(g.name) = :genome 
 		AND LOWER(t.name) = :technology
-		ORDER BY d.name, s.name, m.name`
+		ORDER BY d.name, s.id, m.name`
 
 	DatasetFromIdSQL = BaseDatasetsSQL + ` AND d.public_id = :id`
 

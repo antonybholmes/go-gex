@@ -170,7 +170,7 @@ platforms.append({"name": "Microarray"})
 platformMap["Microarray"] = len(platforms)
 
 
-with open("datasets.json") as f:
+with open("datasets2.json") as f:
     datasets = json.load(f)
 
 print(datasets)
@@ -194,6 +194,7 @@ metadata_map = {}
 file = (
     "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/references/hugo/hugo_20240524.tsv"
 )
+
 df_hugo = pd.read_csv(file, sep="\t", header=0, keep_default_na=False)
 
 gene_index = 1
@@ -612,6 +613,8 @@ for di, dataset in enumerate(datasets):
     )
 
     sample_names, sample_id_map, sample_metadata_map = load_sample_data(df_samples)
+
+    print(sample_names, sample_id_map, sample_metadata_map, dataset["name"])
 
     for sample_name in sample_names:
         id = str(uuid.uuid7())
