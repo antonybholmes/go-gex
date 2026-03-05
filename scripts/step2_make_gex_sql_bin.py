@@ -170,7 +170,7 @@ platforms.append({"name": "Microarray"})
 platformMap["Microarray"] = len(platforms)
 
 
-with open("datasets2.json") as f:
+with open("datasets.json") as f:
     datasets = json.load(f)
 
 print(datasets)
@@ -440,13 +440,14 @@ cursor.execute(
         id INTEGER PRIMARY KEY,
         public_id TEXT NOT NULL UNIQUE,
         dataset_id INTEGER NOT NULL,
-        name TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
         description TEXT NOT NULL DEFAULT '',
         FOREIGN KEY(dataset_id) REFERENCES datasets(id));
     """,
 )
 
 cursor.execute("CREATE INDEX idx_samples_dataset_id ON samples(dataset_id);")
+cursor.execute("CREATE INDEX idx_samples_name ON samples(LOWER(name));")
 
 
 cursor.execute(

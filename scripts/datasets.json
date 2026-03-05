@@ -101,19 +101,65 @@
     "institution": "Columbia",
     "name": "RDF N/GC/M/DZ/LZ",
     "idColCount": 0,
-    "phenotypes": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/phenotypes.tsv",
+    "phenotypes": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_dz_lz/phenotypes.tsv",
     "data": [
       {
         "type": "Counts",
-        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/n_gc_m_lz_dz_counts_restricted_gencode_grch38_20180724_simple.tsv"
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_dz_lz/n_gc_m_dz_lz_counts_restricted_gencode_grch38_20180724_simple.tsv"
       },
       {
         "type": "TPM",
-        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/n_gc_m_lz_dz_tpm_restricted_gencode_grch38_20180724_simple.tsv"
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_dz_lz/n_gc_m_dz_lz_tpm_restricted_gencode_grch38_20180724_simple.tsv"
       },
       {
         "type": "VST",
-        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_lz_dz/vst_n_gc_m_lz_dz_restricted_gencode_grch38_20180724.txt"
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_dz_lz/vst_n_gc_m_dz_lz_restricted_gencode_grch38_20180724.txt"
+      }
+    ]
+  },
+  {
+    "genome": "Human",
+    "technology": "RNA-seq",
+    "platform": "",
+    "institution": "Columbia",
+    "name": "RDF N/GC/M",
+    "idColCount": 0,
+    "phenotypes": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_dz_lz/n_gc_m/phenotypes.tsv",
+    "data": [
+      {
+        "type": "Counts",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_dz_lz/n_gc_m/n_gc_m_counts_restricted_gencode_grch38_20180724_simple.tsv"
+      },
+      {
+        "type": "TPM",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_dz_lz/n_gc_m/n_gc_m_tpm_restricted_gencode_grch38_20180724_simple.tsv"
+      },
+      {
+        "type": "VST",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_dz_lz/n_gc_m/vst_n_gc_m_restricted_gencode_grch38_20180724.txt"
+      }
+    ]
+  },
+  {
+    "genome": "Human",
+    "technology": "RNA-seq",
+    "platform": "",
+    "institution": "Columbia",
+    "name": "RDF DZ/LZ",
+    "idColCount": 0,
+    "phenotypes": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_dz_lz/dz_lz/phenotypes.tsv",
+    "data": [
+      {
+        "type": "Counts",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_dz_lz/dz_lz/dz_lz_counts_restricted_gencode_grch38_20180724_simple.tsv"
+      },
+      {
+        "type": "TPM",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_dz_lz/dz_lz/dz_lz_tpm_restricted_gencode_grch38_20180724_simple.tsv"
+      },
+      {
+        "type": "VST",
+        "path": "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/rna_seq/data/human/rdf/n_m_gc_dz_lz/dz_lz/vst_dz_lz_restricted_gencode_grch38_20180724.txt"
       }
     ]
   },
