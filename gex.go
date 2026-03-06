@@ -378,7 +378,7 @@ const (
 
 func NewGexDB(dir string) *GexDB {
 
-	path := filepath.Join(dir, "gex.db"+sys.SqliteReadOnlySuffix)
+	path := filepath.Join(dir, "gex.db"+sys.SqliteDSN)
 
 	// db, err := sql.Open("sqlite3", path)
 
