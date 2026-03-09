@@ -536,7 +536,7 @@ func (gdb *GexDB) Datasets(genome string,
 	namedArgs := []any{sql.Named("genome", web.FormatParam(genome)),
 		sql.Named("technology", web.FormatParam(technology))}
 
-	log.Debug().Msgf("Query: %s, Args: %v", DatasetsSQL, namedArgs)
+	//log.Debug().Msgf("Query: %s, Args: %v", DatasetsSQL, namedArgs)
 
 	query := sqlite.MakePermissionsSql(DatasetsSQL, isAdmin, permissions, &namedArgs)
 
