@@ -1,12 +1,12 @@
 module github.com/antonybholmes/go-gex
 
-go 1.25.0
+go 1.26
 
 replace github.com/antonybholmes/go-sys => ../go-sys
 
 replace github.com/antonybholmes/go-web => ../go-web
 
-require github.com/rs/zerolog v1.35.0 // indirect
+require github.com/rs/zerolog v1.35.1 // indirect
 
 require (
 	github.com/bytedance/gopkg v0.1.4 // indirect
@@ -54,7 +54,7 @@ require (
 	github.com/xuri/excelize/v2 v2.10.1 // indirect
 	github.com/xuri/nfp v0.0.2-0.20250530014748-2ddeb826f9a9 // indirect
 	github.com/xyproto/randomstring v1.2.0 // indirect
-	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
+	go.mongodb.org/mongo-driver/v2 v2.5.1 // indirect
 	golang.org/x/arch v0.26.0 // indirect
 	golang.org/x/crypto v0.50.0 // indirect
 	golang.org/x/net v0.53.0 // indirect
@@ -66,7 +66,7 @@ require (
 )
 
 require (
-	github.com/antonybholmes/go-sys v0.0.0-20260403172913-edaeb305202e
-	github.com/antonybholmes/go-web v0.0.0-20260403172903-f845fdd34082
+	github.com/antonybholmes/go-sys v0.0.0-20260414211834-526fb62c6da0
+	github.com/antonybholmes/go-web v0.0.0-20260414211828-e0b24128d77c
 	github.com/gin-gonic/gin v1.12.0
 )
