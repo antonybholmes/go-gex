@@ -75,15 +75,15 @@ def load_data(
     df = pd.read_csv(file, sep="\t", header=0, index_col=0, keep_default_na=False)
 
     if data_type == "RMA":
-        probes = df.index.str.replace(r"\..+", "", regex=True).values
-        genes = df.iloc[:, 0].str.replace(r"\..+", "", regex=True).values
+        probes = df.index.values  # str.replace(r"\..+", "", regex=True).values
+        genes = df.iloc[:, 0].values  # .str.replace(r"\..+", "", regex=True).values
         df = df.iloc[:, 1:]
     else:
         # for RNA-seq and other data types, we treat probes as genes
         # so there is a 1:1 mapping between probes and genes,
         # and the probe names are the same as the gene names (e.g. ENSEMBL ids or gene symbols)
-        probes = df.index.str.replace(r"\..+", "", regex=True).values
-        genes = df.index.str.replace(r"\..+", "", regex=True).values
+        probes = df.index.values  # .str.replace(r"\..+", "", regex=True).values
+        genes = df.index.values  # str.replace(r"\..+", "", regex=True).values
 
     # if filter != "":
     #    df = df.iloc[:, np.where(df.columns.str.contains(filter, regex=True))[0]]
@@ -108,7 +108,15 @@ def load_data(
 
         gene = genes[i]
 
-        # strip off version numbers from gene symbols
+        # strip off version numbers from gene symbols if they
+        # look like ensembl ids with version numbers
+        if (
+            gene.startswith("ENSG")
+            or gene.startswith("ENSMUSG")
+            or gene.startswith("ENST")
+            or gene.startswith("ENSMUST")
+        ):
+            gene = re.sub(r"\..+", "", gene)
 
         # only keep genes we can match to hugo
         # if gene not in gene_id_map[genome]:
@@ -124,8 +132,20 @@ def load_data(
             gene_id = alias_gene_id_map[genome].get(gene, "")
 
         if gene_id == "":
+            # try removing version numbers from gene symbols and look up again
+            gene_no_version = re.sub(r"\..+", "", gene)
+
+            gene_id = gene_id_map[genome].get(gene_no_version, "")
+
+            if gene_id == "":
+                gene_id = prev_gene_id_map[genome].get(gene_no_version, "")
+
+            if gene_id == "":
+                gene_id = alias_gene_id_map[genome].get(gene_no_version, "")
+
+        if gene_id == "":
             print(f"Could not find gene id for {gene} in {genome}")
-            continue
+            # continue
 
         print("probe", probe, gene_id)
 
@@ -316,43 +336,67 @@ cursor.execute(
     f"INSERT INTO genomes (id, public_id, name, scientific_name) VALUES (2, '{uuid.uuid7()}', 'Mouse', 'Mus musculus');"
 )
 
+cursor.execute(
+    f"""
+    CREATE TABLE sources (
+        id INTEGER PRIMARY KEY,
+        public_id TEXT NOT NULL UNIQUE,
+        genome_id INTEGER NOT NULL,
+        name TEXT NOT NULL UNIQUE,
+        FOREIGN KEY(genome_id) REFERENCES genomes(id));
+    """,
+)
+cursor.execute("CREATE INDEX idx_sources_name ON sources (LOWER(name));")
 
+cursor.execute(
+    f"INSERT INTO sources (id, public_id, genome_id, name) VALUES (1, '{uuid.uuid7()}', 1, 'HGNC');"
+)
+cursor.execute(
+    f"INSERT INTO sources (id, public_id, genome_id, name) VALUES (2, '{uuid.uuid7()}', 2, 'MGI' );"
+)
+
+source_map = {"HGNC": 1, "MGI": 2}
+
+# gene is is either hugo or mgi
 cursor.execute(
     f"""
     CREATE TABLE genes (
         id INTEGER PRIMARY KEY,
         public_id TEXT NOT NULL UNIQUE,
-        genome_id INTEGER NOT NULL,
+        source_id INTEGER NOT NULL,
         gene_id TEXT NOT NULL,
         ensembl TEXT NOT NULL DEFAULT '',
         refseq TEXT NOT NULL DEFAULT '',
         ncbi INTEGER NOT NULL DEFAULT 0,
         gene_symbol TEXT NOT NULL DEFAULT '',
-        FOREIGN KEY(genome_id) REFERENCES genomes(id));
+        FOREIGN KEY(source_id) REFERENCES sources(id));
+
     """,
 )
 cursor.execute("CREATE INDEX idx_genes_gene_id ON genes (LOWER(gene_id));")
 cursor.execute("CREATE INDEX idx_genes_ensembl ON genes (LOWER(ensembl));")
 cursor.execute("CREATE INDEX idx_genes_refseq ON genes (LOWER(refseq));")
 cursor.execute("CREATE INDEX idx_genes_gene_symbol ON genes (LOWER(gene_symbol));")
-cursor.execute("CREATE INDEX idx_genes_genome_id ON genes(genome_id);")
-
+cursor.execute("CREATE INDEX idx_genes_source_id ON genes(source_id);")
 
 cursor.execute(
     f"""
     CREATE TABLE previous_gene_symbols (
     id INTEGER PRIMARY KEY,
     public_id TEXT NOT NULL UNIQUE,
-    genome_id INTEGER NOT NULL,
+    source_id INTEGER NOT NULL,
     name TEXT NOT NULL,
     gene_id INTEGER NOT NULL,
-    FOREIGN KEY(genome_id) REFERENCES genomes(id),
+    FOREIGN KEY(source_id) REFERENCES sources(id),
     FOREIGN KEY(gene_id) REFERENCES genes(id));
     """,
 )
 
 cursor.execute(
     "CREATE INDEX idx_previous_gene_symbols_name ON previous_gene_symbols (LOWER(name));"
+)
+cursor.execute(
+    "CREATE INDEX idx_previous_gene_symbols_source_id ON previous_gene_symbols(source_id);"
 )
 
 cursor.execute(
@@ -383,15 +427,18 @@ cursor.execute(
         public_id TEXT NOT NULL UNIQUE,
         genome_id INTEGER NOT NULL,
         technology_id INTEGER NOT NULL,
-        gene_id INTEGER NOT NULL,
+        gene_id INTEGER,
         name TEXT NOT NULL,
-        UNIQUE(genome_id, name),
+        gene_symbol TEXT NOT NULL,
+        UNIQUE(genome_id, name, gene_symbol),
         FOREIGN KEY(genome_id) REFERENCES genomes(id),
         FOREIGN KEY(technology_id) REFERENCES technologies(id),
         FOREIGN KEY(gene_id) REFERENCES genes(id));
     """,
 )
 
+cursor.execute("CREATE INDEX idx_probes_name ON probes (LOWER(name));")
+cursor.execute("CREATE INDEX idx_probes_gene_symbol ON probes (LOWER(gene_symbol));")
 cursor.execute("CREATE INDEX idx_probes_genome_id ON probes(genome_id);")
 cursor.execute("CREATE INDEX idx_probes_technology_id ON probes(technology_id);")
 cursor.execute("CREATE INDEX idx_probes_gene_id ON probes(gene_id);")
@@ -562,15 +609,17 @@ genome_map = {"Human": 1, "Mouse": 2}
 
 for gi, genome in enumerate(genomes):
     genome_id = gi + 1
+    source_id = 1 if genome == "human" else 2
+
     for id in sorted(official_symbols[genome]):
         d = official_symbols[genome][id]
 
         cursor.execute(
-            f"INSERT INTO genes (id, public_id, genome_id, gene_id, ensembl, refseq, ncbi, gene_symbol) VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
+            f"INSERT INTO genes (id, public_id, source_id, gene_id, ensembl, refseq, ncbi, gene_symbol) VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
             (
                 d["index"],
                 str(uuid.uuid7()),
-                genome_id,
+                source_id,
                 d["gene_id"],
                 d["ensembl"],
                 d["refseq"],
@@ -586,11 +635,11 @@ for gi, genome in enumerate(genomes):
         d = official_symbols[genome][gene_id]
 
         cursor.execute(
-            f"INSERT INTO previous_gene_symbols (id, public_id, genome_id, name, gene_id) VALUES (?, ?, ?, ?, ?);",
+            f"INSERT INTO previous_gene_symbols (id, public_id, source_id, name, gene_id) VALUES (?, ?, ?, ?, ?);",
             (
                 None,
                 str(uuid.uuid7()),
-                genome_id,
+                source_id,
                 previous_symbol,
                 d["index"],
             ),
@@ -733,13 +782,25 @@ for di, dataset in enumerate(datasets):
 
             for probe in probes:
                 if probe not in probe_map[genome][technology]:
+                    gene_id = exp_map[probe]["gene_id"]
+                    # the symbol attached to the probe itself
+                    gene_symbol = exp_map[probe]["gene"]
 
-                    gene_id = official_symbols[genome][exp_map[probe]["gene_id"]][
-                        "index"
-                    ]
+                    gene_idx = (
+                        official_symbols[genome][gene_id]["index"]
+                        if gene_id in official_symbols[genome]
+                        else "NULL"
+                    )
 
                     cursor.execute(
-                        f"""INSERT INTO probes (id, public_id, genome_id, technology_id, gene_id, name) VALUES ({probe_index}, '{str(uuid.uuid7())}', {genome_id}, {technology_id}, {gene_id}, '{probe}');
+                        f"""INSERT INTO probes (id, public_id, genome_id, technology_id, gene_id, name, gene_symbol) VALUES (
+                        {probe_index}, 
+                        '{str(uuid.uuid7())}', 
+                        {genome_id}, 
+                        {technology_id}, 
+                        {gene_idx}, 
+                        '{probe}', 
+                        '{gene_symbol}');
                     """
                     )
                     probe_map[genome][technology][probe] = probe_index

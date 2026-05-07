@@ -23,11 +23,15 @@ type (
 		Ensembl    string `json:"ensembl,omitempty"`
 		Refseq     string `json:"refseq,omitempty"`
 		Ncbi       string `json:"ncbi,omitempty"`
+		Source     string `json:"source,omitempty"` // e.g. HUGO or MGI
 		sys.IdEntity
 	}
 
 	Probe struct {
-		Gene *GexGene `json:"gene,omitempty"`
+		// the original symbol given to the probe which
+		// can be out of date
+		GeneSymbol string   `json:"geneSymbol,omitempty"`
+		Gene       *GexGene `json:"gene,omitempty"`
 		sys.Entity
 	}
 
@@ -290,8 +294,10 @@ const (
 		p.probe_id,
 		p.probe_public_id,
 		p.probe_name,
+		p.probe_gene_symbol,
 		p.gid, 
-		p.gene_public_id, 
+		p.gene_public_id,
+		p.source,
 		p.gene_id,
 		p.gene_symbol,
 		p.ensembl,
@@ -302,23 +308,28 @@ const (
 			p.id AS probe_id,
 			p.public_id AS probe_public_id,
 			p.name AS probe_name,
-			ge.id AS gid, 
-			ge.public_id AS gene_public_id, 
-			ge.gene_id AS gene_id,
-			ge.gene_symbol AS gene_symbol,
-			ge.ensembl,
-			ge.refseq,
-			ge.ncbi,
+			p.gene_symbol AS probe_gene_symbol,
+			COALESCE(ge.id, -1) AS gid, 
+			COALESCE(ge.public_id, '') AS gene_public_id,
+			COALESCE(s.name, -1) AS source,
+			COALESCE(ge.gene_id, '') AS gene_id,
+			COALESCE(ge.gene_symbol, '') AS gene_symbol,
+			COALESCE(ge.ensembl, '') AS ensembl,
+			COALESCE(ge.refseq, '') AS refseq,
+			COALESCE(ge.ncbi, '') AS ncbi,
 			ids.ord
 			FROM probes p
 			JOIN genomes g ON g.id = p.genome_id
 			JOIN technologies t ON t.id = p.technology_id
-			JOIN genes ge ON ge.id = p.gene_id
-			JOIN previous_gene_symbols pgs ON pgs.gene_id = ge.id AND pgs.genome_id = g.id
+			LEFT JOIN genes ge ON ge.id = p.gene_id
+			LEFT JOIN sources s ON s.id = ge.source_id
+			LEFT JOIN previous_gene_symbols pgs ON pgs.gene_id = ge.id
 			JOIN ids ON (
 				p.public_id = ids.id
 				OR LOWER(p.name) LIKE ids.id
+				OR LOWER(p.gene_symbol) LIKE ids.id
 				OR ge.public_id = ids.id
+				OR LOWER(ge.gene_id) = ids.id
 				OR LOWER(ge.gene_symbol) LIKE ids.id
 				OR LOWER(ge.ensembl) = ids.id
 				OR LOWER(ge.refseq) = ids.id
@@ -914,6 +925,7 @@ func (gdb *GexDB) FindProbes(genome, technology *sys.Entity, genes []string) ([]
 	defer stmt.Close()
 
 	for i, gene := range genes {
+		//log.Debug().Msgf("inserting gene id: %s with ord: %d", gene, i+1)
 		if _, err := stmt.Exec(sql.Named("id", web.FormatParam(gene)), sql.Named("ord", i+1)); err != nil {
 			return nil, err
 		}
@@ -938,6 +950,8 @@ func (gdb *GexDB) FindProbes(genome, technology *sys.Entity, genes []string) ([]
 		return nil, err
 	}
 
+	// /log.Debug().Msgf("query: %s, args: genome %s, technology %s", ProbesSQL, genome.Id, technology.Id)
+
 	defer rows.Close()
 
 	for rows.Next() {
@@ -950,8 +964,10 @@ func (gdb *GexDB) FindProbes(genome, technology *sys.Entity, genes []string) ([]
 			&probe.Id,
 			&probe.PublicId,
 			&probe.Name,
+			&probe.GeneSymbol,
 			&probe.Gene.Id,
 			&probe.Gene.PublicId,
+			&probe.Gene.Source,
 			&probe.Gene.GeneId,
 			&probe.Gene.GeneSymbol,
 			&probe.Gene.Ensembl,
@@ -1089,8 +1105,6 @@ func (gdb *GexDB) Expression(datasetId string,
 			&length)
 
 		if err != nil {
-			log.Debug().Msgf("here2 %v", err)
-
 			return nil, err
 		}
 
