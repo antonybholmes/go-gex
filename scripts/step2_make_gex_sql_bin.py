@@ -381,22 +381,20 @@ cursor.execute("CREATE INDEX idx_genes_source_id ON genes(source_id);")
 
 cursor.execute(
     f"""
-    CREATE TABLE previous_gene_symbols (
+    CREATE TABLE alt_gene_names (
     id INTEGER PRIMARY KEY,
     public_id TEXT NOT NULL UNIQUE,
     source_id INTEGER NOT NULL,
-    name TEXT NOT NULL,
     gene_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
     FOREIGN KEY(source_id) REFERENCES sources(id),
     FOREIGN KEY(gene_id) REFERENCES genes(id));
     """,
 )
 
+cursor.execute("CREATE INDEX idx_alt_gene_names_name ON alt_gene_names (LOWER(name));")
 cursor.execute(
-    "CREATE INDEX idx_previous_gene_symbols_name ON previous_gene_symbols (LOWER(name));"
-)
-cursor.execute(
-    "CREATE INDEX idx_previous_gene_symbols_source_id ON previous_gene_symbols(source_id);"
+    "CREATE INDEX idx_alt_gene_names_source_id ON alt_gene_names(source_id);"
 )
 
 cursor.execute(
@@ -628,6 +626,42 @@ for gi, genome in enumerate(genomes):
             ),
         )
 
+        # cursor.execute(
+        #     f"INSERT INTO alt_gene_names (id, public_id, source_id, name, gene_id) VALUES (?, ?, ?, ?, ?);",
+        #     (
+        #         None,
+        #         str(uuid.uuid7()),
+        #         source_id,
+        #         d["gene_id"],
+        #         d["index"],
+        #     ),
+        # )
+
+        # cursor.execute(
+        #     f"INSERT INTO alt_gene_names (id, public_id, source_id, name, gene_id) VALUES (?, ?, ?, ?, ?);",
+        #     (
+        #         None,
+        #         str(uuid.uuid7()),
+        #         source_id,
+        #         d["ensembl"],
+        #         d["index"],
+        #     ),
+        # )
+
+        # for refseq_id in [x.strip() for x in d["refseq"].split(",")]:
+        #     cursor.execute(
+        #         f"INSERT INTO alt_gene_names (id, public_id, source_id, name, gene_id) VALUES (?, ?, ?, ?, ?);",
+        #         (
+        #             None,
+        #             str(uuid.uuid7()),
+        #             source_id,
+        #             refseq_id,
+        #             d["index"],
+        #         ),
+        #     )
+
+    # allow searching against previous symbols as well
+
     for previous_symbol in sorted(prev_gene_id_map[genome]):
 
         gene_id = prev_gene_id_map[genome][previous_symbol]
@@ -635,7 +669,7 @@ for gi, genome in enumerate(genomes):
         d = official_symbols[genome][gene_id]
 
         cursor.execute(
-            f"INSERT INTO previous_gene_symbols (id, public_id, source_id, name, gene_id) VALUES (?, ?, ?, ?, ?);",
+            f"INSERT INTO alt_gene_names (id, public_id, source_id, name, gene_id) VALUES (?, ?, ?, ?, ?);",
             (
                 None,
                 str(uuid.uuid7()),
@@ -687,8 +721,6 @@ for di, dataset in enumerate(datasets):
     )
 
     sample_names, sample_id_map, sample_metadata_map = load_sample_data(df_samples)
-
-    print(sample_names, sample_id_map, sample_metadata_map, dataset["name"])
 
     for sample_name in sample_names:
         id = str(uuid.uuid7())

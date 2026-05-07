@@ -323,7 +323,7 @@ const (
 			JOIN technologies t ON t.id = p.technology_id
 			LEFT JOIN genes ge ON ge.id = p.gene_id
 			LEFT JOIN sources s ON s.id = ge.source_id
-			LEFT JOIN previous_gene_symbols pgs ON pgs.gene_id = ge.id
+			LEFT JOIN alt_gene_names agn ON agn.gene_id = ge.id
 			JOIN ids ON (
 				p.public_id = ids.id
 				OR LOWER(p.name) LIKE ids.id
@@ -333,7 +333,7 @@ const (
 				OR LOWER(ge.gene_symbol) LIKE ids.id
 				OR LOWER(ge.ensembl) = ids.id
 				OR LOWER(ge.refseq) = ids.id
-				OR LOWER(pgs.name) = ids.id
+				OR LOWER(agn.name) = ids.id
 			)
 			WHERE
 				g.id = :genome
