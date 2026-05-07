@@ -282,19 +282,21 @@ const (
         ord INTEGER NOT NULL
     )`
 
-	InsertIdSQL = `INSERT INTO ids (id, ord) VALUES (:id, :ord) ON CONFLICT(id) DO NOTHING`
+	// Ids we want to seach for e.g. either probe ids or gene symbols or gene ids
+	// are inserted into a temp table with an order column to maintain the order of the input genes
+	InsertIdSQL = `INSERT INTO ids (id, ord) VALUES (LOWER(:id), :ord) ON CONFLICT(id) DO NOTHING`
 
 	ProbesSQL = `SELECT DISTINCT
-		t.probe_id,
-		t.probe_public_id,
-		t.probe_name,
-		t.gid, 
-		t.gene_public_id, 
-		t.gene_id,
-		t.gene_symbol,
-		t.ensembl,
-		t.refseq,
-		t.ncbi
+		p.probe_id,
+		p.probe_public_id,
+		p.probe_name,
+		p.gid, 
+		p.gene_public_id, 
+		p.gene_id,
+		p.gene_symbol,
+		p.ensembl,
+		p.refseq,
+		p.ncbi
 		FROM (
 			SELECT DISTINCT
 			p.id AS probe_id,
@@ -312,6 +314,7 @@ const (
 			JOIN genomes g ON g.id = p.genome_id
 			JOIN technologies t ON t.id = p.technology_id
 			JOIN genes ge ON ge.id = p.gene_id
+			JOIN previous_gene_symbols pgs ON pgs.gene_id = ge.id AND pgs.genome_id = g.id
 			JOIN ids ON (
 				p.public_id = ids.id
 				OR LOWER(p.name) LIKE ids.id
@@ -319,12 +322,13 @@ const (
 				OR LOWER(ge.gene_symbol) LIKE ids.id
 				OR LOWER(ge.ensembl) = ids.id
 				OR LOWER(ge.refseq) = ids.id
+				OR LOWER(pgs.name) = ids.id
 			)
 			WHERE
 				g.id = :genome
 				AND t.id = :technology
-		) t
-		ORDER BY t.ord`
+		) p
+		ORDER BY p.ord`
 
 	// ProbeIdsSQL = `SELECT DISTINCT
 	// 	p.id AS probe_id,
@@ -376,9 +380,9 @@ const (
 			AND d.public_id = :dataset`
 )
 
-func NewGexDB(dir string) *GexDB {
+func NewGexDB(dbpath string) *GexDB {
 
-	path := filepath.Join(dir, "gex.db"+sys.SqliteDSN)
+	dir := filepath.Dir(dbpath)
 
 	// db, err := sql.Open("sqlite3", path)
 
@@ -388,7 +392,9 @@ func NewGexDB(dir string) *GexDB {
 
 	// defer db.Close()
 
-	return &GexDB{dir: dir, db: sys.Must(sql.Open(sys.Sqlite3DB, path))}
+	log.Debug().Msgf("Initializing GexDB with path: %s", dbpath)
+
+	return &GexDB{dir: dir, db: sys.Must(sql.Open(sys.Sqlite3DB, dbpath+sys.SqliteDSN))}
 }
 
 func (gdb *GexDB) Close() error {
@@ -907,8 +913,8 @@ func (gdb *GexDB) FindProbes(genome, technology *sys.Entity, genes []string) ([]
 
 	defer stmt.Close()
 
-	for i, id := range genes {
-		if _, err := stmt.Exec(sql.Named("id", web.FormatParam(id)), sql.Named("ord", i+1)); err != nil {
+	for i, gene := range genes {
+		if _, err := stmt.Exec(sql.Named("id", web.FormatParam(gene)), sql.Named("ord", i+1)); err != nil {
 			return nil, err
 		}
 	}

@@ -36,30 +36,9 @@ def load_sample_data(df: pd.DataFrame):  # , num_id_cols: int = 1):
         values = row.astype(str).values
 
         sample_name = sample_names[i]
-        id = sample_id_map[sample_name]["uuid"]
-
-        # ids = values[0:num_id_cols]
-
-        # alt_id_names = id_names  # [1:]
-        # alt_ids = ids  # [1:]
-
-        # for name, alt_id in zip(id_names, ids):
-        #     # here name is the column name, alt_id is the value
-        #     # e.g. if a sample has multiple ids, e.g. GEO and SRA
-        #     # then name is "GEO" and alt_id is "GSMxxxx" or
-        #     # name is "SRA" and alt_id is "SRRxxxx"
-
-        #     color = ""
-
-        #     if "|" in alt_id:
-        #         alt_id, color = alt_id.split("|")
-        #         alt_id = alt_id.strip()
-        #         color = color.strip()
-
-        #     sample_id_map[sample_id][name] = alt_id  # {"id": alt_id, "color": color}
+        # id = sample_id_map[sample_name]["uuid"]
 
         values = values.astype(str)
-        # values = values[num_id_cols:]
 
         for metadata_name, value in zip(sample_metadata_names, values):
             if value != "":
@@ -70,12 +49,6 @@ def load_sample_data(df: pd.DataFrame):  # , num_id_cols: int = 1):
                     value, color = value.split("|")
                     value = value.strip()
                     color = color.strip()
-
-                # if value not in sample_metadata_map[metadata_name]:
-                #     sample_metadata_map[metadata_name][value] = {
-                #         "color": color,
-                #         "samples": [],
-                #     }
 
                 sample_metadata_map[sample_name][metadata_name] = {
                     "value": value,
@@ -96,7 +69,6 @@ def load_data(
     sample_ids,
     data_type,
     file,
-    id_col_count=1,
 ):
     # print(file, dataset_id)
 
@@ -107,6 +79,9 @@ def load_data(
         genes = df.iloc[:, 0].str.replace(r"\..+", "", regex=True).values
         df = df.iloc[:, 1:]
     else:
+        # for RNA-seq and other data types, we treat probes as genes
+        # so there is a 1:1 mapping between probes and genes,
+        # and the probe names are the same as the gene names (e.g. ENSEMBL ids or gene symbols)
         probes = df.index.str.replace(r"\..+", "", regex=True).values
         genes = df.index.str.replace(r"\..+", "", regex=True).values
 
@@ -136,9 +111,10 @@ def load_data(
         # strip off version numbers from gene symbols
 
         # only keep genes we can match to hugo
-        if gene not in gene_id_map[genome]:
-            continue
+        # if gene not in gene_id_map[genome]:
+        #    continue
 
+        # find hugo/mgi id
         gene_id = gene_id_map[genome].get(gene, "")
 
         if gene_id == "":
@@ -147,7 +123,19 @@ def load_data(
         if gene_id == "":
             gene_id = alias_gene_id_map[genome].get(gene, "")
 
-        exp_map[probe] = {"gene": gene_id, "values": df.iloc[i, :].values}
+        if gene_id == "":
+            print(f"Could not find gene id for {gene} in {genome}")
+            continue
+
+        print("probe", probe, gene_id)
+
+        # in rna-seq probe will be the gene id as well,
+        # but in microarray probe will be the probe id and gene will be the gene symbol
+        exp_map[probe] = {
+            "gene": gene,
+            "gene_id": gene_id,
+            "values": df.iloc[i, :].values,
+        }
         probes_in_use.append(probe)
 
     return probes_in_use, genes, exp_map
@@ -191,9 +179,11 @@ metadata_map = {}
 
 # gene_db_map = {}
 
-file = (
-    "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/references/hugo/hugo_20240524.tsv"
-)
+# file = (
+#     "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/references/hugo/hugo_20240524.tsv"
+# )
+
+file = "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/references/hugo/hugo_approved_20260409.tsv"
 
 df_hugo = pd.read_csv(file, sep="\t", header=0, keep_default_na=False)
 
@@ -229,7 +219,11 @@ for i, gene_symbol in enumerate(df_hugo["Approved symbol"].values):
     gene_id_map["human"][ensembl] = hugo
     gene_id_map["human"][refseq] = hugo
     gene_id_map["human"][ncbi] = hugo
+
     for g in [x.strip() for x in df_hugo["Previous symbols"].values[i].split(",")]:
+        if g == "HIST1H1B":
+            print(g, hugo, info)
+
         prev_gene_id_map["human"][g] = hugo
 
     for g in [x.strip() for x in df_hugo["Alias symbols"].values[i].split(",")]:
@@ -284,7 +278,7 @@ for i, gene_symbol in enumerate(df_mgi["gene_symbol"].values):
 #
 # Write sql
 #
-db = f"../data/modules/gex/gex.db"
+db = f"../data/modules/gex/gex-20260507.db"
 
 print(f"Writing to {db}")
 
@@ -346,6 +340,23 @@ cursor.execute("CREATE INDEX idx_genes_genome_id ON genes(genome_id);")
 
 cursor.execute(
     f"""
+    CREATE TABLE previous_gene_symbols (
+    id INTEGER PRIMARY KEY,
+    public_id TEXT NOT NULL UNIQUE,
+    genome_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    gene_id INTEGER NOT NULL,
+    FOREIGN KEY(genome_id) REFERENCES genomes(id),
+    FOREIGN KEY(gene_id) REFERENCES genes(id));
+    """,
+)
+
+cursor.execute(
+    "CREATE INDEX idx_previous_gene_symbols_name ON previous_gene_symbols (LOWER(name));"
+)
+
+cursor.execute(
+    f"""
     CREATE TABLE technologies (
         id INTEGER PRIMARY KEY,
         public_id TEXT NOT NULL UNIQUE,
@@ -372,8 +383,8 @@ cursor.execute(
         public_id TEXT NOT NULL UNIQUE,
         genome_id INTEGER NOT NULL,
         technology_id INTEGER NOT NULL,
-        name TEXT NOT NULL,
         gene_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
         UNIQUE(genome_id, name),
         FOREIGN KEY(genome_id) REFERENCES genomes(id),
         FOREIGN KEY(technology_id) REFERENCES technologies(id),
@@ -404,28 +415,24 @@ cursor.execute(
 cursor.execute("CREATE INDEX idx_datasets_genome_id ON datasets(genome_id);")
 cursor.execute("CREATE INDEX idx_datasets_technology_id ON datasets(technology_id);")
 
-cursor.execute(
-    f""" CREATE TABLE permissions (
+cursor.execute(f""" CREATE TABLE permissions (
 	id INTEGER PRIMARY KEY ASC,
     public_id TEXT NOT NULL UNIQUE,
 	name TEXT NOT NULL);
-"""
-)
+""")
 
 cursor.execute(
     f"INSERT INTO permissions (id, public_id, name) VALUES (1, '{rdfViewId}', 'rdf:view');"
 )
 
 
-cursor.execute(
-    f""" CREATE TABLE dataset_permissions (
+cursor.execute(f""" CREATE TABLE dataset_permissions (
 	dataset_id INTEGER,
     permission_id INTEGER,
     PRIMARY KEY(dataset_id, permission_id),
     FOREIGN KEY (dataset_id) REFERENCES datasets(id),
     FOREIGN KEY (permission_id) REFERENCES permissions(id));
-"""
-)
+""")
 
 cursor.execute(
     "CREATE INDEX idx_dataset_permissions_dataset_id ON dataset_permissions(dataset_id);"
@@ -553,10 +560,10 @@ genomes = ["human", "mouse"]
 
 genome_map = {"Human": 1, "Mouse": 2}
 
-for si, s in enumerate(genomes):
-    genome_id = si + 1
-    for id in sorted(official_symbols[s]):
-        d = official_symbols[s][id]
+for gi, genome in enumerate(genomes):
+    genome_id = gi + 1
+    for id in sorted(official_symbols[genome]):
+        d = official_symbols[genome][id]
 
         cursor.execute(
             f"INSERT INTO genes (id, public_id, genome_id, gene_id, ensembl, refseq, ncbi, gene_symbol) VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
@@ -569,6 +576,23 @@ for si, s in enumerate(genomes):
                 d["refseq"],
                 d["ncbi"],
                 d["gene_symbol"],
+            ),
+        )
+
+    for previous_symbol in sorted(prev_gene_id_map[genome]):
+
+        gene_id = prev_gene_id_map[genome][previous_symbol]
+
+        d = official_symbols[genome][gene_id]
+
+        cursor.execute(
+            f"INSERT INTO previous_gene_symbols (id, public_id, genome_id, name, gene_id) VALUES (?, ?, ?, ?, ?);",
+            (
+                None,
+                str(uuid.uuid7()),
+                genome_id,
+                previous_symbol,
+                d["index"],
             ),
         )
 
@@ -654,7 +678,7 @@ for di, dataset in enumerate(datasets):
     for file in dataset["data"]:
         print(file["path"])
         probes, genes, exp_map = load_data(
-            genome, sample_names, file["type"], file["path"], dataset["idColCount"]
+            genome, sample_names, file["type"], file["path"]
         )
 
         exp_name = f"{dataset['name'].replace(" ", "_").replace("/", "_").lower()}"
@@ -710,7 +734,9 @@ for di, dataset in enumerate(datasets):
             for probe in probes:
                 if probe not in probe_map[genome][technology]:
 
-                    gene_id = official_symbols[genome][exp_map[probe]["gene"]]["index"]
+                    gene_id = official_symbols[genome][exp_map[probe]["gene_id"]][
+                        "index"
+                    ]
 
                     cursor.execute(
                         f"""INSERT INTO probes (id, public_id, genome_id, technology_id, gene_id, name) VALUES ({probe_index}, '{str(uuid.uuid7())}', {genome_id}, {technology_id}, {gene_id}, '{probe}');
@@ -726,11 +752,9 @@ for di, dataset in enumerate(datasets):
                 #     """
                 # )
 
-                cursor.execute(
-                    f"""
+                cursor.execute(f"""
                     INSERT INTO expression (dataset_id, probe_id, expression_type_id, offset, length, file_id, version) VALUES ({dataset_index}, {probe_id}, {expr_type_id}, {offset}, {num_samples}, {file_id}, {VERSION});
-                    """
-                )
+                    """)
 
                 exp = exp_map[probe]
 

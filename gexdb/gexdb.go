@@ -12,9 +12,9 @@ var (
 	once     sync.Once
 )
 
-func InitGexDB(dir string) (*gex.GexDB, error) {
+func InitGexDB(path string) (*gex.GexDB, error) {
 	once.Do(func() {
-		instance = gex.NewGexDB(dir)
+		instance = gex.NewGexDB(path)
 	})
 
 	return instance, nil
