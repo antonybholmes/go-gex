@@ -19,7 +19,7 @@ import (
 type (
 	GexGene struct {
 		GeneId     string `json:"geneId"`
-		GeneSymbol string `json:"geneSymbol"`
+		GeneSymbol string `json:"symbol"`
 		Ensembl    string `json:"ensembl,omitempty"`
 		Refseq     string `json:"refseq,omitempty"`
 		Ncbi       string `json:"ncbi,omitempty"`
@@ -30,7 +30,7 @@ type (
 	Probe struct {
 		// the original symbol given to the probe which
 		// can be out of date
-		GeneSymbol string   `json:"geneSymbol,omitempty"`
+		GeneSymbol string   `json:"symbol,omitempty"`
 		Gene       *GexGene `json:"gene,omitempty"`
 		sys.Entity
 	}
@@ -109,9 +109,9 @@ const (
 	GenesSql = `SELECT 
 		g.public_id, 
 		g.gene_id, 
-		g.gene_symbol 
+		g.symbol 
 		FROM genes g
-		ORDER BY g.gene_symbol`
+		ORDER BY g.symbol`
 
 	GenomesSql = `SELECT
 		g.id,
@@ -272,13 +272,13 @@ const (
 	// 	g.ensembl,
 	// 	g.refseq,
 	// 	g.ncbi,
-	// 	g.gene_symbol
+	// 	g.symbol
 	// 	FROM genes g
 	// 	WHERE
 	// 		g.public_id = :id OR
 	// 		LOWER(g.ensembl) = :id OR
 	// 		LOWER(g.refseq) = :id OR
-	// 		LOWER(g.gene_symbol) LIKE :id
+	// 		LOWER(g.symbol) LIKE :id
 	// 	LIMIT 1`
 
 	CreateIdTableSQL = `CREATE TEMP TABLE IF NOT EXISTS ids (
@@ -294,12 +294,12 @@ const (
 		p.probe_id,
 		p.probe_public_id,
 		p.probe_name,
-		p.probe_gene_symbol,
+		p.probe_symbol,
 		p.gid, 
 		p.gene_public_id,
 		p.source,
 		p.gene_id,
-		p.gene_symbol,
+		p.symbol,
 		p.ensembl,
 		p.refseq,
 		p.ncbi
@@ -308,12 +308,16 @@ const (
 			p.id AS probe_id,
 			p.public_id AS probe_public_id,
 			p.name AS probe_name,
-			p.gene_symbol AS probe_gene_symbol,
+			p.symbol AS probe_symbol,
 			COALESCE(ge.id, -1) AS gid, 
 			COALESCE(ge.public_id, '') AS gene_public_id,
-			COALESCE(s.name, -1) AS source,
+			CASE COALESCE(ge.source_id, -1) 
+				WHEN 1 THEN 'HGNC'
+				WHEN 2 THEN 'MGI'
+				ELSE ''
+			END AS source,
 			COALESCE(ge.gene_id, '') AS gene_id,
-			COALESCE(ge.gene_symbol, '') AS gene_symbol,
+			COALESCE(ge.symbol, '') AS symbol,
 			COALESCE(ge.ensembl, '') AS ensembl,
 			COALESCE(ge.refseq, '') AS refseq,
 			COALESCE(ge.ncbi, '') AS ncbi,
@@ -322,15 +326,14 @@ const (
 			JOIN genomes g ON g.id = p.genome_id
 			JOIN technologies t ON t.id = p.technology_id
 			LEFT JOIN genes ge ON ge.id = p.gene_id
-			LEFT JOIN sources s ON s.id = ge.source_id
 			LEFT JOIN alt_gene_names agn ON agn.gene_id = ge.id
 			JOIN ids ON (
 				p.public_id = ids.id
 				OR LOWER(p.name) LIKE ids.id
-				OR LOWER(p.gene_symbol) LIKE ids.id
+				OR LOWER(p.symbol) LIKE ids.id
 				OR ge.public_id = ids.id
 				OR LOWER(ge.gene_id) = ids.id
-				OR LOWER(ge.gene_symbol) LIKE ids.id
+				OR LOWER(ge.symbol) LIKE ids.id
 				OR LOWER(ge.ensembl) = ids.id
 				OR LOWER(ge.refseq) = ids.id
 				OR LOWER(agn.name) = ids.id
@@ -351,7 +354,7 @@ const (
 	// 		p.public_id = i.id
 	// 		OR p.name LIKE i.id
 	// 		OR g.public_id = i.id
-	// 		OR g.gene_symbol LIKE i.id
+	// 		OR g.symbol LIKE i.id
 	// 		OR g.ensembl = i.id
 	// 		OR g.refseq = i.id
 	// 	)
@@ -958,25 +961,29 @@ func (gdb *GexDB) FindProbes(genome, technology *sys.Entity, genes []string) ([]
 		var probe Probe
 
 		// init the gene
-		probe.Gene = &GexGene{}
+		gene := GexGene{}
 
 		err := rows.Scan(
 			&probe.Id,
 			&probe.PublicId,
 			&probe.Name,
 			&probe.GeneSymbol,
-			&probe.Gene.Id,
-			&probe.Gene.PublicId,
-			&probe.Gene.Source,
-			&probe.Gene.GeneId,
-			&probe.Gene.GeneSymbol,
-			&probe.Gene.Ensembl,
-			&probe.Gene.Refseq,
-			&probe.Gene.Ncbi,
+			&gene.Id,
+			&gene.PublicId,
+			&gene.Source,
+			&gene.GeneId,
+			&gene.GeneSymbol,
+			&gene.Ensembl,
+			&gene.Refseq,
+			&gene.Ncbi,
 		)
 
 		if err != nil {
 			return nil, err
+		}
+
+		if gene.Id != -1 {
+			probe.Gene = &gene
 		}
 
 		ret = append(ret, &probe)

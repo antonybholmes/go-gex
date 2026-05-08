@@ -8,7 +8,6 @@ import numpy as np
 import uuid_utils as uuid
 import argparse
 
-
 DATA_TYPES = ["Counts", "TPM", "VST"]
 
 
@@ -206,7 +205,7 @@ if args.species == "Mouse":
     file = "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/references/mgi/mgi_entrez_ensembl_gene_list_20240531.tsv"
     df_mgi = pd.read_csv(file, sep="\t", header=0, keep_default_na=False)
 
-    for i, gene_symbol in enumerate(df_mgi["gene_symbol"].values):
+    for i, symbol in enumerate(df_mgi["gene_symbol"].values):
 
         mgi = df_mgi["mgi"].values[i]
         ensembl = df_mgi["ensembl"].values[i].split(".")[0]
@@ -216,20 +215,20 @@ if args.species == "Mouse":
         official_symbols[mgi] = {
             "hugo": "",
             "mgi": mgi,
-            "gene_symbol": gene_symbol,
+            "symbol": symbol,
             "ensembl": ensembl,
             "refseq": refseq,
             "ncbi": ncbi,
         }
 
         gene_id_map[mgi] = mgi
-        gene_id_map[gene_symbol] = mgi
+        gene_id_map[symbol] = mgi
         gene_id_map[refseq] = mgi
         gene_id_map[ncbi] = mgi
 
         index = i + 1
         gene_db_map[mgi] = index
-        # gene_db_map[gene_symbol] = index
+        # gene_db_map[symbol] = index
         # gene_db_map[refseq] = index
         # gene_db_map[ncbi] = index
 
@@ -238,7 +237,7 @@ else:
     file = "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/references/hugo/hugo_20240524.tsv"
     df_hugo = pd.read_csv(file, sep="\t", header=0, keep_default_na=False)
 
-    for i, gene_symbol in enumerate(df_hugo["Approved symbol"].values):
+    for i, symbol in enumerate(df_hugo["Approved symbol"].values):
 
         # genes = [gene_id] + list(
         #     filter(
@@ -255,14 +254,14 @@ else:
         official_symbols[hugo] = {
             "hugo": hugo,
             "mgi": "",
-            "gene_symbol": gene_symbol,
+            "symbol": symbol,
             "ensembl": ensembl,
             "refseq": refseq,
             "ncbi": ncbi,
         }
 
         gene_id_map[hugo] = hugo
-        gene_id_map[gene_symbol] = hugo
+        gene_id_map[symbol] = hugo
         gene_id_map[ensembl] = hugo
         gene_id_map[refseq] = hugo
         gene_id_map[ncbi] = hugo
@@ -275,7 +274,7 @@ else:
 
         index = i + 1
         gene_db_map[hugo] = index
-        # gene_db_map[gene_symbol] = index
+        # gene_db_map[symbol] = index
         # gene_db_map[refseq] = index
         # gene_db_map[ncbi] = index
 
@@ -429,10 +428,10 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
 
         for dataset_id in sorted(exp_map):
             for probe_id in sorted(exp_map[dataset_id]):
-                for gene_symbol in sorted(exp_map[dataset_id][probe_id]):
-                    values = exp_map[dataset_id][probe_id][gene_symbol]["RMA"]
+                for symbol in sorted(exp_map[dataset_id][probe_id]):
+                    values = exp_map[dataset_id][probe_id][symbol]["RMA"]
 
-                    gene_index = gene_db_map[gene_symbol]
+                    gene_index = gene_db_map[symbol]
 
                     for si, sample in enumerate(sample_ids):
                         sample_index = sample_db_ids[sample]
@@ -498,17 +497,17 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
 
         for dataset_id in sorted(exp_map):
             for probe_id in sorted(exp_map[dataset_id]):
-                for gene_symbol in sorted(exp_map[dataset_id][probe_id]):
-                    gene_index = gene_db_map[gene_symbol]
+                for symbol in sorted(exp_map[dataset_id][probe_id]):
+                    gene_index = gene_db_map[symbol]
 
                     for data_type in expr_types:
 
-                        if data_type not in exp_map[dataset_id][probe_id][gene_symbol]:
+                        if data_type not in exp_map[dataset_id][probe_id][symbol]:
                             continue
 
                         expr_type_id = expr_type_map[data_type]
 
-                        values = exp_map[dataset_id][probe_id][gene_symbol][data_type]
+                        values = exp_map[dataset_id][probe_id][symbol][data_type]
 
                         for si, sample in enumerate(sample_ids):
                             sample_index = sample_db_ids[sample]
@@ -518,7 +517,7 @@ with open(f"data/modules/gex/{args.species}/{args.technology}/{file_id}.sql", "w
                                 file=f,
                             )
 
-                    # gene_index = gene_db_map[gene_symbol]
+                    # gene_index = gene_db_map[symbol]
                     # t = ", ".join(DATA_TYPES)
                     # print(
                     #     f"INSERT INTO expr (gene_id, {t}) VALUES ({gene_index}, {values});",

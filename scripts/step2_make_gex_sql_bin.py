@@ -209,7 +209,7 @@ df_hugo = pd.read_csv(file, sep="\t", header=0, keep_default_na=False)
 
 gene_index = 1
 
-for i, gene_symbol in enumerate(df_hugo["Approved symbol"].values):
+for i, symbol in enumerate(df_hugo["Approved symbol"].values):
 
     # genes = [gene_id] + list(
     #     filter(
@@ -226,7 +226,7 @@ for i, gene_symbol in enumerate(df_hugo["Approved symbol"].values):
     info = {
         "index": gene_index,
         "gene_id": hugo,
-        "gene_symbol": gene_symbol,
+        "symbol": symbol,
         "ensembl": ensembl,
         "refseq": refseq,
         "ncbi": ncbi,
@@ -235,7 +235,7 @@ for i, gene_symbol in enumerate(df_hugo["Approved symbol"].values):
     official_symbols["human"][hugo] = info
 
     gene_id_map["human"][hugo] = hugo
-    gene_id_map["human"][gene_symbol] = hugo
+    gene_id_map["human"][symbol] = hugo
     gene_id_map["human"][ensembl] = hugo
     gene_id_map["human"][refseq] = hugo
     gene_id_map["human"][ncbi] = hugo
@@ -250,7 +250,7 @@ for i, gene_symbol in enumerate(df_hugo["Approved symbol"].values):
         alias_gene_id_map["human"][g] = hugo
 
     # gene_db_map[hugo] = hugo  # index
-    # gene_db_map[gene_symbol] = index
+    # gene_db_map[symbol] = index
     # gene_db_map[refseq] = index
     # gene_db_map[ncbi] = index
 
@@ -266,7 +266,7 @@ for i, gene_symbol in enumerate(df_hugo["Approved symbol"].values):
 file = "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/references/mgi/mgi_entrez_ensembl_gene_list_20240531.tsv"
 df_mgi = pd.read_csv(file, sep="\t", header=0, keep_default_na=False)
 
-for i, gene_symbol in enumerate(df_mgi["gene_symbol"].values):
+for i, symbol in enumerate(df_mgi["gene_symbol"].values):
 
     mgi = df_mgi["mgi"].values[i]
     ensembl = df_mgi["ensembl"].values[i].split(".")[0].replace("null", "")
@@ -276,20 +276,20 @@ for i, gene_symbol in enumerate(df_mgi["gene_symbol"].values):
     official_symbols["mouse"][mgi] = {
         "index": gene_index,
         "gene_id": mgi,
-        "gene_symbol": gene_symbol,
+        "symbol": symbol,
         "ensembl": ensembl,
         "refseq": refseq,
         "ncbi": ncbi,
     }
 
     gene_id_map["mouse"][mgi] = mgi
-    gene_id_map["mouse"][gene_symbol] = mgi
+    gene_id_map["mouse"][symbol] = mgi
     gene_id_map["mouse"][refseq] = mgi
     gene_id_map["mouse"][ncbi] = mgi
 
     gene_index += 1
     # gene_db_map[mgi] = index
-    # gene_db_map[gene_symbol] = index
+    # gene_db_map[symbol] = index
     # gene_db_map[refseq] = index
     # gene_db_map[ncbi] = index
 
@@ -368,7 +368,7 @@ cursor.execute(
         ensembl TEXT NOT NULL DEFAULT '',
         refseq TEXT NOT NULL DEFAULT '',
         ncbi INTEGER NOT NULL DEFAULT 0,
-        gene_symbol TEXT NOT NULL DEFAULT '',
+        symbol TEXT NOT NULL DEFAULT '',
         FOREIGN KEY(source_id) REFERENCES sources(id));
 
     """,
@@ -376,7 +376,7 @@ cursor.execute(
 cursor.execute("CREATE INDEX idx_genes_gene_id ON genes (LOWER(gene_id));")
 cursor.execute("CREATE INDEX idx_genes_ensembl ON genes (LOWER(ensembl));")
 cursor.execute("CREATE INDEX idx_genes_refseq ON genes (LOWER(refseq));")
-cursor.execute("CREATE INDEX idx_genes_gene_symbol ON genes (LOWER(gene_symbol));")
+cursor.execute("CREATE INDEX idx_genes_symbol ON genes (LOWER(symbol));")
 cursor.execute("CREATE INDEX idx_genes_source_id ON genes(source_id);")
 
 cursor.execute(
@@ -427,8 +427,8 @@ cursor.execute(
         technology_id INTEGER NOT NULL,
         gene_id INTEGER,
         name TEXT NOT NULL,
-        gene_symbol TEXT NOT NULL,
-        UNIQUE(genome_id, name, gene_symbol),
+        symbol TEXT NOT NULL,
+        UNIQUE(genome_id, name, symbol),
         FOREIGN KEY(genome_id) REFERENCES genomes(id),
         FOREIGN KEY(technology_id) REFERENCES technologies(id),
         FOREIGN KEY(gene_id) REFERENCES genes(id));
@@ -436,7 +436,7 @@ cursor.execute(
 )
 
 cursor.execute("CREATE INDEX idx_probes_name ON probes (LOWER(name));")
-cursor.execute("CREATE INDEX idx_probes_gene_symbol ON probes (LOWER(gene_symbol));")
+cursor.execute("CREATE INDEX idx_probes_symbol ON probes (LOWER(symbol));")
 cursor.execute("CREATE INDEX idx_probes_genome_id ON probes(genome_id);")
 cursor.execute("CREATE INDEX idx_probes_technology_id ON probes(technology_id);")
 cursor.execute("CREATE INDEX idx_probes_gene_id ON probes(gene_id);")
@@ -613,7 +613,7 @@ for gi, genome in enumerate(genomes):
         d = official_symbols[genome][id]
 
         cursor.execute(
-            f"INSERT INTO genes (id, public_id, source_id, gene_id, ensembl, refseq, ncbi, gene_symbol) VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
+            f"INSERT INTO genes (id, public_id, source_id, gene_id, ensembl, refseq, ncbi, symbol) VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
             (
                 d["index"],
                 str(uuid.uuid7()),
@@ -622,7 +622,7 @@ for gi, genome in enumerate(genomes):
                 d["ensembl"],
                 d["refseq"],
                 d["ncbi"],
-                d["gene_symbol"],
+                d["symbol"],
             ),
         )
 
@@ -816,7 +816,7 @@ for di, dataset in enumerate(datasets):
                 if probe not in probe_map[genome][technology]:
                     gene_id = exp_map[probe]["gene_id"]
                     # the symbol attached to the probe itself
-                    gene_symbol = exp_map[probe]["gene"]
+                    symbol = exp_map[probe]["gene"]
 
                     gene_idx = (
                         official_symbols[genome][gene_id]["index"]
@@ -825,14 +825,14 @@ for di, dataset in enumerate(datasets):
                     )
 
                     cursor.execute(
-                        f"""INSERT INTO probes (id, public_id, genome_id, technology_id, gene_id, name, gene_symbol) VALUES (
+                        f"""INSERT INTO probes (id, public_id, genome_id, technology_id, gene_id, name, symbol) VALUES (
                         {probe_index}, 
                         '{str(uuid.uuid7())}', 
                         {genome_id}, 
                         {technology_id}, 
                         {gene_idx}, 
                         '{probe}', 
-                        '{gene_symbol}');
+                        '{symbol}');
                     """
                     )
                     probe_map[genome][technology][probe] = probe_index

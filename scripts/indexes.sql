@@ -14,4 +14,4 @@ CREATE INDEX metadata_type_id_idx ON metadata (metadata_type_id);
 -- CREATE INDEX genes_hugo_idx ON genes (hugo);
 CREATE INDEX genes_ensembl_idx ON genes (ensembl);
 CREATE INDEX genes_refseq_idx ON genes (refseq);
-CREATE INDEX genes_gene_symbol_idx ON genes (gene_symbol);
+CREATE INDEX genes_symbol_idx ON genes (symbol);

@@ -221,7 +221,7 @@ if args.species == "Mouse":
     file = "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/references/mgi/mgi_entrez_ensembl_gene_list_20240531.tsv"
     df_mgi = pd.read_csv(file, sep="\t", header=0, keep_default_na=False)
 
-    for i, gene_symbol in enumerate(df_mgi["gene_symbol"].values):
+    for i, symbol in enumerate(df_mgi["gene_symbol"].values):
 
         mgi = df_mgi["mgi"].values[i]
         ensembl = df_mgi["ensembl"].values[i].split(".")[0]
@@ -231,20 +231,20 @@ if args.species == "Mouse":
         official_symbols[mgi] = {
             "index": i + 1,
             "id": mgi,
-            "gene_symbol": gene_symbol,
+            "symbol": symbol,
             "ensembl": ensembl,
             "refseq": refseq,
             "ncbi": ncbi,
         }
 
         gene_id_map[mgi] = mgi
-        gene_id_map[gene_symbol] = mgi
+        gene_id_map[symbol] = mgi
         gene_id_map[refseq] = mgi
         gene_id_map[ncbi] = mgi
 
         index = i + 1
         # gene_db_map[mgi] = index
-        # gene_db_map[gene_symbol] = index
+        # gene_db_map[symbol] = index
         # gene_db_map[refseq] = index
         # gene_db_map[ncbi] = index
 
@@ -253,7 +253,7 @@ else:
     file = "/ifs/archive/cancer/Lab_RDF/scratch_Lab_RDF/ngs/references/hugo/hugo_20240524.tsv"
     df_hugo = pd.read_csv(file, sep="\t", header=0, keep_default_na=False)
 
-    for i, gene_symbol in enumerate(df_hugo["Approved symbol"].values):
+    for i, symbol in enumerate(df_hugo["Approved symbol"].values):
 
         # genes = [gene_id] + list(
         #     filter(
@@ -270,14 +270,14 @@ else:
         official_symbols[hugo] = {
             "index": i + 1,
             "id": hugo,
-            "gene_symbol": gene_symbol,
+            "symbol": symbol,
             "ensembl": ensembl,
             "refseq": refseq,
             "ncbi": ncbi,
         }
 
         gene_id_map[hugo] = hugo
-        gene_id_map[gene_symbol] = hugo
+        gene_id_map[symbol] = hugo
         gene_id_map[ensembl] = hugo
         gene_id_map[refseq] = hugo
         gene_id_map[ncbi] = hugo
@@ -289,7 +289,7 @@ else:
             alias_gene_id_map[g] = hugo
 
         # gene_db_map[hugo] = hugo  # index
-        # gene_db_map[gene_symbol] = index
+        # gene_db_map[symbol] = index
         # gene_db_map[refseq] = index
         # gene_db_map[ncbi] = index
 
@@ -369,7 +369,7 @@ cursor.execute(
         ensembl TEXT NOT NULL DEFAULT '',
         refseq TEXT NOT NULL DEFAULT '',
         ncbi INTEGER NOT NULL DEFAULT 0,
-        gene_symbol TEXT NOT NULL DEFAULT '');
+        symbol TEXT NOT NULL DEFAULT '');
     """,
 )
 
@@ -588,10 +588,10 @@ if args.technology == "Microarray":
 
     for dataset_id in sorted(exp_map):
         for probe_id in sorted(exp_map[dataset_id]):
-            for gene_symbol in sorted(exp_map[dataset_id][probe_id]):
-                values = exp_map[dataset_id][probe_id][gene_symbol]["RMA"]
+            for symbol in sorted(exp_map[dataset_id][probe_id]):
+                values = exp_map[dataset_id][probe_id][symbol]["RMA"]
 
-                gene_id = gene_id_map[gene_symbol]
+                gene_id = gene_id_map[symbol]
 
                 binary_data = struct.pack("<" + "f" * len(values), *values)
 
@@ -601,7 +601,7 @@ if args.technology == "Microarray":
 
                 expr_type_id = expr_type_map["RMA"]
 
-                # print(gene_symbol, gene_id, probe_id, expr_type_id)
+                # print(symbol, gene_id, probe_id, expr_type_id)
 
                 cursor.execute(
                     f"INSERT INTO expr (gene_id, probe_id, expr_type_id, data) VALUES ('{gene_id}', '{probe_id}', '{expr_type_id}', {blob_literal});",
@@ -670,17 +670,17 @@ else:
 
     for dataset_id in sorted(exp_map):
         for probe_id in sorted(exp_map[dataset_id]):
-            for gene_symbol in sorted(exp_map[dataset_id][probe_id]):
-                gene_id = gene_id_map[gene_symbol]
+            for symbol in sorted(exp_map[dataset_id][probe_id]):
+                gene_id = gene_id_map[symbol]
 
                 for data_type in expr_types:
 
-                    if data_type not in exp_map[dataset_id][probe_id][gene_symbol]:
+                    if data_type not in exp_map[dataset_id][probe_id][symbol]:
                         continue
 
                     expr_type_id = expr_type_map[data_type]
 
-                    values = exp_map[dataset_id][probe_id][gene_symbol][data_type]
+                    values = exp_map[dataset_id][probe_id][symbol][data_type]
 
                     # unpack as float32
                     binary_data = struct.pack("<" + "f" * len(values), *values)
@@ -695,7 +695,7 @@ else:
                         f"INSERT INTO expr (id, gene_id, expr_type_id, data) VALUES ('{id}', '{gene_id}', '{expr_type_id}', {blob_literal});"
                     )
 
-                # gene_index = gene_db_map[gene_symbol]
+                # gene_index = gene_db_map[symbol]
                 # t = ", ".join(DATA_TYPES)
                 # print(
                 #     f"INSERT INTO expr (gene_id, {t}) VALUES ({gene_index}, {values});",
@@ -723,7 +723,7 @@ cursor.execute("CREATE INDEX metadata_type_id_idx ON metadata (metadata_type_id)
 # -- CREATE INDEX genes_hugo_idx ON genes (hugo);
 cursor.execute("CREATE INDEX genes_ensembl_idx ON genes (ensembl);")
 cursor.execute("CREATE INDEX genes_refseq_idx ON genes (refseq);")
-cursor.execute("CREATE INDEX genes_gene_symbol_idx ON genes (gene_symbol);")
+cursor.execute("CREATE INDEX genes_symbol_idx ON genes (symbol);")
 
 
 cursor.execute("COMMIT;")
