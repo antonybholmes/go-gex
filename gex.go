@@ -11,6 +11,7 @@ import (
 
 	"github.com/antonybholmes/go-sys"
 	"github.com/antonybholmes/go-sys/collections"
+	"github.com/antonybholmes/go-sys/db"
 	"github.com/antonybholmes/go-sys/log"
 	"github.com/antonybholmes/go-web"
 	"github.com/antonybholmes/go-web/auth/sqlite"
@@ -24,7 +25,7 @@ type (
 		Refseq     string `json:"refseq,omitempty"`
 		Ncbi       string `json:"ncbi,omitempty"`
 		Source     string `json:"source,omitempty"` // e.g. HUGO or MGI
-		sys.IdEntity
+		db.IdEntity
 	}
 
 	Probe struct {
@@ -32,18 +33,18 @@ type (
 		// can be out of date
 		GeneSymbol string   `json:"symbol,omitempty"`
 		Gene       *GexGene `json:"gene,omitempty"`
-		sys.Entity
+		db.Entity
 	}
 
 	// Technology struct {
-	// 	sys.Entity
-	// 	ExprTypes []sys.Entity `json:"exprTypes"`
+	// 	db.Entity
+	// 	ExprTypes []db.Entity `json:"exprTypes"`
 	// }
 
 	NamedValue struct {
 		Value string `json:"value"`
 		Color string `json:"color,omitempty"`
-		sys.Entity
+		db.Entity
 	}
 
 	// Metadata struct {
@@ -54,18 +55,18 @@ type (
 	// }
 
 	Dataset struct {
-		sys.Entity
-		Genome      *sys.Entity `json:"genome"`
-		Technology  *sys.Entity `json:"technology"`
-		Platform    string      `json:"platform,omitempty"`
-		Institution string      `json:"institution"`
-		Samples     []*Sample   `json:"samples,omitempty"`
+		db.Entity
+		Genome      *db.Entity `json:"genome"`
+		Technology  *db.Entity `json:"technology"`
+		Platform    string     `json:"platform,omitempty"`
+		Institution string     `json:"institution"`
+		Samples     []*Sample  `json:"samples,omitempty"`
 		//Metadata    []string    `json:"metadata,omitempty"`
-		ExprTypes []*sys.Entity `json:"exprTypes,omitempty"`
+		ExprTypes []*db.Entity `json:"exprTypes,omitempty"`
 	}
 
 	Sample struct {
-		sys.Entity
+		db.Entity
 		//AltNames []NameValueType `json:"altNames"`
 		Metadata []*NamedValue `json:"metadata"`
 	}
@@ -76,8 +77,8 @@ type (
 		// each search. The useful info in a search is just
 		// the platform name and id
 
-		Dataset  *sys.Entity        `json:"dataset"`
-		ExprType *sys.Entity        `json:"type"`
+		Dataset  *db.Entity         `json:"dataset"`
+		ExprType *db.Entity         `json:"type"`
 		Probes   []*ExpressionProbe `json:"probes"`
 	}
 
@@ -408,7 +409,7 @@ func NewGexDB(dbpath string) *GexDB {
 
 	log.Debug().Msgf("Initializing GexDB with path: %s", dbpath)
 
-	return &GexDB{dir: dir, db: sys.Must(sql.Open(sys.Sqlite3DB, dbpath+sys.SqliteDSN))}
+	return &GexDB{dir: dir, db: sys.Must(sql.Open(db.Sqlite3DB, dbpath+db.SqliteDSN))}
 }
 
 func (gdb *GexDB) Close() error {
@@ -419,9 +420,9 @@ func (gdb *GexDB) Dir() string {
 	return gdb.dir
 }
 
-func (gdb *GexDB) Genomes() ([]*sys.Entity, error) {
+func (gdb *GexDB) Genomes() ([]*db.Entity, error) {
 
-	genomes := make([]*sys.Entity, 0, 10)
+	genomes := make([]*db.Entity, 0, 10)
 
 	rows, err := gdb.db.Query(GenomesSql)
 
@@ -432,7 +433,7 @@ func (gdb *GexDB) Genomes() ([]*sys.Entity, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var genome sys.Entity
+		var genome db.Entity
 
 		err := rows.Scan(
 			&genome.Id,
@@ -449,9 +450,9 @@ func (gdb *GexDB) Genomes() ([]*sys.Entity, error) {
 	return genomes, nil
 }
 
-func (gdb *GexDB) Technologies() ([]*sys.Entity, error) {
+func (gdb *GexDB) Technologies() ([]*db.Entity, error) {
 
-	technologies := make([]*sys.Entity, 0, 10)
+	technologies := make([]*db.Entity, 0, 10)
 
 	rows, err := gdb.db.Query(TechnologiesSQL)
 
@@ -462,7 +463,7 @@ func (gdb *GexDB) Technologies() ([]*sys.Entity, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var technology sys.Entity
+		var technology db.Entity
 
 		err := rows.Scan(
 			&technology.Id,
@@ -575,13 +576,13 @@ func (gdb *GexDB) Datasets(genome string,
 
 	for rows.Next() {
 		var dataset Dataset
-		var genome sys.Entity
-		var technology sys.Entity
+		var genome db.Entity
+		var technology db.Entity
 		var sample Sample
 		var metadata NamedValue
 
-		//dataset.Genome = &sys.Entity{}
-		//dataset.Technology = &sys.Entity{}
+		//dataset.Genome = &db.Entity{}
+		//dataset.Technology = &db.Entity{}
 		//dataset.Samples = make([]*Sample, 0, 10)
 
 		err := rows.Scan(
@@ -628,14 +629,14 @@ func (gdb *GexDB) Datasets(genome string,
 	// Add expr types
 
 	for _, dataset := range datasets {
-		dataset.ExprTypes = make([]*sys.Entity, 0, 5)
+		dataset.ExprTypes = make([]*db.Entity, 0, 5)
 
 		query = sqlite.MakePermissionsSql(ExprTypesSQL, isAdmin, permissions, &namedArgs)
 
 		rows, err = gdb.db.Query(ExprTypesSQL, sql.Named("id", dataset.Id))
 
 		for rows.Next() {
-			var exprType sys.Entity
+			var exprType db.Entity
 
 			err := rows.Scan(&exprType.Id, &exprType.PublicId, &exprType.Name)
 
@@ -651,13 +652,13 @@ func (gdb *GexDB) Datasets(genome string,
 }
 
 // used for search results where only basic dataset info is needed
-func (gdb *GexDB) BasicDataset(datasetId string, permissions []string, isAdmin bool) (*sys.Entity, error) {
+func (gdb *GexDB) BasicDataset(datasetId string, permissions []string, isAdmin bool) (*db.Entity, error) {
 
 	namedArgs := []any{sql.Named("id", datasetId)}
 
 	query := sqlite.MakePermissionsSql(BasicDatasetSQL, isAdmin, permissions, &namedArgs)
 
-	var ret sys.Entity
+	var ret db.Entity
 
 	err := gdb.db.QueryRow(query, namedArgs...).Scan(
 		&ret.Id,
@@ -765,9 +766,9 @@ func (gdb *GexDB) Samples() ([]*Sample, error) {
 	return samples, nil
 }
 
-func (gdb *GexDB) ExprType(id string) (*sys.Entity, error) {
+func (gdb *GexDB) ExprType(id string) (*db.Entity, error) {
 
-	var ret sys.Entity
+	var ret db.Entity
 
 	err := gdb.db.QueryRow(ExprTypeSQL, sql.Named("id", web.FormatParam(id))).Scan(
 		&ret.Id,
@@ -799,7 +800,7 @@ func (gdb *GexDB) ExprType(id string) (*sys.Entity, error) {
 // 	return datasetCache, nil
 // }
 
-// func (gdb *GexDB) ExprTypes(datasetIds []string, isAdmin bool, permissions []string) ([]*sys.Entity, error) {
+// func (gdb *GexDB) ExprTypes(datasetIds []string, isAdmin bool, permissions []string) ([]*db.Entity, error) {
 
 // 	namedArgs := []any{}
 
@@ -807,7 +808,7 @@ func (gdb *GexDB) ExprType(id string) (*sys.Entity, error) {
 
 // 	query = MakeInDatasetsSql(query, datasetIds, &namedArgs)
 
-// 	allExprTypes := make(map[string]*sys.Entity)
+// 	allExprTypes := make(map[string]*db.Entity)
 
 // 	rows, err := gdb.db.Query(query, namedArgs...)
 
@@ -818,7 +819,7 @@ func (gdb *GexDB) ExprType(id string) (*sys.Entity, error) {
 // 	defer rows.Close()
 
 // 	for rows.Next() {
-// 		var exprType sys.Entity
+// 		var exprType db.Entity
 
 // 		err := rows.Scan(
 // 			&exprType.PublicId,
@@ -833,7 +834,7 @@ func (gdb *GexDB) ExprType(id string) (*sys.Entity, error) {
 // 		}
 // 	}
 
-// 	ret := make([]*sys.Entity, 0, len(datasetIds))
+// 	ret := make([]*db.Entity, 0, len(datasetIds))
 
 // 	for _, exprType := range allExprTypes {
 // 		ret = append(ret, exprType)
@@ -874,10 +875,10 @@ func (gdb *GexDB) ExprType(id string) (*sys.Entity, error) {
 // 	return ret, nil
 // }
 
-func (gdb *GexDB) GenomeTechnology(datasetId string) (*sys.Entity, *sys.Entity, error) {
+func (gdb *GexDB) GenomeTechnology(datasetId string) (*db.Entity, *db.Entity, error) {
 
-	var genome sys.Entity
-	var technology sys.Entity
+	var genome db.Entity
+	var technology db.Entity
 
 	err := gdb.db.QueryRow(GenomeTechnologySQL, sql.Named("id", datasetId)).Scan(
 		&genome.Id,
@@ -894,7 +895,7 @@ func (gdb *GexDB) GenomeTechnology(datasetId string) (*sys.Entity, *sys.Entity, 
 	return &genome, &technology, nil
 }
 
-func (gdb *GexDB) FindProbes(genome, technology *sys.Entity, genes []string) ([]*Probe, error) {
+func (gdb *GexDB) FindProbes(genome, technology *db.Entity, genes []string) ([]*Probe, error) {
 
 	// use a transaction to insert gene ids into a temp table
 
@@ -1070,7 +1071,7 @@ func (gdb *GexDB) FindProbes(genome, technology *sys.Entity, genes []string) ([]
 
 // using binary blobs for Probes values
 func (gdb *GexDB) Expression(datasetId string,
-	exprType *sys.Entity,
+	exprType *db.Entity,
 	probes []*Probe,
 	isAdmin bool,
 	permissions []string) (*SearchResults, error) {
