@@ -41,7 +41,7 @@ require (
 	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/pelletier/go-toml/v2 v2.3.1 // indirect
+	github.com/pelletier/go-toml/v2 v2.4.2 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.60.0 // indirect
 	github.com/redis/go-redis/v9 v9.15.0 // indirect
@@ -54,7 +54,7 @@ require (
 	github.com/xuri/excelize/v2 v2.10.1 // indirect
 	github.com/xuri/nfp v0.0.2-0.20250530014748-2ddeb826f9a9 // indirect
 	github.com/xyproto/randomstring v1.2.0 // indirect
-	go.mongodb.org/mongo-driver/v2 v2.6.1 // indirect
+	go.mongodb.org/mongo-driver/v2 v2.7.0 // indirect
 	golang.org/x/arch v0.28.0 // indirect
 	golang.org/x/crypto v0.53.0 // indirect
 	golang.org/x/net v0.56.0 // indirect
@@ -66,7 +66,7 @@ require (
 )
 
 require (
-	github.com/antonybholmes/go-sys v0.0.0-20260609172735-8ea2a7623e43
-	github.com/antonybholmes/go-web v0.0.0-20260609172727-db410cd5d5a1
+	github.com/antonybholmes/go-sys v0.0.0-20260616152946-01b9b0d3a79b
+	github.com/antonybholmes/go-web v0.0.0-20260616152938-8bbbbc57a69d
 	github.com/gin-gonic/gin v1.12.0
 )
