@@ -2,9 +2,9 @@ module github.com/antonybholmes/go-gex
 
 go 1.26
 
-// replace github.com/antonybholmes/go-sys => ../go-sys
+replace github.com/antonybholmes/go-sys => ../go-sys
 
-// replace github.com/antonybholmes/go-web => ../go-web
+replace github.com/antonybholmes/go-web => ../go-web
 
 require github.com/rs/zerolog v1.35.1 // indirect
 
