@@ -35,7 +35,7 @@ func parseParamsFromPost(c *gin.Context) (*GexParams, error) {
 
 func GenomesRoute(c *gin.Context) {
 
-	types, err := gexdb.Genomes()
+	types, err := gexdb.Instance().Genomes()
 
 	if err != nil {
 		c.Error(err)
@@ -47,7 +47,7 @@ func GenomesRoute(c *gin.Context) {
 
 func TechnologiesRoute(c *gin.Context) {
 
-	technologies, err := gexdb.Technologies() //gexdbcache.Technologies()
+	technologies, err := gexdb.Instance().Technologies() //gexdbcache.Technologies()
 
 	if err != nil {
 		c.Error(err)
@@ -84,7 +84,7 @@ func DatasetsRoute(c *gin.Context) {
 		genome := c.Query("genome")
 		technology := c.Query("technology")
 
-		datasets, err := gexdb.Datasets(genome, technology, isAdmin, user.Permissions)
+		datasets, err := gexdb.Instance().Datasets(genome, technology, user.Permissions, isAdmin)
 
 		if err != nil {
 			c.Error(err)
@@ -119,7 +119,7 @@ func ExpressionRoute(c *gin.Context) {
 		results := make([]*gex.SearchResults, 0, len(params.Datasets))
 
 		// find the expression type desired
-		exprType, err := gexdb.ExprType(t)
+		exprType, err := gexdb.Instance().ExprType(t)
 
 		if err != nil {
 			web.BadReqResp(c, errors.New("invalid expr type"))
@@ -127,7 +127,7 @@ func ExpressionRoute(c *gin.Context) {
 		}
 
 		// determin genome and technology from first dataset
-		genome, technology, err := gexdb.GenomeTechnology(params.Datasets[0])
+		genome, technology, err := gexdb.Instance().GenomeTechnology(params.Datasets[0])
 
 		if err != nil {
 			log.Debug().Msgf("not able to determine genome/technology from dataset: %v", err)
@@ -136,7 +136,7 @@ func ExpressionRoute(c *gin.Context) {
 		}
 
 		// match the genes to probes using either probe or gene ids
-		probes, err := gexdb.FindProbes(genome, technology, params.Genes)
+		probes, err := gexdb.Instance().FindProbes(genome, technology, params.Genes)
 
 		if err != nil {
 			web.BadReqResp(c, errors.New("invalid genes"))
@@ -145,7 +145,7 @@ func ExpressionRoute(c *gin.Context) {
 
 		// search each dataset and gene in order user specified
 		for _, datasetId := range params.Datasets {
-			ret, err := gexdb.Expression(datasetId, exprType, probes, isAdmin, user.Permissions)
+			ret, err := gexdb.Instance().Expression(datasetId, exprType, probes, isAdmin, user.Permissions)
 
 			// if there is an error accessing a dataset, we skip it and continue with the others
 			if err != nil {

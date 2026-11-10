@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"github.com/antonybholmes/go-gex"
-	"github.com/antonybholmes/go-sys/db"
 )
 
 var (
@@ -20,62 +19,6 @@ func InitGexDB(path string) (*gex.GexDB, error) {
 	return instance, nil
 }
 
-func GetInstance() *gex.GexDB {
+func Instance() *gex.GexDB {
 	return instance
 }
-
-func Dir() string {
-	return instance.Dir()
-}
-
-func Genomes() ([]*db.Entity, error) {
-	return instance.Genomes()
-}
-
-// func Platforms(species string) ([]string, error) {
-// 	return instance.Plaforms(species)
-// }
-
-// func ExprTypes(datasets []string, isAdmin bool, permissions []string) ([]*db.Entity, error) {
-// 	return instance.ExprTypes(datasets, isAdmin, permissions)
-// }
-
-func Datasets(genome string, technology string, isAdmin bool, permissions []string) ([]*gex.Dataset, error) {
-	return instance.Datasets(genome, technology, permissions, isAdmin)
-}
-
-func Technologies() ([]*db.Entity, error) {
-	return instance.Technologies()
-}
-
-func Expression(datasetId string, exprTypeId *db.Entity, probes []*gex.Probe, isAdmin bool, permissions []string) (*gex.SearchResults, error) {
-	return instance.Expression(datasetId, exprTypeId, probes, isAdmin, permissions)
-}
-
-func ExprType(id string) (*db.Entity, error) {
-	return instance.ExprType(id)
-}
-
-func FindProbes(genome, technology *db.Entity, genes []string) ([]*gex.Probe, error) {
-	return instance.FindProbes(genome, technology, genes)
-}
-
-func GenomeTechnology(datasetId string) (*db.Entity, *db.Entity, error) {
-	return instance.GenomeTechnology(datasetId)
-}
-
-// func FindSeqValues(datasetId string, exprTypeId string, genes []string, isAdmin bool, permissions []string) (*gex.SearchResults, error) {
-// 	return instance.FindSeqValues(datasetId, exprTypeId, genes, isAdmin, permissions)
-// }
-
-// func FindMicroarrayValues(datasetId string, exprTypeId string, genes []string, isAdmin bool, permissions []string) (*gex.SearchResults, error) {
-// 	return instance.FindMicroarrayValues(datasetId, exprTypeId, genes, isAdmin, permissions)
-// }
-
-// func GetDataset(uuid string) (*gex.Dataset, error) {
-// 	return instance.GetDataset(uuid)
-// }
-
-// func Search(location *dna.Location, uuids []string) (*gex.SearchResults, error) {
-// 	return instance.Search(location, uuids)
-// }
