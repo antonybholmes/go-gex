@@ -447,6 +447,10 @@ func (gdb *GexDB) Genomes() ([]*db.Entity, error) {
 		genomes = append(genomes, &genome)
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return genomes, nil
 }
 
@@ -475,6 +479,10 @@ func (gdb *GexDB) Technologies() ([]*db.Entity, error) {
 		}
 
 		technologies = append(technologies, &technology)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return technologies, nil
@@ -554,12 +562,25 @@ func (gdb *GexDB) Datasets(genome string,
 	permissions []string,
 	isAdmin bool) ([]*Dataset, error) {
 
-	namedArgs := []any{sql.Named("genome", web.FormatParam(genome)),
-		sql.Named("technology", web.FormatParam(technology))}
+	genome, err := web.FormatParam(genome)
+	if err != nil {
+		return nil, err
+	}
+
+	technology, err = web.FormatParam(technology)
+	if err != nil {
+		return nil, err
+	}
+
+	namedArgs := []any{sql.Named("genome", genome),
+		sql.Named("technology", technology)}
 
 	//log.Debug().Msgf("Query: %s, Args: %v", DatasetsSQL, namedArgs)
 
-	query := sqlite.MakePermissionsSql(DatasetsSQL, isAdmin, permissions, &namedArgs)
+	query, err := sqlite.MakePermissionsSql(DatasetsSQL, isAdmin, permissions, &namedArgs)
+	if err != nil {
+		return nil, err
+	}
 
 	rows, err := gdb.db.Query(query, namedArgs...)
 
@@ -631,7 +652,10 @@ func (gdb *GexDB) Datasets(genome string,
 	for _, dataset := range datasets {
 		dataset.ExprTypes = make([]*db.Entity, 0, 5)
 
-		query = sqlite.MakePermissionsSql(ExprTypesSQL, isAdmin, permissions, &namedArgs)
+		query, err = sqlite.MakePermissionsSql(ExprTypesSQL, isAdmin, permissions, &namedArgs)
+		if err != nil {
+			return nil, err
+		}
 
 		rows, err = gdb.db.Query(ExprTypesSQL, sql.Named("id", dataset.Id))
 
@@ -656,11 +680,14 @@ func (gdb *GexDB) BasicDataset(datasetId string, permissions []string, isAdmin b
 
 	namedArgs := []any{sql.Named("id", datasetId)}
 
-	query := sqlite.MakePermissionsSql(BasicDatasetSQL, isAdmin, permissions, &namedArgs)
+	query, err := sqlite.MakePermissionsSql(BasicDatasetSQL, isAdmin, permissions, &namedArgs)
+	if err != nil {
+		return nil, err
+	}
 
 	var ret db.Entity
 
-	err := gdb.db.QueryRow(query, namedArgs...).Scan(
+	err = gdb.db.QueryRow(query, namedArgs...).Scan(
 		&ret.Id,
 		&ret.PublicId,
 		&ret.Name)
@@ -699,6 +726,10 @@ func (gdb *GexDB) Metadata() ([]*NamedValue, error) {
 		}
 
 		metadata = append(metadata, &m)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return metadata, nil
@@ -768,9 +799,14 @@ func (gdb *GexDB) Samples() ([]*Sample, error) {
 
 func (gdb *GexDB) ExprType(id string) (*db.Entity, error) {
 
+	id, err := web.FormatParam(id)
+	if err != nil {
+		return nil, err
+	}
+
 	var ret db.Entity
 
-	err := gdb.db.QueryRow(ExprTypeSQL, sql.Named("id", web.FormatParam(id))).Scan(
+	err = gdb.db.QueryRow(ExprTypeSQL, sql.Named("id", id)).Scan(
 		&ret.Id,
 		&ret.PublicId,
 		&ret.Name)
@@ -929,8 +965,13 @@ func (gdb *GexDB) FindProbes(genome, technology *db.Entity, genes []string) ([]*
 	defer stmt.Close()
 
 	for i, gene := range genes {
+		gene, err = web.FormatParam(gene)
+		if err != nil {
+			return nil, err
+		}
+
 		//log.Debug().Msgf("inserting gene id: %s with ord: %d", gene, i+1)
-		if _, err := stmt.Exec(sql.Named("id", web.FormatParam(gene)), sql.Named("ord", i+1)); err != nil {
+		if _, err := stmt.Exec(sql.Named("id", gene), sql.Named("ord", i+1)); err != nil {
 			return nil, err
 		}
 	}
@@ -990,9 +1031,9 @@ func (gdb *GexDB) FindProbes(genome, technology *db.Entity, genes []string) ([]*
 		ret = append(ret, &probe)
 	}
 
-	// for _, g := range ret {
-	// 	log.Debug().Msgf("probe %v", *g)
-	// }
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
 	return ret, nil
 }
@@ -1105,9 +1146,12 @@ func (gdb *GexDB) Expression(datasetId string,
 			sql.Named("probe", probe.Id),
 			sql.Named("type", exprType.Id)}
 
-		query := sqlite.MakePermissionsSql(ExprSQL, isAdmin, permissions, &namedArgs)
+		query, err := sqlite.MakePermissionsSql(ExprSQL, isAdmin, permissions, &namedArgs)
+		if err != nil {
+			return nil, err
+		}
 
-		err := gdb.db.QueryRow(query, namedArgs...).Scan(
+		err = gdb.db.QueryRow(query, namedArgs...).Scan(
 			&url,
 			&offset,
 			&length)
